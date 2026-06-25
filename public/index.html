@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trip Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-title">
+        <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+        </svg>
+        <h1 id="trip-name">Trip Planner</h1>
+      </div>
+      <div class="header-right">
+        <span class="header-destination" id="trip-destination"></span>
+        <button class="lang-toggle" id="lang-toggle" title="Switch language" aria-label="Switch language">EN</button>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle theme">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="route-strip" id="route-strip"></div>
+  </header>
+
+  <!-- Compact info bar -->
+  <div class="info-bar">
+    <div class="info-item">
+      <span class="info-cd-val" id="cd-val">--d --:--:--</span>
+      <span class="info-cd-sub" id="cd-sub">to departure</span>
+    </div>
+    <div class="info-divider"></div>
+    <div class="info-item">
+      <span class="info-item-label" data-i18n="info.nextFlight">Next flight</span>
+      <span class="info-item-val info-item-val--flight" id="info-flight-val">—</span>
+    </div>
+    <div class="info-divider"></div>
+    <div class="info-item">
+      <span class="info-item-label" data-i18n="info.accommodation">Accommodation</span>
+      <span class="info-item-val info-item-val--stay" id="info-stay-val">—</span>
+    </div>
+  </div>
+
+  <main class="app-main">
+
+    <div class="planner-actions">
+      <button class="btn-add" id="btn-add-activity">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span data-i18n="planner.add">Add</span>
+      </button>
+    </div>
+    <div class="planner-toolbar">
+      <div class="dow-headers">
+        <span data-i18n="dow.mon">Mon</span>
+        <span data-i18n="dow.tue">Tue</span>
+        <span data-i18n="dow.wed">Wed</span>
+        <span data-i18n="dow.thu">Thu</span>
+        <span data-i18n="dow.fri">Fri</span>
+        <span data-i18n="dow.sat">Sat</span>
+        <span data-i18n="dow.sun">Sun</span>
+      </div>
+    </div>
+
+    <div class="planner-grid" id="planner-grid">
+      <div class="planner-loading" data-i18n="planner.loading">Loading…</div>
+    </div>
+
+  </main>
+
+  <!-- Route map -->
+  <section class="map-section">
+    <div class="map-section-inner">
+      <h2 class="map-section-title" data-i18n="map.title">Route</h2>
+      <div id="trip-map"></div>
+    </div>
+  </section>
+
+  <!-- Budget tracker -->
+  <section class="budget-section">
+    <div class="budget-section-inner">
+      <div class="budget-header">
+        <h2 class="budget-title" data-i18n="budget.title">Budget</h2>
+        <div class="budget-header-actions">
+          <button class="btn-configure" id="btn-budget-settings" data-i18n="budget.configure">Configure</button>
+          <button class="btn-add" id="btn-add-expense">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span data-i18n="budget.addEntry">Add expense</span>
+          </button>
+        </div>
+      </div>
+      <div id="budget-stats-grid"></div>
+      <div id="budget-categories-bar"></div>
+      <div id="budget-entries-list"></div>
+    </div>
+  </section>
+
+  <!-- Budget expense modal -->
+  <div class="modal-overlay" id="budget-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="budget-modal-title" data-i18n="budget.entry.add">Add Expense</h3>
+        <button class="modal-close" id="budget-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form class="modal-form" id="budget-form">
+        <input type="hidden" id="budget-entry-id" />
+        <div class="form-row">
+          <label for="budget-date" data-i18n="budget.entry.date">Date</label>
+          <input type="date" id="budget-date" required />
+        </div>
+        <div class="form-row">
+          <label for="budget-amount" data-i18n="budget.entry.amount">Amount</label>
+          <input type="number" id="budget-amount" min="0" step="0.01" placeholder="0.00" required />
+        </div>
+        <div class="form-row">
+          <label data-i18n="budget.entry.category">Category</label>
+          <div class="type-selector" id="budget-cat-selector">
+            <button type="button" class="type-btn active" data-cat="food" data-i18n="budget.cat.food">Food</button>
+            <button type="button" class="type-btn" data-cat="transport" data-i18n="budget.cat.transport">Transport</button>
+            <button type="button" class="type-btn" data-cat="accommodation" data-i18n="budget.cat.accommodation">Stay</button>
+            <button type="button" class="type-btn" data-cat="activities" data-i18n="budget.cat.activities">Activities</button>
+            <button type="button" class="type-btn" data-cat="shopping" data-i18n="budget.cat.shopping">Shopping</button>
+            <button type="button" class="type-btn" data-cat="other" data-i18n="budget.cat.other">Other</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="budget-description" data-i18n="budget.entry.description">Description</label>
+          <input type="text" id="budget-description" data-i18n-placeholder="budget.entry.descPlaceholder" />
+        </div>
+        <div class="form-row">
+          <label for="budget-city" data-i18n="budget.entry.city">City</label>
+          <input type="text" id="budget-city" />
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary btn-danger" id="budget-delete-btn" hidden data-i18n="modal.delete">Delete</button>
+          <div class="form-actions-right">
+            <button type="button" class="btn-secondary" id="budget-cancel-btn" data-i18n="modal.cancel">Cancel</button>
+            <button type="submit" class="btn-primary" data-i18n="modal.save">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Budget settings modal -->
+  <div class="modal-overlay" id="budget-settings-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 data-i18n="budget.settings">Budget Settings</h3>
+        <button class="modal-close" id="budget-settings-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form class="modal-form" id="budget-settings-form">
+        <div class="form-row">
+          <label for="settings-initial-budget" data-i18n="budget.initialBudget">Initial budget</label>
+          <input type="number" id="settings-initial-budget" min="0" step="100" required />
+        </div>
+        <div class="form-row">
+          <label for="settings-currency" data-i18n="budget.currency">Currency</label>
+          <select id="settings-currency" class="form-select">
+            <option value="EUR">EUR (€)</option>
+            <option value="USD">USD ($)</option>
+            <option value="ARS">ARS ($)</option>
+            <option value="CHF">CHF (Fr)</option>
+            <option value="GBP">GBP (£)</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <div class="form-actions-right">
+            <button type="button" class="btn-secondary" id="budget-settings-cancel" data-i18n="modal.cancel">Cancel</button>
+            <button type="submit" class="btn-primary" data-i18n="modal.save">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Add Activity</h3>
+        <button class="modal-close" id="modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form class="modal-form" id="modal-form">
+        <input type="hidden" id="entry-id" />
+        <div class="form-row">
+          <label data-i18n="modal.typeLabel">Type</label>
+          <div class="type-selector" id="type-selector">
+            <button type="button" class="type-btn active" data-type="activity" data-i18n="modal.typeActivity">Activity</button>
+            <button type="button" class="type-btn" data-type="event" data-i18n="modal.typeEvent">Event</button>
+            <button type="button" class="type-btn" data-type="accommodation" data-i18n="modal.typeStay">Stay</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="entry-title"><span data-i18n="modal.titleLabel">Title</span> <span class="required">*</span></label>
+          <input type="text" id="entry-title" data-i18n-placeholder="modal.titlePlaceholder" placeholder="What are you doing?" required />
+        </div>
+        <div class="form-row" id="single-date-row">
+          <label for="entry-date"><span data-i18n="modal.dateLabel">Date</span> <span class="required">*</span></label>
+          <input type="date" id="entry-date" required />
+        </div>
+        <div class="form-row" id="multi-date-row" hidden>
+          <label><span data-i18n="modal.datesLabel">Dates</span> <span class="required">*</span></label>
+          <div class="date-range">
+            <input type="date" id="entry-start-date" />
+            <span data-i18n="modal.rangeTo">to</span>
+            <input type="date" id="entry-end-date" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label data-i18n="modal.timeLabel">Time</label>
+          <div class="time-range">
+            <input type="time" id="entry-start-time" />
+            <span data-i18n="modal.rangeTo">to</span>
+            <input type="time" id="entry-end-time" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="entry-address" data-i18n="modal.locationLabel">Location</label>
+          <input type="text" id="entry-address" data-i18n-placeholder="modal.locationPlaceholder" placeholder="Optional" />
+        </div>
+        <div class="form-row">
+          <label for="entry-notes" data-i18n="modal.notesLabel">Notes</label>
+          <textarea id="entry-notes" rows="3" data-i18n-placeholder="modal.notesPlaceholder" placeholder="Any additional info…"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary btn-danger" id="btn-delete-entry" data-i18n="modal.delete" hidden>Delete</button>
+          <div class="form-actions-right">
+            <button type="button" class="btn-secondary" id="btn-cancel" data-i18n="modal.cancel">Cancel</button>
+            <button type="submit" class="btn-primary" data-i18n="modal.save">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/i18n.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/map.js"></script>
+  <script src="/js/budget.js"></script>
+</body>
+</html>
