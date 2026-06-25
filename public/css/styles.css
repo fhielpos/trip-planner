@@ -533,9 +533,9 @@ body {
 .form-row input:focus, .form-row textarea:focus { border-color: var(--accent); }
 .form-row textarea { resize: vertical; line-height: 1.5; }
 
-.type-selector { display: flex; gap: 0.4rem; }
+.type-selector { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .type-btn {
-  flex: 1; padding: 0.35rem 0.5rem;
+  flex: 1 1 auto; padding: 0.35rem 0.5rem;
   font-family: var(--font-display);
   font-size: 0.78rem;
   font-weight: 600;
@@ -543,11 +543,18 @@ body {
   text-transform: uppercase;
   border-radius: var(--radius-sm); border: 1px solid var(--border);
   background: var(--bg); color: var(--text-2); cursor: pointer; transition: var(--trans);
+  white-space: nowrap;
 }
 .type-btn:hover { color: var(--text-1); }
-.type-btn.active[data-type="activity"]     { background: var(--c-activity-bg); border-color: var(--c-activity); color: var(--c-activity); }
-.type-btn.active[data-type="event"]        { background: var(--c-event-bg);    border-color: var(--c-event);    color: var(--c-event); }
-.type-btn.active[data-type="accommodation"]{ background: var(--c-stay-bg);     border-color: var(--c-stay);     color: var(--c-stay); }
+.type-btn.active[data-type="activity"]          { background: var(--c-activity-bg); border-color: var(--c-activity); color: var(--c-activity); }
+.type-btn.active[data-type="event"]             { background: var(--c-event-bg);    border-color: var(--c-event);    color: var(--c-event); }
+.type-btn.active[data-type="accommodation"]     { background: var(--c-stay-bg);     border-color: var(--c-stay);     color: var(--c-stay); }
+.type-btn.active[data-cat="food"]               { background: rgba(232,162,90,0.18);  border-color: #e8a25a; color: #e8a25a; }
+.type-btn.active[data-cat="transport"]          { background: rgba(40,216,255,0.18);  border-color: #28d8ff; color: #28d8ff; }
+.type-btn.active[data-cat="accommodation"]      { background: rgba(126,181,166,0.18); border-color: #7eb5a6; color: #7eb5a6; }
+.type-btn.active[data-cat="activities"]         { background: rgba(204,159,245,0.18); border-color: #cc9ff5; color: #cc9ff5; }
+.type-btn.active[data-cat="shopping"]           { background: rgba(232,122,122,0.18); border-color: #e87a7a; color: #e87a7a; }
+.type-btn.active[data-cat="other"]              { background: rgba(154,144,128,0.18); border-color: #9a9080; color: #9a9080; }
 
 .date-range, .time-range { display: flex; align-items: center; gap: 0.5rem; }
 .date-range input, .time-range input { flex: 1; }
