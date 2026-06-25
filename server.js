@@ -171,12 +171,59 @@ function parseFlightyText(text) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Ensure data directory exists (needed when running without a volume mount)
+fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+
+// ── File + env-var readers ─────────────────────
+// Each function checks the local file first, then falls back to an
+// environment variable so Railway / other platforms can seed data
+// without a mounted volume.
+//
+//   TRIP_DATA    → contents of data/trip.json      (JSON string)
+//   ACCOM_DATA   → contents of data/accommodations.json (JSON string)
+//   FLIGHTY_DATA → contents of data/flighty.txt    (plain text)
+//   BUDGET_DATA  → contents of data/budget.json    (JSON string)
+
+function _fileContent(filePath) {
+  if (!fs.existsSync(filePath)) return null;
+  const content = fs.readFileSync(filePath, 'utf8').trim();
+  return content.length > 0 ? content : null;
+}
+
 function readData() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  const raw = _fileContent(DATA_FILE);
+  if (raw) return JSON.parse(raw);
+  if (process.env.TRIP_DATA) return JSON.parse(process.env.TRIP_DATA);
+  throw new Error('No trip data: provide data/trip.json or TRIP_DATA env var');
 }
 
 function writeData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function readAccommodations() {
+  const raw = _fileContent(ACCOM_FILE);
+  if (raw) return JSON.parse(raw);
+  if (process.env.ACCOM_DATA) return JSON.parse(process.env.ACCOM_DATA);
+  return [];
+}
+
+function readFlighty() {
+  const raw = _fileContent(FLIGHTY_FILE);
+  if (raw) return raw;
+  if (process.env.FLIGHTY_DATA) return process.env.FLIGHTY_DATA;
+  return '';
+}
+
+function readBudget() {
+  const raw = _fileContent(BUDGET_FILE);
+  if (raw) return JSON.parse(raw);
+  if (process.env.BUDGET_DATA) return JSON.parse(process.env.BUDGET_DATA);
+  return { initialBudget: 0, currency: 'EUR', entries: [] };
+}
+
+function writeBudget(data) {
+  fs.writeFileSync(BUDGET_FILE, JSON.stringify(data, null, 2));
 }
 
 // Get all trip data
@@ -184,15 +231,14 @@ app.get('/api/trip', (req, res) => {
   res.json(readData());
 });
 
-// Get accommodations (read from file; edit the JSON directly to change)
+// Get accommodations
 app.get('/api/accommodations', (req, res) => {
-  res.json(JSON.parse(fs.readFileSync(ACCOM_FILE, 'utf8')));
+  res.json(readAccommodations());
 });
 
 // Get flights parsed from flighty.txt export
 app.get('/api/flights', (req, res) => {
-  const text = fs.readFileSync(FLIGHTY_FILE, 'utf8');
-  res.json(parseFlightyText(text));
+  res.json(parseFlightyText(readFlighty()));
 });
 
 // Update trip info
@@ -246,14 +292,6 @@ app.put('/api/flights/:id', (req, res) => {
 });
 
 // ── Budget ─────────────────────────────────────
-
-function readBudget() {
-  if (!fs.existsSync(BUDGET_FILE)) return { initialBudget: 0, currency: 'EUR', entries: [] };
-  return JSON.parse(fs.readFileSync(BUDGET_FILE, 'utf8'));
-}
-function writeBudget(data) {
-  fs.writeFileSync(BUDGET_FILE, JSON.stringify(data, null, 2));
-}
 
 app.get('/api/budget', (req, res) => {
   res.json(readBudget());
