@@ -45,6 +45,12 @@ function getDateLocale() {
   return _lang === 'es' ? 'es-ES' : 'en-US';
 }
 
+// Format an ISO date string (yyyy-mm-dd) as dd/mm/yyyy or dd/mm
+function fmtDate(isoStr, { year = true } = {}) {
+  const [y, m, d] = isoStr.split('-');
+  return year ? `${d}/${m}/${y}` : `${d}/${m}`;
+}
+
 function _applyStatic() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);

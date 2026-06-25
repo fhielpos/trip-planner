@@ -202,9 +202,8 @@ function _renderEntries() {
 
   const rows = Object.entries(grouped).map(([date, dayEntries]) => {
     const dayTotal = dayEntries.reduce((s, e) => s + e.amount, 0);
-    const dateLabel = parseLocal(date).toLocaleDateString(getDateLocale(), {
-      weekday: 'short', month: 'short', day: 'numeric',
-    });
+    const dow = parseLocal(date).toLocaleDateString(getDateLocale(), { weekday: 'short' });
+    const dateLabel = `${dow}, ${fmtDate(date)}`;
     const eRows = dayEntries.map(e => `
       <div class="budget-entry" data-id="${e.id}">
         <span class="budget-entry-dot" style="background:${BUDGET_CAT_COLORS[e.category] || '#9a9080'}"></span>

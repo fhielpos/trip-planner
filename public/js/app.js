@@ -65,7 +65,7 @@ function formatTime(str) {
 }
 
 function formatShort(str) {
-  return parseLocal(str).toLocaleDateString(getDateLocale(), { month: 'short', day: 'numeric' });
+  return fmtDate(str, { year: false });
 }
 
 function pad2(n) { return String(n).padStart(2, '0'); }
