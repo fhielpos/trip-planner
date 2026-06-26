@@ -2,6 +2,12 @@ const express = require('express');
 const basicAuth = require('express-basic-auth');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
+
+const COMMIT = process.env.COMMIT || (() => {
+  try { return execSync('git rev-parse --short HEAD', { stdio: ['pipe','pipe','ignore'] }).toString().trim(); }
+  catch { return 'unknown'; }
+})();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -297,6 +303,8 @@ app.delete('/api/budget/entries/:id', (req, res) => {
   writeBudget(b);
   res.sendStatus(204);
 });
+
+app.get('/api/version', (req, res) => res.json({ commit: COMMIT }));
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Trip Planner running at http://localhost:${PORT}`);
