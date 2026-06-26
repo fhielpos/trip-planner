@@ -44,19 +44,40 @@
 
   <!-- Compact info bar -->
   <div class="info-bar">
-    <div class="info-item">
-      <span class="info-cd-val" id="cd-val">--d --:--:--</span>
-      <span class="info-cd-sub" id="cd-sub">to departure</span>
+    <div class="info-countdown">
+      <div class="cd-segments" id="cd-segments">
+        <div class="cd-block">
+          <span class="cd-num" id="cd-days">--</span>
+          <span class="cd-unit" data-i18n="info.days">días</span>
+        </div>
+        <span class="cd-sep">:</span>
+        <div class="cd-block">
+          <span class="cd-num" id="cd-hours">--</span>
+          <span class="cd-unit" data-i18n="info.hours">hrs</span>
+        </div>
+        <span class="cd-sep">:</span>
+        <div class="cd-block">
+          <span class="cd-num" id="cd-mins">--</span>
+          <span class="cd-unit" data-i18n="info.mins">min</span>
+        </div>
+        <span class="cd-sep">:</span>
+        <div class="cd-block cd-block--secs">
+          <span class="cd-num" id="cd-secs">--</span>
+          <span class="cd-unit" data-i18n="info.secs">seg</span>
+        </div>
+      </div>
+      <span class="cd-context" id="cd-sub"></span>
     </div>
     <div class="info-divider"></div>
-    <div class="info-item">
-      <span class="info-item-label" data-i18n="info.nextFlight">Next flight</span>
-      <span class="info-item-val info-item-val--flight" id="info-flight-val">—</span>
-    </div>
-    <div class="info-divider"></div>
-    <div class="info-item">
-      <span class="info-item-label" data-i18n="info.accommodation">Accommodation</span>
-      <span class="info-item-val info-item-val--stay" id="info-stay-val">—</span>
+    <div class="info-details">
+      <div class="info-item">
+        <span class="info-item-label" data-i18n="info.nextFlight">Next flight</span>
+        <span class="info-item-val info-item-val--flight" id="info-flight-val">—</span>
+      </div>
+      <div class="info-item">
+        <span class="info-item-label" data-i18n="info.accommodation">Accommodation</span>
+        <span class="info-item-val info-item-val--stay" id="info-stay-val">—</span>
+      </div>
     </div>
   </div>
 

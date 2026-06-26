@@ -7,6 +7,10 @@
   "dow.sat": "Sáb",
   "dow.sun": "Dom",
 
+  "info.days": "días",
+  "info.hours": "hrs",
+  "info.mins": "min",
+  "info.secs": "seg",
   "info.nextFlight": "Próximo vuelo",
   "info.accommodation": "Alojamiento",
   "info.toFlight": "salida desde {airport}",

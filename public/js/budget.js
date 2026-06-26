@@ -5,12 +5,12 @@
 const BUDGET_CATEGORIES = ['food', 'transport', 'accommodation', 'activities', 'shopping', 'other'];
 
 const BUDGET_CAT_COLORS = {
-  food:          '#e8a25a',
-  transport:     '#28d8ff',
-  accommodation: '#7eb5a6',
-  activities:    '#cc9ff5',
-  shopping:      '#e87a7a',
-  other:         '#9a9080',
+  food:          '#d8b47a',
+  transport:     '#8ec8de',
+  accommodation: '#8ec8b0',
+  activities:    '#bea8d8',
+  shopping:      '#e8a0a0',
+  other:         '#b0a898',
 };
 
 let _budget = null;

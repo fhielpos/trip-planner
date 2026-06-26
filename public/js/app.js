@@ -142,8 +142,9 @@ function renderInfoBar(trip, flights, calendar, accommodations) {
     function tick() {
       const diff = dep - Date.now();
       if (diff <= 0) {
-        document.getElementById('cd-val').textContent = t('info.departed');
-        document.getElementById('cd-sub').textContent = '';
+        const segs = document.getElementById('cd-segments');
+        if (segs) segs.hidden = true;
+        document.getElementById('cd-sub').textContent = t('info.departed');
         clearInterval(countdownInterval);
         return;
       }
@@ -152,8 +153,10 @@ function renderInfoBar(trip, flights, calendar, accommodations) {
       const h = Math.floor((s % 86400) / 3600);
       const m = Math.floor((s % 3600) / 60);
       const sc = s % 60;
-      document.getElementById('cd-val').textContent =
-        `${d}d ${pad2(h)}:${pad2(m)}:${pad2(sc)}`;
+      document.getElementById('cd-days').textContent = d;
+      document.getElementById('cd-hours').textContent = pad2(h);
+      document.getElementById('cd-mins').textContent = pad2(m);
+      document.getElementById('cd-secs').textContent = pad2(sc);
       document.getElementById('cd-sub').textContent =
         t('info.toFlight', { airport: first.from });
     }
