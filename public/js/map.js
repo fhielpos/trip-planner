@@ -111,7 +111,10 @@ function _buildMap(accommodations, colorMap) {
     L.marker([a.lat, a.lon], { icon }).addTo(_map).bindPopup(popup);
   });
 
-  _map.fitBounds(L.latLngBounds(stops.map(a => [a.lat, a.lon])).pad(0.18));
+  // Fit to European stops only — Buenos Aires stretches the bounds to world view
+  const viewStops = stops.filter(a => a.lat > 35);
+  const boundsStops = viewStops.length ? viewStops : stops;
+  _map.fitBounds(L.latLngBounds(boundsStops.map(a => [a.lat, a.lon])).pad(0.25));
 }
 
 // Rebuild map when theme or language changes
