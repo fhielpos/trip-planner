@@ -286,6 +286,7 @@ body {
 }
 .info-item-val--flight { color: var(--c-flight); }
 .info-item-val--stay   { color: var(--c-stay); }
+.info-flight-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
 /* =============================================
    Main

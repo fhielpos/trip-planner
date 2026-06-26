@@ -177,7 +177,12 @@ function renderInfoBar(trip, flights, calendar, accommodations) {
   const flightEl = document.getElementById('info-flight-val');
   if (next) {
     const flightTime = next.departureTime ? ` · ${formatTime(next.departureTime)}` : '';
-    flightEl.textContent = `${next.flightNumber} · ${next.from}→${next.to} · ${formatShort(next.departureDate)}${flightTime}`;
+    const label = `${next.flightNumber} · ${next.from}→${next.to} · ${formatShort(next.departureDate)}${flightTime}`;
+    if (next.flightyUrl) {
+      flightEl.innerHTML = `<a href="${next.flightyUrl}" target="_blank" rel="noopener" class="info-flight-link">${label}</a>`;
+    } else {
+      flightEl.textContent = label;
+    }
   } else {
     flightEl.textContent = t('info.noUpcomingFlights');
   }
@@ -303,7 +308,7 @@ function renderPlanner() {
     for (const f of flights) {
       if (f.departureDate !== dayStr) continue;
       const t = f.departureTime ? ` ${formatTime(f.departureTime)}` : '';
-      chips.push({ type: 'flight', label: `${f.flightNumber} ${f.from}→${f.to}${t}`, id: null });
+      chips.push({ type: 'flight', label: `${f.flightNumber} ${f.from}→${f.to}${t}`, id: null, url: f.flightyUrl || null });
     }
 
     // Accommodation check-in / check-out (from accommodations.json)
