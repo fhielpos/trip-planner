@@ -56,7 +56,7 @@
    Reset & Base
    ============================================= */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 17px; }
+html { font-size: 19px; }
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -203,7 +203,8 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.06rem;
-  min-width: 2.6rem;
+  width: 3rem;
+  flex-shrink: 0;
 }
 .cd-num {
   font-family: var(--font-display);
@@ -279,9 +280,8 @@ body {
   font-weight: 500;
   letter-spacing: 0.02em;
   color: var(--text-1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.35;
 }
 .info-item-val--flight { color: var(--c-flight); }
 .info-item-val--stay   { color: var(--c-stay); }
@@ -369,6 +369,7 @@ body {
   border-top: 3px solid var(--day-accent, var(--border));
   border-radius: 12px;
   min-height: 110px;
+  min-width: 0;
   padding: 0.4rem 0.4rem 0.35rem;
   display: flex;
   flex-direction: column;
@@ -383,6 +384,11 @@ body {
   box-shadow: 0 6px 28px rgba(0,0,0,0.38);
   filter: brightness(1.1);
   min-height: 160px;
+}
+.day-card.expanded .chip {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 .day-card.is-today { border-color: var(--accent) !important; border-top-color: var(--accent) !important; box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(212,146,88,0.18); }
 .day-card.out-of-trip {
@@ -650,7 +656,7 @@ body {
   .day-num { font-size: 1.1rem; }
   .cd-num  { font-size: 1.8rem; }
   .cd-sep  { font-size: 1.5rem; }
-  .cd-block { min-width: 2rem; }
+  .cd-block { width: 2.4rem; }
 }
 /* Day-of-week label: only visible in mobile agenda view */
 .day-dow { display: none; }
@@ -661,7 +667,7 @@ body {
   .app-main { padding: 0.5rem; }
   .cd-num  { font-size: 1.5rem; }
   .cd-sep  { font-size: 1.2rem; }
-  .cd-block { min-width: 1.7rem; }
+  .cd-block { width: 1.9rem; }
   .cd-block--secs { display: none; }
   .info-countdown { padding: 0.55rem 0.85rem; }
   .info-item { padding: 0.38rem 0.85rem; }
@@ -1009,7 +1015,7 @@ body {
 .budget-entry-info {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.5rem;
   min-width: 0;
 }
