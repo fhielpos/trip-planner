@@ -74,14 +74,19 @@ function pad2(n) { return String(n).padStart(2, '0'); }
 // Used when an accommodation entry has no `color` field set.
 
 const PALETTE = [
-  { bg: 'rgba(196,136,74,0.12)',  border: 'rgba(196,136,74,0.38)',  accent: '#c4884a' }, // amber
-  { bg: 'rgba(84,150,192,0.12)',  border: 'rgba(84,150,192,0.38)',  accent: '#5496c0' }, // blue
-  { bg: 'rgba(155,120,204,0.12)', border: 'rgba(155,120,204,0.38)', accent: '#9b78cc' }, // violet
-  { bg: 'rgba(95,168,142,0.12)',  border: 'rgba(95,168,142,0.38)',  accent: '#5fa88e' }, // teal
-  { bg: 'rgba(184,146,74,0.12)',  border: 'rgba(184,146,74,0.38)',  accent: '#b8924a' }, // gold
-  { bg: 'rgba(106,174,196,0.12)', border: 'rgba(106,174,196,0.38)', accent: '#6aaec4' }, // glacier
-  { bg: 'rgba(212,128,74,0.12)',  border: 'rgba(212,128,74,0.38)',  accent: '#d4804a' }, // rust
-  { bg: 'rgba(136,152,176,0.12)', border: 'rgba(136,152,176,0.38)', accent: '#8898b0' }, // slate
+  { bg: 'rgba(212,106,90,0.12)',  border: 'rgba(212,106,90,0.38)',  accent: '#d46a5a' }, // 0  coral       Buenos Aires 1
+  { bg: 'rgba(80,136,200,0.12)',  border: 'rgba(80,136,200,0.38)',  accent: '#5088c8' }, // 1  blue        Buenos Aires 2
+  { bg: 'rgba(200,178,48,0.12)',  border: 'rgba(200,178,48,0.38)',  accent: '#c8b230' }, // 2  golden      París 1 ← same color as París 2
+  { bg: 'rgba(160,96,192,0.12)',  border: 'rgba(160,96,192,0.38)',  accent: '#a060c0' }, // 3  violet      Loutraki
+  { bg: 'rgba(56,160,168,0.12)',  border: 'rgba(56,160,168,0.38)',  accent: '#38a0a8' }, // 4  teal        Viena
+  { bg: 'rgba(208,80,112,0.12)',  border: 'rgba(208,80,112,0.38)',  accent: '#d05070' }, // 5  rose        Salzburgo
+  { bg: 'rgba(120,176,56,0.12)',  border: 'rgba(120,176,56,0.38)',  accent: '#78b038' }, // 6  lime        Múnich
+  { bg: 'rgba(80,96,200,0.12)',   border: 'rgba(80,96,200,0.38)',   accent: '#5060c8' }, // 7  periwinkle  Lauterbrunnen
+  { bg: 'rgba(224,144,64,0.12)',  border: 'rgba(224,144,64,0.38)',  accent: '#e09040' }, // 8  orange      Zermatt
+  { bg: 'rgba(192,80,160,0.12)',  border: 'rgba(192,80,160,0.38)',  accent: '#c050a0' }, // 9  fuchsia     Chamonix
+  { bg: 'rgba(56,168,112,0.12)',  border: 'rgba(56,168,112,0.38)',  accent: '#38a870' }, // 10 emerald     Ámsterdam
+  { bg: 'rgba(106,174,196,0.12)', border: 'rgba(106,174,196,0.38)', accent: '#6aaec4' }, // 11 glacier     Bruselas
+  { bg: 'rgba(200,178,48,0.12)',  border: 'rgba(200,178,48,0.38)',  accent: '#c8b230' }, // 12 golden      París 2 ← same color as París 1
 ];
 
 function hexToColour(hex) {
