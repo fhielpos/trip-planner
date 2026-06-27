@@ -75,7 +75,7 @@ function pad2(n) { return String(n).padStart(2, '0'); }
 
 const PALETTE = [
   { bg: 'rgba(212,106,90,0.12)',  border: 'rgba(212,106,90,0.38)',  accent: '#d46a5a' }, // 0  coral       Buenos Aires 1
-  { bg: 'rgba(80,136,200,0.12)',  border: 'rgba(80,136,200,0.38)',  accent: '#5088c8' }, // 1  blue        Buenos Aires 2
+  { bg: 'rgba(212,106,90,0.12)',  border: 'rgba(212,106,90,0.38)',  accent: '#d46a5a' }, // 1  coral       Buenos Aires 2 ← same color as Buenos Aires 1
   { bg: 'rgba(200,178,48,0.12)',  border: 'rgba(200,178,48,0.38)',  accent: '#c8b230' }, // 2  golden      París 1 ← same color as París 2
   { bg: 'rgba(160,96,192,0.12)',  border: 'rgba(160,96,192,0.38)',  accent: '#a060c0' }, // 3  violet      Loutraki
   { bg: 'rgba(56,160,168,0.12)',  border: 'rgba(56,160,168,0.38)',  accent: '#38a0a8' }, // 4  teal        Viena
