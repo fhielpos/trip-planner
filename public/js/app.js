@@ -311,6 +311,13 @@ function renderPlanner() {
       chips.push({ type: 'flight', label: `${f.flightNumber} ${f.from}→${f.to}${t}`, id: null, url: f.flightyUrl || null });
     }
 
+    // Trains departing today
+    for (const tr of (tripData.trains || [])) {
+      if (tr.departureDate !== dayStr) continue;
+      const t = tr.departureTime ? ` ${formatTime(tr.departureTime)}` : '';
+      chips.push({ type: 'train', label: `${tr.fromCity}→${tr.toCity}${t}`, id: null });
+    }
+
     // Accommodation check-in / check-out (from accommodations.json)
     for (const a of accommodations) {
       if (a.check_in === dayStr) {
@@ -567,14 +574,16 @@ $('btn-add-activity').addEventListener('click', () => {
 async function init() {
   await initI18n();
   try {
-    const [tripRes, accomRes, flightsRes] = await Promise.all([
+    const [tripRes, accomRes, flightsRes, trainsRes] = await Promise.all([
       fetch('/api/trip'),
       fetch('/api/accommodations'),
       fetch('/api/flights'),
+      fetch('/api/trains'),
     ]);
     tripData = await tripRes.json();
     tripData.accommodations = await accomRes.json();
     tripData.flights = await flightsRes.json();
+    tripData.trains  = await trainsRes.json();
     tripData.colorMap = buildColorMap(tripData.accommodations);
     document.getElementById('trip-name').textContent = tripData.trip.name;
     document.getElementById('trip-destination').textContent = tripData.trip.destination;
@@ -582,8 +591,8 @@ async function init() {
     renderRouteStrip(tripData.flights);
     renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
     renderPlanner();
-    if (typeof renderMap    === 'function') renderMap(tripData.accommodations, tripData.colorMap);
-    if (typeof initBudget   === 'function') initBudget(tripData);
+    if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains);
+    if (typeof initBudget === 'function') initBudget(tripData);
   } catch (err) {
     console.error(err);
     document.getElementById('planner-grid').textContent = t('planner.failed');

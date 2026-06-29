@@ -20,6 +20,7 @@
   --c-event:         #bea8d8;   --c-event-bg:    rgba(190,168,216,0.18);  --c-event-border:  rgba(190,168,216,0.42);
   --c-activity:      #d8b47a;   --c-activity-bg: rgba(216,180,122,0.16);
   --c-flight:        #8ec8de;   --c-flight-bg:   rgba(80,155,185,0.38);   --c-flight-border: rgba(142,200,222,0.60);
+  --c-train:         #90c8a0;   --c-train-bg:    rgba(100,185,130,0.20);  --c-train-border:  rgba(144,200,160,0.60);
 
   --radius:    8px;
   --radius-sm: 4px;
@@ -50,6 +51,7 @@
   --c-event:         #7050a8;   --c-event-bg:    rgba(210,190,240,0.42);  --c-event-border:  rgba(112,80,168,0.28);
   --c-activity:      #a8681e;   --c-activity-bg: rgba(248,215,170,0.50);
   --c-flight:        #3870a0;   --c-flight-bg:   rgba(180,215,238,0.45);  --c-flight-border: rgba(56,112,160,0.28);
+  --c-train:         #347a50;   --c-train-bg:    rgba(160,210,175,0.42);  --c-train-border:  rgba(52,122,80,0.35);
 }
 
 /* =============================================
@@ -462,6 +464,7 @@ body {
   cursor: pointer;
 }
 .chip--flight     { background: var(--c-flight-bg);   color: var(--c-flight); border: 1px solid var(--c-flight-border); font-weight: 600; }
+.chip--train      { background: var(--c-train-bg);    color: var(--c-train);  border: 1px solid var(--c-train-border);  font-weight: 600; }
 .chip--event      { background: var(--c-event-bg);    color: var(--c-event); border: 1px solid var(--c-event-border);  font-weight: 600; }
 .chip--activity   { background: var(--c-activity-bg); color: var(--c-activity); }
 .chip--stay       { background: var(--c-stay-bg); color: var(--day-accent, var(--c-stay)); border: 1px solid var(--day-accent, var(--c-stay)); opacity: 0.85; }
@@ -787,6 +790,7 @@ body {
 .map-popup-city    { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; padding: 0.55rem 0.75rem 0.05rem; color: var(--text-1); }
 .map-popup-country { font-family: var(--font-display); font-size: 0.65rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 0.75rem 0.25rem; }
 .map-popup-dates   { font-family: var(--font-display); font-size: 0.72rem; color: var(--text-2); padding: 0 0.75rem 0.55rem; }
+.map-popup-sub     { font-family: var(--font-display); font-size: 0.70rem; color: var(--text-2); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
 .map-popup-link    {
   display: block;
   font-family: var(--font-display);

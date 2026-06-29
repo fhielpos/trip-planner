@@ -251,6 +251,42 @@ app.put('/api/flights/:id', (req, res) => {
   res.json(data.flights[idx]);
 });
 
+// ── Trains ─────────────────────────────────────
+
+app.get('/api/trains', (req, res) => {
+  const data = readData();
+  res.json(data.trains || []);
+});
+
+app.post('/api/trains', (req, res) => {
+  const data = readData();
+  if (!data.trains) data.trains = [];
+  const train = { id: 't' + Date.now(), ...req.body };
+  data.trains.push(train);
+  writeData(data);
+  res.status(201).json(train);
+});
+
+app.put('/api/trains/:id', (req, res) => {
+  const data = readData();
+  if (!data.trains) data.trains = [];
+  const idx = data.trains.findIndex(t => t.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Train not found' });
+  data.trains[idx] = { ...data.trains[idx], ...req.body };
+  writeData(data);
+  res.json(data.trains[idx]);
+});
+
+app.delete('/api/trains/:id', (req, res) => {
+  const data = readData();
+  if (!data.trains) data.trains = [];
+  const idx = data.trains.findIndex(t => t.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Train not found' });
+  data.trains.splice(idx, 1);
+  writeData(data);
+  res.status(204).end();
+});
+
 // ── Budget ─────────────────────────────────────
 
 function readBudget() {

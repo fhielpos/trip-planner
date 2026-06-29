@@ -3,13 +3,29 @@
    ============================================= */
 
 let _map = null;
-let _lastAccommodations = null;
-let _lastColorMap = null;
+let _lastFlights = null;
+let _lastTrains  = null;
 
-function renderMap(accommodations, colorMap) {
-  _lastAccommodations = accommodations;
-  _lastColorMap = colorMap;
-  _buildMap(accommodations, colorMap);
+// IATA → coordinates + display name
+const AIRPORT_COORDS = {
+  NQN: { lat: -38.9490, lon: -68.1558, name: 'Neuquén (NQN)' },
+  AEP: { lat: -34.5587, lon: -58.4116, name: 'Buenos Aires (AEP)' },
+  EZE: { lat: -34.8222, lon: -58.5358, name: 'Buenos Aires (EZE)' },
+  CDG: { lat:  49.0097, lon:   2.5479, name: 'Paris (CDG)' },
+  ORY: { lat:  48.7262, lon:   2.3652, name: 'Paris Orly (ORY)' },
+  ATH: { lat:  37.9364, lon:  23.9445, name: 'Athens (ATH)' },
+  VIE: { lat:  48.1103, lon:  16.5697, name: 'Vienna (VIE)' },
+  GRU: { lat: -23.4356, lon: -46.4731, name: 'São Paulo (GRU)' },
+  GVA: { lat:  46.2380, lon:   6.1089, name: 'Geneva (GVA)' },
+  AMS: { lat:  52.3105, lon:   4.7683, name: 'Amsterdam (AMS)' },
+  MUC: { lat:  48.3537, lon:  11.7750, name: 'Munich (MUC)' },
+  ZRH: { lat:  47.4647, lon:   8.5492, name: 'Zürich (ZRH)' },
+};
+
+function renderMap(flights, trains) {
+  _lastFlights = flights;
+  _lastTrains  = trains;
+  _buildMap(flights, trains);
 }
 
 function _tileUrl() {
@@ -19,23 +35,19 @@ function _tileUrl() {
     : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 }
 
-function _accentColor() {
-  return getComputedStyle(document.documentElement)
-    .getPropertyValue('--accent').trim() || '#d49258';
+function _cssVar(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
-// Quadratic bezier arc between two coordinates.
-// Control point is the midpoint offset northward — produces visually curved routes on Mercator maps.
+// Quadratic bezier — high arc for long-haul flights on a Mercator map
 function _curvedPoints(lat1, lon1, lat2, lon2, n) {
-  const dLat = lat2 - lat1;
   const dLon = lon2 - lon1;
-  // Offset control point northward proportional to segment extent
+  const dLat = lat2 - lat1;
   const ctrlLat = (lat1 + lat2) / 2 + Math.abs(dLon) * 0.45 + Math.abs(dLat) * 0.18;
   const ctrlLon = (lon1 + lon2) / 2;
   const pts = [];
   for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const u = 1 - t;
+    const t = i / n, u = 1 - t;
     pts.push([
       u * u * lat1 + 2 * u * t * ctrlLat + t * t * lat2,
       u * u * lon1 + 2 * u * t * ctrlLon + t * t * lon2,
@@ -44,88 +56,140 @@ function _curvedPoints(lat1, lon1, lat2, lon2, n) {
   return pts;
 }
 
-function _buildMap(accommodations, colorMap) {
+// Gentle arc for trains — much less curvature than flights
+function _trainPoints(lat1, lon1, lat2, lon2, n) {
+  const dist = Math.abs(lat2 - lat1) + Math.abs(lon2 - lon1);
+  const ctrlLat = (lat1 + lat2) / 2 + dist * 0.06;
+  const ctrlLon = (lon1 + lon2) / 2;
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    pts.push([
+      u * u * lat1 + 2 * u * t * ctrlLat + t * t * lat2,
+      u * u * lon1 + 2 * u * t * ctrlLon + t * t * lon2,
+    ]);
+  }
+  return pts;
+}
+
+function _pinIcon(type) {
+  const bg   = type === 'flight'
+    ? _cssVar('--accent', '#d49258')
+    : _cssVar('--c-train', '#5fa88e');
+  const glyph = type === 'flight' ? '✈' : '⊛';
+  return L.divIcon({
+    className: '',
+    html: `<div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div>`,
+    iconSize:    [24, 24],
+    iconAnchor:  [12, 12],
+    popupAnchor: [0, -16],
+  });
+}
+
+function _buildMap(flights, trains) {
   const container = document.getElementById('trip-map');
   if (!container || typeof L === 'undefined') return;
-
-  const stops = accommodations.filter(a => a.lat != null && a.lon != null);
-  if (!stops.length) return;
 
   if (_map) { _map.remove(); _map = null; }
 
   _map = L.map('trip-map', { scrollWheelZoom: false, zoomControl: true });
-
   L.tileLayer(_tileUrl(), {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
     maxZoom: 19,
   }).addTo(_map);
 
-  // Geodesic route — curved arcs instead of straight lines
-  const routePoints = [];
-  for (let i = 0; i < stops.length - 1; i++) {
-    const a = stops[i], b = stops[i + 1];
-    const seg = _curvedPoints(a.lat, a.lon, b.lat, b.lon, 60);
-    if (i > 0) seg.shift(); // avoid duplicate endpoint
-    routePoints.push(...seg);
+  const accentColor = _cssVar('--accent', '#d49258');
+  const trainColor  = _cssVar('--c-train', '#5fa88e');
+
+  const allCoords = [];   // for fitBounds
+
+  // ── Flight routes ──────────────────────────────
+  const airportFlights = {};  // code → [flight, …]
+  for (const f of (flights || [])) {
+    const dep = AIRPORT_COORDS[f.from];
+    const arr = AIRPORT_COORDS[f.to];
+    if (!dep || !arr) continue;
+
+    L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60), {
+      color: accentColor,
+      weight: 2,
+      opacity: 0.65,
+      dashArray: '8, 6',
+    }).addTo(_map);
+
+    allCoords.push([dep.lat, dep.lon], [arr.lat, arr.lon]);
+    for (const code of [f.from, f.to]) {
+      if (!airportFlights[code]) airportFlights[code] = [];
+      airportFlights[code].push(f);
+    }
   }
-  L.polyline(routePoints, {
-    color: _accentColor(),
-    weight: 2,
-    opacity: 0.65,
-    dashArray: '8, 6',
-  }).addTo(_map);
 
-  // Build city → [visit numbers] index for combined labels on repeated cities
-  const cityVisits = {};
-  stops.forEach((a, i) => {
-    const key = a.city;
-    if (!cityVisits[key]) cityVisits[key] = [];
-    cityVisits[key].push(i + 1);
-  });
+  // Flight pins — one per unique airport code
+  for (const [code, flist] of Object.entries(airportFlights)) {
+    const c = AIRPORT_COORDS[code];
+    if (!c) continue;
+    const lines = flist.map(f => `${f.flightNumber} · ${f.from}→${f.to} · ${f.departureDate}`).join('<br>');
+    L.marker([c.lat, c.lon], { icon: _pinIcon('flight') })
+      .addTo(_map)
+      .bindPopup(L.popup({ className: 'map-popup', minWidth: 180 }).setContent(`
+        <div class="map-popup-city">${c.name}</div>
+        <div class="map-popup-sub">${lines}</div>
+      `));
+  }
 
-  // Numbered markers
-  stops.forEach((a, i) => {
-    const colour = colorMap[a.check_in] || { accent: _accentColor() };
-    const visits = cityVisits[a.city];
-    const label = visits.length > 1 ? visits.join(' · ') : String(i + 1);
+  // ── Train routes ───────────────────────────────
+  const cityTrains = {};  // city → [train, …]
+  for (const tr of (trains || [])) {
+    if (tr.fromLat == null || tr.toLat == null) continue;
 
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="map-pin" style="background:${colour.accent}">${label}</div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
-      popupAnchor: [0, -18],
-    });
+    L.polyline(_trainPoints(tr.fromLat, tr.fromLon, tr.toLat, tr.toLon, 30), {
+      color: trainColor,
+      weight: 2.5,
+      opacity: 0.75,
+      dashArray: '3, 6',
+    }).addTo(_map);
 
-    const reservationLink = a.url
-      ? `<a href="${a.url}" target="_blank" rel="noopener" class="map-popup-link">${typeof t === 'function' ? t('map.viewReservation') : 'View reservation ↗'}</a>`
-      : '';
+    allCoords.push([tr.fromLat, tr.fromLon], [tr.toLat, tr.toLon]);
+    for (const [city, lat, lon] of [
+      [tr.fromCity, tr.fromLat, tr.fromLon],
+      [tr.toCity,   tr.toLat,   tr.toLon],
+    ]) {
+      if (!city) continue;
+      if (!cityTrains[city]) cityTrains[city] = { lat, lon, trains: [] };
+      cityTrains[city].trains.push(tr);
+    }
+  }
 
-    const popup = L.popup({ className: 'map-popup', minWidth: 150 }).setContent(`
-      <div class="map-popup-city">${a.city}</div>
-      <div class="map-popup-country">${a.country}</div>
-      <div class="map-popup-dates">${a.check_in} → ${a.check_out}</div>
-      ${reservationLink}
-    `);
+  // Train pins — one per unique city
+  for (const [city, { lat, lon, trains: tlist }] of Object.entries(cityTrains)) {
+    const lines = tlist
+      .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)
+      .map(t => `${t.fromCity} → ${t.toCity} · ${t.departureDate}`)
+      .join('<br>');
+    L.marker([lat, lon], { icon: _pinIcon('train') })
+      .addTo(_map)
+      .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
+        <div class="map-popup-city">${city}</div>
+        <div class="map-popup-sub">${lines}</div>
+      `));
+  }
 
-    L.marker([a.lat, a.lon], { icon }).addTo(_map).bindPopup(popup);
-  });
-
-  // Fit to European stops only — Buenos Aires stretches the bounds to world view
-  const viewStops = stops.filter(a => a.lat > 35);
-  const boundsStops = viewStops.length ? viewStops : stops;
-  _map.fitBounds(L.latLngBounds(boundsStops.map(a => [a.lat, a.lon])).pad(0.25));
+  // Fit to European portion — South America would shrink the view to world scale
+  const euCoords = allCoords.filter(([lat]) => lat > 35);
+  const fitCoords = euCoords.length ? euCoords : allCoords;
+  if (fitCoords.length >= 2) {
+    _map.fitBounds(L.latLngBounds(fitCoords).pad(0.25));
+  }
 }
 
-// Rebuild map when theme or language changes
 document.getElementById('theme-toggle').addEventListener('click', () => {
-  if (_lastAccommodations && _lastColorMap) {
-    requestAnimationFrame(() => _buildMap(_lastAccommodations, _lastColorMap));
+  if (_lastFlights || _lastTrains) {
+    requestAnimationFrame(() => _buildMap(_lastFlights, _lastTrains));
   }
 });
 
 document.addEventListener('langchange', () => {
-  if (_lastAccommodations && _lastColorMap) {
-    _buildMap(_lastAccommodations, _lastColorMap);
+  if (_lastFlights || _lastTrains) {
+    _buildMap(_lastFlights, _lastTrains);
   }
 });

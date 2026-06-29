@@ -27,6 +27,7 @@
   "chip.checkin": "Check-in: {city}",
   "chip.checkout": "Check-out: {city}",
   "chip.more": "+{n} more",
+  "chip.train": "{from}→{to}",
 
   "card.addEvent": "Add event",
 
