@@ -40,10 +40,11 @@ function _cssVar(name, fallback) {
 }
 
 // Quadratic bezier — high arc for long-haul flights on a Mercator map
-function _curvedPoints(lat1, lon1, lat2, lon2, n) {
+function _curvedPoints(lat1, lon1, lat2, lon2, n, curveDown = false) {
   const dLon = lon2 - lon1;
   const dLat = lat2 - lat1;
-  const ctrlLat = (lat1 + lat2) / 2 + Math.abs(dLon) * 0.45 + Math.abs(dLat) * 0.18;
+  const sign = curveDown ? -1 : 1;
+  const ctrlLat = (lat1 + lat2) / 2 + sign * (Math.abs(dLon) * 0.45 + Math.abs(dLat) * 0.18);
   const ctrlLon = (lon1 + lon2) / 2;
   const pts = [];
   for (let i = 0; i <= n; i++) {
@@ -110,7 +111,8 @@ function _buildMap(flights, trains) {
     const arr = AIRPORT_COORDS[f.to];
     if (!dep || !arr) continue;
 
-    L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60), {
+    const curveDown = f.to === 'ATH';
+    L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60, curveDown), {
       color: accentColor,
       weight: 2,
       opacity: 0.65,
