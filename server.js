@@ -22,7 +22,8 @@ if (process.env.APP_PASSWORD) {
 const DATA_FILE    = path.join(__dirname, 'data', 'trip.json');
 const ACCOM_FILE   = path.join(__dirname, 'data', 'accommodations.json');
 const FLIGHTY_FILE = path.join(__dirname, 'data', 'flighty.txt');
-const BUDGET_FILE  = path.join(__dirname, 'data', 'budget.json');
+const BUDGET_FILE    = path.join(__dirname, 'data', 'budget.json');
+const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -338,6 +339,115 @@ app.delete('/api/budget/entries/:id', (req, res) => {
   b.entries = b.entries.filter(e => e.id !== req.params.id);
   writeBudget(b);
   res.sendStatus(204);
+});
+
+// ── Wishlist ────────────────────────────────────
+
+function readWishlist() {
+  if (!fs.existsSync(WISHLIST_FILE)) return { items: [] };
+  return JSON.parse(fs.readFileSync(WISHLIST_FILE, 'utf8'));
+}
+function writeWishlist(data) {
+  fs.writeFileSync(WISHLIST_FILE, JSON.stringify(data, null, 2));
+}
+
+app.get('/api/wishlist', (req, res) => res.json(readWishlist()));
+
+app.post('/api/wishlist', (req, res) => {
+  const w = readWishlist();
+  const item = {
+    id:    'w' + Date.now(),
+    name:  req.body.name || '',
+    price: Number(req.body.price) || 0,
+    url:   req.body.url || '',
+  };
+  w.items.push(item);
+  writeWishlist(w);
+  res.json(item);
+});
+
+app.put('/api/wishlist/:id', (req, res) => {
+  const w = readWishlist();
+  const idx = w.items.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  w.items[idx] = { ...w.items[idx], ...req.body, id: req.params.id };
+  if (req.body.price !== undefined) w.items[idx].price = Number(req.body.price);
+  writeWishlist(w);
+  res.json(w.items[idx]);
+});
+
+app.delete('/api/wishlist/:id', (req, res) => {
+  const w = readWishlist();
+  w.items = w.items.filter(i => i.id !== req.params.id);
+  writeWishlist(w);
+  res.sendStatus(204);
+});
+
+function _decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, c) => String.fromCharCode(+c))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+}
+
+app.post('/api/wishlist/fetch-url', async (req, res) => {
+  const { url } = req.body;
+  if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: 'Invalid URL' });
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(10000),
+      redirect: 'follow',
+    });
+    if (!resp.ok) {
+      const blocked = resp.status === 403 || resp.status === 429 || resp.status === 503;
+      return res.status(502).json({ error: blocked ? 'blocked' : `HTTP ${resp.status}` });
+    }
+    const html = await resp.text();
+
+    const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<>]+)["']/i)?.[1]
+                 || html.match(/<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']og:title["']/i)?.[1];
+    const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+    let rawName = _decodeHtmlEntities((ogTitle || titleTag || '').trim());
+    rawName = rawName.split(/\s+[|\-–—]\s+/)[0].trim().substring(0, 200);
+
+    // 1. Open Graph / meta tags
+    let priceStr =
+      html.match(/<meta[^>]+property=["']og:price:amount["'][^>]+content=["']([^"'<>]+)["']/i)?.[1]
+      || html.match(/<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']og:price:amount["']/i)?.[1]
+      || html.match(/<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"'<>]+)["']/i)?.[1]
+      || html.match(/<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']product:price:amount["']/i)?.[1]
+      || null;
+
+    // 2. JSON-LD structured data (used by Decathlon, many large retailers)
+    if (!priceStr) {
+      const ldBlocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+      for (const [, json] of ldBlocks) {
+        try {
+          const data = JSON.parse(json);
+          const nodes = Array.isArray(data) ? data : [data];
+          for (const node of nodes) {
+            const offers = node.offers ?? node['@graph']?.find?.(n => n.offers)?.offers;
+            if (!offers) continue;
+            const offer = Array.isArray(offers) ? offers[0] : offers;
+            if (offer.price != null) { priceStr = String(offer.price); break; }
+          }
+        } catch { /* malformed JSON-LD, skip */ }
+        if (priceStr) break;
+      }
+    }
+
+    const price = priceStr ? parseFloat(String(priceStr).replace(/[^0-9.]/g, '')) || null : null;
+
+    res.json({ name: rawName, price });
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Fetch failed' });
+  }
 });
 
 app.get('/api/version', (req, res) => res.json({ commit: COMMIT }));

@@ -384,3 +384,16 @@ document.getElementById('budget-settings-form').addEventListener('submit', async
 document.addEventListener('langchange', () => {
   if (_budget) _renderBudget();
 });
+
+function getBudgetRemaining() {
+  if (!_budget?.initialBudget) return null;
+  return _computeStats().remaining;
+}
+
+function getBudgetCurrency() {
+  return _budget?.currency || 'EUR';
+}
+
+function refreshBudget() {
+  if (_budget) _renderBudget();
+}

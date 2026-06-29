@@ -597,7 +597,8 @@ async function init() {
     renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
     renderPlanner();
     if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains);
-    if (typeof initBudget === 'function') initBudget(tripData);
+    if (typeof initBudget    === 'function') initBudget(tripData);
+    if (typeof initWishlist  === 'function') initWishlist();
   } catch (err) {
     console.error(err);
     document.getElementById('planner-grid').textContent = t('planner.failed');

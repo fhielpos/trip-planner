@@ -289,6 +289,67 @@
     </div>
   </div>
 
+  <!-- Wishlist -->
+  <section class="wishlist-section">
+    <div class="wishlist-section-inner">
+      <div class="wishlist-header">
+        <h2 class="wishlist-title" data-i18n="wishlist.title">Wishlist</h2>
+        <button class="btn-add" id="btn-add-wishlist">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span data-i18n="wishlist.addItem">Add item</span>
+        </button>
+      </div>
+      <div id="wishlist-list"></div>
+    </div>
+  </section>
+
+  <!-- Wishlist modal -->
+  <div class="modal-overlay" id="wishlist-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 data-i18n="wishlist.addItem">Add item</h3>
+        <button class="modal-close" id="wishlist-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form class="modal-form" id="wishlist-form">
+        <div class="form-row">
+          <label data-i18n="wishlist.mode">Add via</label>
+          <div class="type-selector" id="wishlist-mode-selector">
+            <button type="button" class="type-btn active" data-mode="manual" data-i18n="wishlist.modeManual">Manual</button>
+            <button type="button" class="type-btn" data-mode="url" data-i18n="wishlist.modeUrl">From URL</button>
+          </div>
+        </div>
+        <div class="form-row" id="wishlist-url-row" hidden>
+          <label data-i18n="wishlist.url">URL</label>
+          <div class="wishlist-url-row">
+            <input type="url" id="wishlist-url-input" placeholder="https://…" />
+            <button type="button" class="btn-secondary" id="wishlist-fetch-btn" data-i18n="wishlist.fetch">Fetch</button>
+          </div>
+          <span id="wishlist-fetch-status" class="wishlist-fetch-status"></span>
+        </div>
+        <div class="form-row">
+          <label for="wishlist-name" data-i18n="wishlist.name">Name <span class="required">*</span></label>
+          <input type="text" id="wishlist-name" required />
+        </div>
+        <div class="form-row">
+          <label for="wishlist-price" data-i18n="wishlist.price">Price</label>
+          <input type="number" id="wishlist-price" min="0" step="0.01" placeholder="0.00" />
+        </div>
+        <div class="form-actions">
+          <div class="form-actions-right">
+            <button type="button" class="btn-secondary" id="wishlist-cancel-btn" data-i18n="modal.cancel">Cancel</button>
+            <button type="submit" class="btn-primary" data-i18n="modal.save">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <footer class="app-footer">
     <span id="app-version" class="app-version"></span>
   </footer>
@@ -298,6 +359,7 @@
   <script src="/js/app.js"></script>
   <script src="/js/map.js"></script>
   <script src="/js/budget.js"></script>
+  <script src="/js/wishlist.js"></script>
   <script>
     fetch('/api/version').then(r => r.json()).then(({ commit }) => {
       document.getElementById('app-version').textContent = commit.slice(0, 8);
