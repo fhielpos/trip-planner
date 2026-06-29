@@ -73,6 +73,7 @@
   "budget.stats.progress": "Progreso",
   "budget.stats.dayOf": "Día {day} de {total}",
   "budget.stats.daysLeft": "Días restantes",
+  "budget.stats.dailyLeft": "Presupuesto diario restante",
   "budget.stats.projectedLeft": "Proyectado restante",
   "budget.categories.title": "Por categoría",
   "budget.cat.food": "Comida",

@@ -51,7 +51,9 @@ function _computeStats() {
   const todayDate     = parseLocal(today);
   const cappedToday   = todayDate < tripStart ? tripStart : todayDate > tripEnd ? tripEnd : todayDate;
   const daysElapsed   = Math.max(1, Math.round((cappedToday - tripStart) / 86400000) + 1);
-  const daysRemaining = Math.max(0, Math.round((tripEnd - todayDate) / 86400000));
+  const daysRemaining = todayDate < tripStart
+    ? tripTotalDays
+    : Math.max(0, Math.round((tripEnd - todayDate) / 86400000));
 
   const dailyAvg  = totalSpent > 0 ? totalSpent / daysElapsed : 0;
   const weeklyAvg = dailyAvg * 7;
@@ -60,9 +62,12 @@ function _computeStats() {
 
   const pctSpent = initialBudget > 0 ? Math.min(110, (totalSpent / initialBudget) * 100) : 0;
 
+  const dailyBudgetLeft = daysRemaining > 0 ? remaining / daysRemaining : null;
+
   return {
     initialBudget, totalSpent, remaining, dailyAvg, weeklyAvg,
     projectedTotal, projectedRemaining, tripTotalDays, daysElapsed, daysRemaining, pctSpent,
+    dailyBudgetLeft,
   };
 }
 
@@ -126,6 +131,10 @@ function _renderStats() {
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.weeklyAvg')}</span>
         <span class="budget-sec-val">${s.weeklyAvg > 0 ? _fmt(s.weeklyAvg) : '—'}</span>
+      </div>
+      <div class="budget-sec-item">
+        <span class="budget-sec-label">${t('budget.stats.dailyLeft')}</span>
+        <span class="budget-sec-val${s.dailyBudgetLeft !== null && s.dailyBudgetLeft < 0 ? ' budget-val--negative' : ''}">${s.dailyBudgetLeft !== null ? _fmt(s.dailyBudgetLeft) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.progress')}</span>
