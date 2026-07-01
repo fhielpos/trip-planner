@@ -460,6 +460,22 @@ app.post('/api/wishlist/fetch-url', async (req, res) => {
   }
 });
 
+// ── Export ─────────────────────────────────────
+
+app.get('/api/export', (req, res) => {
+  const date = new Date().toISOString().slice(0, 10);
+  const payload = {
+    trip:           readData(),
+    budget:         readBudget(),
+    wishlist:       readWishlist(),
+    accommodations: JSON.parse(fs.readFileSync(ACCOM_FILE, 'utf8')),
+    flighty:        fs.readFileSync(FLIGHTY_FILE, 'utf8'),
+  };
+  res.setHeader('Content-Disposition', `attachment; filename="trip-export-${date}.json"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.send(JSON.stringify(payload, null, 2));
+});
+
 app.get('/api/version', (req, res) => res.json({ commit: COMMIT }));
 
 app.listen(PORT, '0.0.0.0', () => {
