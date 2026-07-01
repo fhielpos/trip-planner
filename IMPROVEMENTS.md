@@ -12,6 +12,14 @@ Options considered:
 - **Separate `IMPORT_TOKEN` header** — a dedicated env var that must be sent as `X-Import-Token` on every import request, independent of the main app password.
 - **Backup before overwrite** — before writing, snapshot the current data files so a mistaken import can be rolled back. Could be as simple as writing to `data/backup-YYYY-MM-DD.json` on each import call.
 
+## Today view
+
+### Notes / recommendations per day
+Show curated tips or notes for the current place in the Today view (beyond the activity entries that already exist). Needs a content source — either a per-city notes field with its own editor, or an external API — so deferred until the trip gets closer.
+
+### Country (and flag) for stays created in the UI
+The Stay modal only asks for city, so UI-created stays have no `country` and render without a flag in the Today hero. Options: add a country field to the modal, or infer from city via a lookup. Cosmetic, low priority.
+
 ## Budget
 
 ### Warn when sub-budget caps exceed the global budget

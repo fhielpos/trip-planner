@@ -70,6 +70,16 @@ function formatShort(str) {
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 
+// Dev override: open the app with ?today=2026-10-06 to preview any trip day.
+const DEV_DATE = (() => {
+  const v = new URLSearchParams(location.search).get('today');
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+})();
+
+function appToday() {
+  return DEV_DATE || toDateStr(new Date());
+}
+
 // ── Location colour palette ────────────────────
 // Fallback pool for stays with no `color` field; existing stays carry an
 // explicit color in accommodations.json (the file is sorted by check_in on
@@ -193,7 +203,7 @@ function renderInfoBar(trip, flights, calendar, accommodations) {
   }
 
   // Active or next accommodation
-  const today = toDateStr(new Date());
+  const today = appToday();
   const stayEl = document.getElementById('info-stay-val');
   const active = getActiveStay(accommodations, today);
   if (active) {
@@ -270,7 +280,7 @@ function renderPlanner() {
   // Span full weeks containing trip start and end
   const gridStart = mondayOf(trip.startDate);
   const gridEnd   = sundayOf(trip.endDate);
-  const today     = toDateStr(new Date());
+  const today     = appToday();
 
   // Build array of all days
   const days = [];
@@ -407,6 +417,7 @@ function renderPlanner() {
   renderLegend(accommodations, colorMap);
 
   if (typeof renderStaysTimeline === 'function') renderStaysTimeline(tripData);
+  if (typeof renderToday === 'function') renderToday(tripData);
 }
 
 // ── Legend ─────────────────────────────────────
@@ -643,7 +654,7 @@ $('btn-delete-entry').addEventListener('click', async () => {
 });
 
 $('btn-add-activity').addEventListener('click', () => {
-  const today = toDateStr(new Date());
+  const today = appToday();
   const def = today >= tripData.trip.startDate && today <= tripData.trip.endDate
     ? today
     : tripData.trip.startDate;

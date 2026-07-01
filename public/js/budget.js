@@ -63,7 +63,7 @@ function _fmt(amount) {
 function _computeStats() {
   const { initialBudget, entries } = _budget;
   const trip = _budgetTrip.trip;
-  const today = toDateStr(new Date());
+  const today = appToday();
 
   const totalSpent = entries.reduce((s, e) => s + e.amount, 0);
   const remaining  = initialBudget - totalSpent;
@@ -108,6 +108,8 @@ function _renderBudget() {
   _renderSubBudgets();
   _renderCategories();
   _renderEntries();
+  // Budget data arrives after the first Today render; keep its budget line in sync.
+  if (typeof renderToday === 'function' && _budgetTrip) renderToday(_budgetTrip);
 }
 
 function _renderStats() {
@@ -369,7 +371,7 @@ function _openExpenseModal(id) {
     deleteBtn.hidden = false;
   } else {
     titleEl.textContent = t('budget.entry.add');
-    const today = toDateStr(new Date());
+    const today = appToday();
     document.getElementById('budget-date').value = today;
     document.getElementById('budget-city').value = _cityForDate(today);
     _setSelectedCat('food');
@@ -594,4 +596,18 @@ function getBudgetCurrency() {
 
 function refreshBudget() {
   if (_budget) _renderBudget();
+}
+
+// Data for the Today view's budget line (null until budget is loaded/configured)
+function getTodayBudget() {
+  if (!_budget?.initialBudget) return null;
+  const s = _computeStats();
+  const today = appToday();
+  const spentToday = _budget.entries
+    .filter(e => e.date === today)
+    .reduce((sum, e) => sum + e.amount, 0);
+  return {
+    spent: _fmt(spentToday),
+    dailyLeft: s.dailyBudgetLeft !== null ? _fmt(s.dailyBudgetLeft) : null,
+  };
 }

@@ -1,0 +1,148 @@
+/* =============================================
+   Today View — trip-day landing panel
+   Visible only while today (or ?today=) falls
+   inside the trip dates.
+   ============================================= */
+
+const COUNTRY_FLAG_CODES = {
+  Argentina: 'AR', Brazil: 'BR', France: 'FR', Greece: 'GR', Austria: 'AT',
+  Germany: 'DE', Switzerland: 'CH', Netherlands: 'NL', Belgium: 'BE',
+  Spain: 'ES', Italy: 'IT', Portugal: 'PT', 'United Kingdom': 'GB', 'United States': 'US',
+};
+
+function countryFlag(country) {
+  const cc = COUNTRY_FLAG_CODES[country];
+  if (!cc) return '';
+  return String.fromCodePoint(...[...cc].map(ch => 0x1f1e6 + ch.charCodeAt(0) - 65));
+}
+
+// Date-matched events for one day, in day order:
+// check-outs, then flights/trains by departure time, then check-ins.
+function collectTodayEvents(data, today) {
+  const events = [];
+  for (const a of data.accommodations || []) {
+    if (a.check_out === today)
+      events.push({ order: 0, time: '', icon: '🧳', label: t('chip.checkout', { city: a.city }), url: a.url || null });
+  }
+  for (const f of data.flights || []) {
+    if (f.departureDate !== today) continue;
+    const extras = [f.terminal && `T${f.terminal}`, f.gate && `G${f.gate}`].filter(Boolean).join(' ');
+    const label = `${f.flightNumber} · ${f.from}→${f.to} · ${formatTime(f.departureTime)}${extras ? ' · ' + extras : ''}`;
+    events.push({ order: 1, time: f.departureTime || '', icon: '✈', label, url: f.flightyUrl || null });
+  }
+  for (const tr of data.trains || []) {
+    if (tr.departureDate !== today) continue;
+    const time = tr.departureTime ? ` · ${formatTime(tr.departureTime)}` : '';
+    events.push({ order: 1, time: tr.departureTime || '', icon: '🚆', label: `${tr.fromCity} → ${tr.toCity}${time}`, url: tr.url || null });
+  }
+  for (const a of data.accommodations || []) {
+    if (a.check_in === today)
+      events.push({ order: 2, time: '', icon: '🛏', label: t('chip.checkin', { city: a.city }), url: a.url || null });
+  }
+  events.sort((a, b) => a.order - b.order || a.time.localeCompare(b.time));
+  return events;
+}
+
+// Split a day's activities into main entries and their backups.
+// Backups follow the `<parentId>-bk` id convention from the itinerary data.
+function collectTodayActivities(calendar, today) {
+  const todays = (calendar || []).filter(e => e.date === today && e.type !== 'accommodation');
+  todays.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+  const byId = Object.fromEntries(todays.map(e => [e.id, e]));
+  const items = [];
+  for (const e of todays) {
+    if (e.id.endsWith('-bk') && byId[e.id.slice(0, -3)]) continue; // rendered under parent
+    const backup = byId[`${e.id}-bk`] || null;
+    items.push({ main: e, backup });
+  }
+  return items;
+}
+
+function renderToday(data) {
+  const section = document.getElementById('today-section');
+  if (!section || !data?.trip) return;
+
+  const today = appToday();
+  const inTrip = today >= data.trip.startDate && today <= data.trip.endDate;
+  document.body.classList.toggle('today-active', inTrip);
+  section.hidden = !inTrip;
+  if (!inTrip) { section.innerHTML = ''; return; }
+
+  const stay = getActiveStay(data.accommodations || [], today);
+  const colour = stay
+    ? (stay.color ? hexToColour(stay.color) : (data.colorMap?.[stay.check_in] ?? null))
+    : null;
+  section.style.setProperty('--today-accent', colour?.accent || 'var(--accent)');
+  section.style.setProperty('--today-bg', colour?.bg || 'var(--accent-dim)');
+
+  const dayNum = Math.round((parseLocal(today) - parseLocal(data.trip.startDate)) / 86400000) + 1;
+  const totalDays = Math.round((parseLocal(data.trip.endDate) - parseLocal(data.trip.startDate)) / 86400000) + 1;
+  const dateLabel = parseLocal(today).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  const lastNight = stay && stay.check_out === addDays(today, 1);
+
+  const flag = stay ? countryFlag(stay.country) : '';
+  const heroCity = stay ? `${flag ? flag + ' ' : ''}${stay.city}` : t('today.transit');
+
+  const events = collectTodayEvents(data, today);
+  const acts = collectTodayActivities(data.calendar, today);
+
+  const eventRow = e => `
+    <div class="today-row">
+      <span class="today-row-icon">${e.icon}</span>
+      <span class="today-row-label">${e.label}</span>
+      ${e.url ? `<a class="today-row-link" href="${e.url}" target="_blank" rel="noopener">↗</a>` : ''}
+    </div>`;
+
+  const actRow = ({ main, backup }) => {
+    const time = main.startTime ? `${formatTime(main.startTime)} · ` : '';
+    return `
+    <div class="today-row today-row--act" data-id="${main.id}">
+      <span class="today-row-icon">◦</span>
+      <span class="today-row-label">${time}${main.title}</span>
+    </div>
+    ${backup ? `
+    <div class="today-row today-row--backup" data-id="${backup.id}">
+      <span class="today-row-icon">↻</span>
+      <span class="today-row-label">${backup.title}</span>
+    </div>` : ''}`;
+  };
+
+  const budget = typeof getTodayBudget === 'function' ? getTodayBudget() : null;
+  const budgetLine = budget
+    ? (budget.dailyLeft
+        ? t('today.budgetLine', { spent: budget.spent, daily: budget.dailyLeft })
+        : t('today.spentToday', { spent: budget.spent }))
+    : null;
+
+  section.innerHTML = `
+    <div class="today-inner">
+      ${DEV_DATE ? `<span class="today-dev">DEV · ${DEV_DATE}</span>` : ''}
+      <div class="today-hero">
+        <h2 class="today-city">${heroCity}</h2>
+        <div class="today-sub">${t('budget.stats.dayOf', { day: dayNum, total: totalDays })} · ${dateLabel}</div>
+        ${lastNight ? `<div class="today-lastnight">${t('today.lastNight')}</div>` : ''}
+      </div>
+      ${events.length ? `
+      <div class="today-block">
+        <h3 class="today-block-title">${t('today.events')}</h3>
+        ${events.map(eventRow).join('')}
+      </div>` : ''}
+      ${acts.length ? `
+      <div class="today-block">
+        <h3 class="today-block-title">${t('today.activities')}</h3>
+        ${acts.map(actRow).join('')}
+      </div>` : ''}
+      ${budgetLine ? `<button type="button" class="today-budget" id="today-budget">💶 ${budgetLine}</button>` : ''}
+      <button type="button" class="today-scroll-hint" id="today-scroll-hint" aria-label="calendar">⌄</button>
+    </div>`;
+
+  section.querySelectorAll('.today-row[data-id]').forEach(row =>
+    row.addEventListener('click', () => openEditModal(row.dataset.id))
+  );
+  section.querySelector('#today-budget')?.addEventListener('click', () =>
+    document.querySelector('.budget-section')?.scrollIntoView({ behavior: 'smooth' })
+  );
+  section.querySelector('#today-scroll-hint')?.addEventListener('click', () =>
+    document.querySelector('.info-bar')?.scrollIntoView({ behavior: 'smooth' })
+  );
+}

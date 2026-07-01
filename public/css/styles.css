@@ -1590,3 +1590,138 @@ body {
   .stays-section-inner { padding: 0.75rem 0.5rem 1rem; }
   .tl-bar-dates { display: none; }
 }
+
+/* =============================================
+   Today View
+   ============================================= */
+.today-section {
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, var(--today-bg, var(--accent-dim)) 0%, transparent 85%),
+    var(--bg);
+}
+.today-inner {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 1.75rem;
+  position: relative;
+}
+
+.today-dev {
+  position: absolute;
+  top: 0.75rem;
+  right: 1.5rem;
+  font-family: monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--bg);
+  background: var(--today-accent, var(--accent));
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.45rem;
+}
+
+.today-city {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--text-1);
+}
+.today-sub {
+  margin-top: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--text-2);
+}
+.today-sub::first-letter { text-transform: uppercase; }
+.today-lastnight {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--today-accent, var(--accent));
+  border: 1px solid var(--today-accent, var(--accent));
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.today-block { margin-top: 1.25rem; }
+.today-block-title {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 0.4rem;
+}
+
+.today-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.28rem 0;
+  font-size: 0.9rem;
+  color: var(--text-1);
+}
+.today-row-icon { flex-shrink: 0; }
+.today-row-label { min-width: 0; }
+.today-row-link {
+  color: var(--today-accent, var(--accent));
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.today-row--act { cursor: pointer; }
+.today-row--act:hover .today-row-label { color: var(--today-accent, var(--accent)); }
+.today-row--backup {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-3);
+  padding-left: 1.3rem;
+}
+
+.today-budget {
+  display: inline-block;
+  margin-top: 1.25rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-2);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+}
+.today-budget:hover { color: var(--text-1); border-color: var(--text-3); }
+
+.today-scroll-hint {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 1.4rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  /* Full first screen on phones; the rest of the app scrolls in below */
+  .today-section {
+    min-height: calc(100dvh - 96px);
+    display: flex;
+  }
+  .today-section[hidden] { display: none; }
+  .today-inner {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: 1.25rem 1rem 0.5rem;
+  }
+  .today-hero { margin-top: 1.5rem; }
+  .today-city { font-size: 2.8rem; }
+  .today-scroll-hint { display: block; margin-top: auto; padding: 0.5rem 0 0.25rem; }
+  /* Countdown is over once the trip starts — reclaim the space on phones */
+  body.today-active .info-countdown,
+  body.today-active .info-divider { display: none; }
+}
