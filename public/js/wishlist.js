@@ -68,6 +68,20 @@ function _renderWishlist() {
       <span class="wishlist-sum-count">${countLabel}</span>
     </div>`;
 
+  let impactBarHtml = '';
+  if (remaining !== null && total > 0) {
+    const over = total > remaining;
+    const pctCost = remaining > 0 ? Math.min(100, (total / remaining) * 100) : 100;
+    const pctSafe = Math.max(0, 100 - pctCost);
+    impactBarHtml = `
+      <div class="wishlist-budget-bar">
+        <div class="wishlist-budget-bar-track">
+          <div class="wishlist-budget-bar-safe" style="width:${pctSafe.toFixed(1)}%"></div>
+          <div class="wishlist-budget-bar-cost${over ? ' wishlist-budget-bar-cost--over' : ''}" style="width:${pctCost.toFixed(1)}%"></div>
+        </div>
+      </div>`;
+  }
+
   const sortDefs = [
     ['default',    t('wishlist.sortDefault')],
     ['name',       t('wishlist.sortName')],
@@ -92,9 +106,13 @@ function _renderWishlist() {
     const linkHtml = item.url
       ? `<a class="wishlist-link" href="${_escHtml(item.url)}" target="_blank" rel="noopener noreferrer">↗</a>`
       : '';
+    const affordDotHtml = (remaining !== null && item.price > 0)
+      ? `<span class="wishlist-afford-dot" style="background:${remaining >= item.price ? 'var(--c-stay)' : '#e87a7a'}"></span>`
+      : '';
 
     return `
       <div class="wishlist-item" data-id="${item.id}">
+        ${affordDotHtml}
         <div class="wishlist-item-main">
           <span class="wishlist-item-name">${_escHtml(item.name)}${linkHtml}</span>
           ${impactHtml}
@@ -115,7 +133,7 @@ function _renderWishlist() {
       </div>`;
   }).join('');
 
-  el.innerHTML = summaryHtml + sortHtml + `<div class="wishlist-items">${itemsHtml}</div>`;
+  el.innerHTML = summaryHtml + impactBarHtml + sortHtml + `<div class="wishlist-items">${itemsHtml}</div>`;
 
   el.querySelectorAll('.wishlist-sort-btn').forEach(btn =>
     btn.addEventListener('click', () => { _wishlistSort = btn.dataset.sort; _renderWishlist(); }));

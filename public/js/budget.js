@@ -126,7 +126,7 @@ function _renderStats() {
 
   el.innerHTML = `
     <div class="budget-stats-main">
-      <div class="budget-stat-card">
+      <div class="budget-stat-card budget-stat-card--accent">
         <span class="budget-stat-label">${t('budget.stats.budget')}</span>
         <span class="budget-stat-val">${_fmt(s.initialBudget)}</span>
       </div>
@@ -134,11 +134,11 @@ function _renderStats() {
         <span class="budget-stat-label">${t('budget.stats.spent')}</span>
         <span class="budget-stat-val">${_fmt(s.totalSpent)}</span>
       </div>
-      <div class="budget-stat-card">
+      <div class="budget-stat-card budget-stat-card--${remClass}">
         <span class="budget-stat-label">${t('budget.stats.remaining')}</span>
         <span class="budget-stat-val budget-val--${remClass}">${_fmt(s.remaining)}</span>
       </div>
-      <div class="budget-stat-card">
+      <div class="budget-stat-card${projClass ? ' budget-stat-card--' + projClass : ''}">
         <span class="budget-stat-label">${t('budget.stats.projected')}</span>
         <span class="budget-stat-val${projClass ? ' budget-val--' + projClass : ''}">${s.projectedTotal > 0 ? _fmt(s.projectedTotal) : '—'}</span>
       </div>
@@ -236,6 +236,13 @@ function _renderCategories() {
   const sorted = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
   if (!sorted.length) { el.innerHTML = ''; return; }
 
+  const stackedSegments = sorted.map(cat => {
+    const pct = ((totals[cat] / grandTotal) * 100).toFixed(1);
+    return `<div class="budget-stacked-segment"
+      style="width:${pct}%;background:${_catColor(cat)}"
+      title="${_catName(cat)}: ${_fmt(totals[cat])} (${pct}%)"></div>`;
+  }).join('');
+
   const rows = sorted.map(cat => {
     const pct = ((totals[cat] / grandTotal) * 100).toFixed(0);
     return `
@@ -253,6 +260,7 @@ function _renderCategories() {
   el.innerHTML = `
     <div class="budget-block">
       <h3 class="budget-sub-title">${t('budget.categories.title')}</h3>
+      <div class="budget-stacked-bar">${stackedSegments}</div>
       ${rows}
     </div>`;
 }

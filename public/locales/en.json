@@ -27,6 +27,8 @@
   "chip.train": "{from}→{to}",
   "card.addEvent": "Add event",
   "map.title": "Route",
+  "map.legendFlight": "Flights",
+  "map.legendTrain": "Trains",
   "map.viewReservation": "View reservation ↗",
   "modal.addTitle": "Add Activity",
   "modal.editTitle": "Edit Entry",
