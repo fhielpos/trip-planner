@@ -311,6 +311,11 @@ app.put('/api/budget/settings', (req, res) => {
       .filter(s => s && s.category && Number(s.amount) > 0)
       .map(s => ({ category: s.category, amount: Number(s.amount) }));
   }
+  if (Array.isArray(req.body.categories)) {
+    b.categories = req.body.categories
+      .filter(c => c && c.id && c.name)
+      .map(c => ({ id: String(c.id), name: String(c.name), color: c.color || '#b0a898' }));
+  }
   writeBudget(b);
   res.json(b);
 });

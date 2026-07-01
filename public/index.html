@@ -162,14 +162,7 @@
         </div>
         <div class="form-row">
           <label data-i18n="budget.entry.category">Category</label>
-          <div class="type-selector" id="budget-cat-selector">
-            <button type="button" class="type-btn active" data-cat="food" data-i18n="budget.cat.food">Food</button>
-            <button type="button" class="type-btn" data-cat="transport" data-i18n="budget.cat.transport">Transport</button>
-            <button type="button" class="type-btn" data-cat="accommodation" data-i18n="budget.cat.accommodation">Stay</button>
-            <button type="button" class="type-btn" data-cat="activities" data-i18n="budget.cat.activities">Activities</button>
-            <button type="button" class="type-btn" data-cat="shopping" data-i18n="budget.cat.shopping">Shopping</button>
-            <button type="button" class="type-btn" data-cat="other" data-i18n="budget.cat.other">Other</button>
-          </div>
+          <div class="type-selector" id="budget-cat-selector"></div>
         </div>
         <div class="form-row">
           <label for="budget-description" data-i18n="budget.entry.description">Description</label>
@@ -215,6 +208,12 @@
             <option value="CHF">CHF (Fr)</option>
             <option value="GBP">GBP (£)</option>
           </select>
+        </div>
+        <div class="form-row">
+          <label data-i18n="budget.cats.label">Categories</label>
+          <p class="form-hint" data-i18n="budget.cats.hint">Add your own categories on top of the built-in ones.</p>
+          <div id="settings-categories"></div>
+          <button type="button" class="btn-secondary btn-add-sub" id="btn-add-category" data-i18n="budget.cats.add">Add category</button>
         </div>
         <div class="form-row">
           <label data-i18n="budget.sub.label">Sub-budgets per category</label>

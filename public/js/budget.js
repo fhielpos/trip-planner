@@ -15,12 +15,35 @@ const BUDGET_CAT_COLORS = {
 
 let _budget = null;
 let _budgetTrip = null;
+let _catRowSeq = 0;
+
+// Predefined category colors — the calendar location accents (see PALETTE in app.js)
+const CATEGORY_SWATCHES = [
+  '#d46a5a', '#c8b230', '#a060c0', '#38a0a8', '#d05070', '#78b038',
+  '#5060c8', '#e09040', '#c050a0', '#38a870', '#6aaec4',
+];
+
+// ── Categories (built-in + user-defined) ───────
+
+function _customCats() { return _budget?.categories || []; }
+function _allCatIds() { return [...BUDGET_CATEGORIES, ..._customCats().map(c => c.id)]; }
+function _catName(id) {
+  const c = _customCats().find(c => c.id === id);
+  if (c) return c.name;
+  return BUDGET_CATEGORIES.includes(id) ? t('budget.cat.' + id) : id;
+}
+function _catColor(id) {
+  const c = _customCats().find(c => c.id === id);
+  if (c) return c.color;
+  return BUDGET_CAT_COLORS[id] || '#9a9080';
+}
 
 async function initBudget(tripData) {
   _budgetTrip = tripData;
   const res = await fetch('/api/budget');
   _budget = await res.json();
   if (!_budget.subBudgets) _budget.subBudgets = [];
+  if (!_budget.categories) _budget.categories = [];
   _renderBudget();
 }
 
@@ -167,8 +190,9 @@ function _renderSubBudgets() {
     spentByCat[e.category] = (spentByCat[e.category] || 0) + e.amount;
   }
 
+  const order = _allCatIds();
   const sorted = [...subs].sort(
-    (a, b) => BUDGET_CATEGORIES.indexOf(a.category) - BUDGET_CATEGORIES.indexOf(b.category)
+    (a, b) => order.indexOf(a.category) - order.indexOf(b.category)
   );
 
   const rows = sorted.map(sub => {
@@ -178,8 +202,8 @@ function _renderSubBudgets() {
     const color = pct < 75 ? 'var(--c-stay)' : pct < 100 ? 'var(--accent)' : 'var(--c-flight--neg, #e87a7a)';
     return `
       <div class="budget-cat-row">
-        <span class="budget-cat-dot" style="background:${BUDGET_CAT_COLORS[sub.category]}"></span>
-        <span class="budget-cat-name">${t('budget.cat.' + sub.category)}</span>
+        <span class="budget-cat-dot" style="background:${_catColor(sub.category)}"></span>
+        <span class="budget-cat-name">${_catName(sub.category)}</span>
         <div class="budget-cat-track">
           <div class="budget-cat-fill" style="width:${Math.min(100, pct).toFixed(1)}%; background:${color}"></div>
         </div>
@@ -209,17 +233,17 @@ function _renderCategories() {
     grandTotal += e.amount;
   }
 
-  const sorted = BUDGET_CATEGORIES.filter(c => totals[c]).sort((a, b) => totals[b] - totals[a]);
+  const sorted = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
   if (!sorted.length) { el.innerHTML = ''; return; }
 
   const rows = sorted.map(cat => {
     const pct = ((totals[cat] / grandTotal) * 100).toFixed(0);
     return `
       <div class="budget-cat-row">
-        <span class="budget-cat-dot" style="background:${BUDGET_CAT_COLORS[cat]}"></span>
-        <span class="budget-cat-name">${t('budget.cat.' + cat)}</span>
+        <span class="budget-cat-dot" style="background:${_catColor(cat)}"></span>
+        <span class="budget-cat-name">${_catName(cat)}</span>
         <div class="budget-cat-track">
-          <div class="budget-cat-fill" style="width:${pct}%; background:${BUDGET_CAT_COLORS[cat]}"></div>
+          <div class="budget-cat-fill" style="width:${pct}%; background:${_catColor(cat)}"></div>
         </div>
         <span class="budget-cat-amt">${_fmt(totals[cat])}</span>
         <span class="budget-cat-pct">${pct}%</span>
@@ -257,9 +281,9 @@ function _renderEntries() {
     const dateLabel = `${dow}, ${fmtDate(date)}`;
     const eRows = dayEntries.map(e => `
       <div class="budget-entry" data-id="${e.id}">
-        <span class="budget-entry-dot" style="background:${BUDGET_CAT_COLORS[e.category] || '#9a9080'}"></span>
+        <span class="budget-entry-dot" style="background:${_catColor(e.category)}"></span>
         <div class="budget-entry-info">
-          <span class="budget-entry-desc">${e.description || t('budget.cat.' + e.category)}</span>
+          <span class="budget-entry-desc">${e.description || _catName(e.category)}</span>
           ${e.city ? `<span class="budget-entry-city">${e.city}</span>` : ''}
         </div>
         <span class="budget-entry-amount">${_fmt(e.amount)}</span>
@@ -292,9 +316,26 @@ function _getSelectedCat() {
   return document.querySelector('#budget-cat-selector .type-btn.active')?.dataset.cat || 'other';
 }
 
+function _renderCatSelector() {
+  const el = document.getElementById('budget-cat-selector');
+  el.innerHTML = _allCatIds().map(id =>
+    `<button type="button" class="type-btn" data-cat="${id}">${_catName(id)}</button>`
+  ).join('');
+}
+
 function _setSelectedCat(cat) {
   document.querySelectorAll('#budget-cat-selector .type-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.cat === cat);
+    const active = b.dataset.cat === cat;
+    b.classList.toggle('active', active);
+    // Custom categories have no CSS active rule — highlight them inline from their color
+    if (active && !BUDGET_CATEGORIES.includes(b.dataset.cat)) {
+      const c = _catColor(b.dataset.cat);
+      b.style.background = c + '38';
+      b.style.borderColor = c;
+      b.style.color = c;
+    } else {
+      b.style.background = b.style.borderColor = b.style.color = '';
+    }
   });
 }
 
@@ -305,6 +346,7 @@ function _openExpenseModal(id) {
 
   document.getElementById('budget-form').reset();
   document.getElementById('budget-entry-id').value = '';
+  _renderCatSelector();
 
   if (id) {
     const entry = _budget.entries.find(e => e.id === id);
@@ -337,9 +379,36 @@ function _closeExpenseModal() {
 // ── Settings modal ─────────────────────────────
 
 function _catOptions(selected) {
-  return BUDGET_CATEGORIES.map(cat =>
-    `<option value="${cat}"${cat === selected ? ' selected' : ''}>${t('budget.cat.' + cat)}</option>`
+  return _allCatIds().map(cat =>
+    `<option value="${cat}"${cat === selected ? ' selected' : ''}>${_catName(cat)}</option>`
   ).join('');
+}
+
+function _swatchStrip(selected) {
+  return CATEGORY_SWATCHES.map(c =>
+    `<button type="button" class="cat-swatch${c === selected ? ' selected' : ''}" data-color="${c}" style="background:${c}" aria-label="${c}"></button>`
+  ).join('');
+}
+
+function _addCategoryRow(id, name, color) {
+  const container = document.getElementById('settings-categories');
+  const chosen = CATEGORY_SWATCHES.includes(color) ? color : CATEGORY_SWATCHES[0];
+  const row = document.createElement('div');
+  row.className = 'category-edit-row';
+  row.dataset.id = id;
+  row.dataset.color = chosen;
+  row.innerHTML = `
+    <div class="category-edit-top">
+      <input type="text" class="category-name" placeholder="${t('budget.cats.namePlaceholder')}" />
+      <button type="button" class="subbudget-remove" aria-label="remove">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="cat-swatches">${_swatchStrip(chosen)}</div>`;
+  row.querySelector('.category-name').value = name || '';
+  container.appendChild(row);
 }
 
 function _addSubBudgetRow(category, amount) {
@@ -360,6 +429,10 @@ function _addSubBudgetRow(category, amount) {
 function _openSettingsModal() {
   document.getElementById('settings-initial-budget').value = _budget.initialBudget || '';
   document.getElementById('settings-currency').value = _budget.currency || 'EUR';
+  const catContainer = document.getElementById('settings-categories');
+  catContainer.innerHTML = '';
+  (_budget.categories || []).forEach(c => _addCategoryRow(c.id, c.name, c.color));
+
   const container = document.getElementById('settings-subbudgets');
   container.innerHTML = '';
   (_budget.subBudgets || []).forEach(s => _addSubBudgetRow(s.category, s.amount));
@@ -439,6 +512,23 @@ document.getElementById('budget-settings-overlay').addEventListener('click', e =
   if (e.target === document.getElementById('budget-settings-overlay')) _closeSettingsModal();
 });
 
+document.getElementById('btn-add-category').addEventListener('click', () => {
+  const used = [...document.querySelectorAll('#settings-categories .category-edit-row')].map(r => r.dataset.color);
+  const next = CATEGORY_SWATCHES.find(c => !used.includes(c)) || CATEGORY_SWATCHES[0];
+  _addCategoryRow('c' + Date.now() + '_' + (_catRowSeq++), '', next);
+});
+
+document.getElementById('settings-categories').addEventListener('click', e => {
+  const rm = e.target.closest('.subbudget-remove');
+  if (rm) { rm.closest('.category-edit-row').remove(); return; }
+  const sw = e.target.closest('.cat-swatch');
+  if (sw) {
+    const row = sw.closest('.category-edit-row');
+    row.dataset.color = sw.dataset.color;
+    row.querySelectorAll('.cat-swatch').forEach(s => s.classList.toggle('selected', s === sw));
+  }
+});
+
 document.getElementById('btn-add-subbudget').addEventListener('click', () => {
   const used = [...document.querySelectorAll('#settings-subbudgets .subbudget-cat')].map(s => s.value);
   const next = BUDGET_CATEGORIES.find(c => !used.includes(c)) || 'other';
@@ -452,6 +542,11 @@ document.getElementById('settings-subbudgets').addEventListener('click', e => {
 
 document.getElementById('budget-settings-form').addEventListener('submit', async e => {
   e.preventDefault();
+  const categories = [];
+  for (const row of document.querySelectorAll('#settings-categories .category-edit-row')) {
+    const name = row.querySelector('.category-name').value.trim();
+    if (name) categories.push({ id: row.dataset.id, name, color: row.dataset.color });
+  }
   const byCat = {};
   for (const row of document.querySelectorAll('#settings-subbudgets .subbudget-edit-row')) {
     const category = row.querySelector('.subbudget-cat').value;
@@ -463,6 +558,7 @@ document.getElementById('budget-settings-form').addEventListener('submit', async
     initialBudget: parseFloat(document.getElementById('settings-initial-budget').value),
     currency:      document.getElementById('settings-currency').value,
     subBudgets,
+    categories,
   };
   try {
     const r = await fetch('/api/budget/settings', {
