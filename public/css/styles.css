@@ -726,9 +726,10 @@ body {
   }
   .day-mon  { font-size: 0.65rem; order: -1; } /* month above number */
 
-  /* Right content */
-  .day-chips   { flex: 1; }
-  .day-location { font-size: 0.6rem; margin-bottom: 0.18rem; }
+  /* Right content — min-width:0 lets long chip labels ellipsize instead of
+     forcing the card (and page) wider than the viewport */
+  .day-chips   { flex: 1; min-width: 0; }
+  .day-location { font-size: 0.6rem; margin-bottom: 0.18rem; min-width: 0; }
   .chip { font-size: 0.68rem; }
 }
 
@@ -1720,7 +1721,14 @@ body {
   }
   .today-hero { margin-top: 1.5rem; }
   .today-city { font-size: 2.8rem; }
-  .today-scroll-hint { display: block; margin-top: auto; padding: 0.5rem 0 0.25rem; }
+  /* Auto margins split leftover space evenly between sections so sparse days
+     stay balanced; the budget line always lands at the very bottom. */
+  .today-block  { margin-top: auto; }
+  .today-budget { margin-top: auto; text-align: center; }
+  .today-scroll-hint { display: block; margin-top: 0.75rem; padding: 0.5rem 0 0.25rem; }
+  /* No budget line rendered → the hint itself takes the bottom slot */
+  .today-hero + .today-scroll-hint,
+  .today-block + .today-scroll-hint { margin-top: auto; }
   /* Countdown is over once the trip starts — reclaim the space on phones */
   body.today-active .info-countdown,
   body.today-active .info-divider { display: none; }
