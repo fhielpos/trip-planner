@@ -71,22 +71,22 @@ function formatShort(str) {
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 // ── Location colour palette ────────────────────
-// Used when an accommodation entry has no `color` field set.
+// Fallback pool for stays with no `color` field; existing stays carry an
+// explicit color in accommodations.json (the file is sorted by check_in on
+// every write, so index-based colours would shift otherwise).
 
 const PALETTE = [
-  { bg: 'rgba(212,106,90,0.12)',  border: 'rgba(212,106,90,0.38)',  accent: '#d46a5a' }, // 0  coral       Buenos Aires 1
-  { bg: 'rgba(212,106,90,0.12)',  border: 'rgba(212,106,90,0.38)',  accent: '#d46a5a' }, // 1  coral       Buenos Aires 2 ← same color as Buenos Aires 1
-  { bg: 'rgba(200,178,48,0.12)',  border: 'rgba(200,178,48,0.38)',  accent: '#c8b230' }, // 2  golden      París 1 ← same color as París 2
-  { bg: 'rgba(160,96,192,0.12)',  border: 'rgba(160,96,192,0.38)',  accent: '#a060c0' }, // 3  violet      Loutraki
-  { bg: 'rgba(56,160,168,0.12)',  border: 'rgba(56,160,168,0.38)',  accent: '#38a0a8' }, // 4  teal        Viena
-  { bg: 'rgba(208,80,112,0.12)',  border: 'rgba(208,80,112,0.38)',  accent: '#d05070' }, // 5  rose        Salzburgo
-  { bg: 'rgba(120,176,56,0.12)',  border: 'rgba(120,176,56,0.38)',  accent: '#78b038' }, // 6  lime        Múnich
-  { bg: 'rgba(80,96,200,0.12)',   border: 'rgba(80,96,200,0.38)',   accent: '#5060c8' }, // 7  periwinkle  Lauterbrunnen
-  { bg: 'rgba(224,144,64,0.12)',  border: 'rgba(224,144,64,0.38)',  accent: '#e09040' }, // 8  orange      Zermatt
-  { bg: 'rgba(192,80,160,0.12)',  border: 'rgba(192,80,160,0.38)',  accent: '#c050a0' }, // 9  fuchsia     Chamonix
-  { bg: 'rgba(56,168,112,0.12)',  border: 'rgba(56,168,112,0.38)',  accent: '#38a870' }, // 10 emerald     Ámsterdam
-  { bg: 'rgba(106,174,196,0.12)', border: 'rgba(106,174,196,0.38)', accent: '#6aaec4' }, // 11 glacier     Bruselas
-  { bg: 'rgba(200,178,48,0.12)',  border: 'rgba(200,178,48,0.38)',  accent: '#c8b230' }, // 12 golden      París 2 ← same color as París 1
+  { bg: 'rgba(212,106,90,0.12)',  border: 'rgba(212,106,90,0.38)',  accent: '#d46a5a' }, // coral
+  { bg: 'rgba(200,178,48,0.12)',  border: 'rgba(200,178,48,0.38)',  accent: '#c8b230' }, // golden
+  { bg: 'rgba(160,96,192,0.12)',  border: 'rgba(160,96,192,0.38)',  accent: '#a060c0' }, // violet
+  { bg: 'rgba(56,160,168,0.12)',  border: 'rgba(56,160,168,0.38)',  accent: '#38a0a8' }, // teal
+  { bg: 'rgba(208,80,112,0.12)',  border: 'rgba(208,80,112,0.38)',  accent: '#d05070' }, // rose
+  { bg: 'rgba(120,176,56,0.12)',  border: 'rgba(120,176,56,0.38)',  accent: '#78b038' }, // lime
+  { bg: 'rgba(80,96,200,0.12)',   border: 'rgba(80,96,200,0.38)',   accent: '#5060c8' }, // periwinkle
+  { bg: 'rgba(224,144,64,0.12)',  border: 'rgba(224,144,64,0.38)',  accent: '#e09040' }, // orange
+  { bg: 'rgba(192,80,160,0.12)',  border: 'rgba(192,80,160,0.38)',  accent: '#c050a0' }, // fuchsia
+  { bg: 'rgba(56,168,112,0.12)',  border: 'rgba(56,168,112,0.38)',  accent: '#38a870' }, // emerald
+  { bg: 'rgba(106,174,196,0.12)', border: 'rgba(106,174,196,0.38)', accent: '#6aaec4' }, // glacier
 ];
 
 function hexToColour(hex) {
@@ -405,6 +405,8 @@ function renderPlanner() {
 
   // Legend
   renderLegend(accommodations, colorMap);
+
+  if (typeof renderStaysTimeline === 'function') renderStaysTimeline(tripData);
 }
 
 // ── Legend ─────────────────────────────────────
@@ -437,33 +439,58 @@ function renderLegend(accommodations, colorMap) {
 
 const $  = id => document.getElementById(id);
 const modal = {
-  overlay:   $('modal-overlay'),
-  titleEl:   $('modal-title'),
-  form:      $('modal-form'),
-  id:        $('entry-id'),
-  title:     $('entry-title'),
-  date:      $('entry-date'),
-  startDate: $('entry-start-date'),
-  endDate:   $('entry-end-date'),
-  startTime: $('entry-start-time'),
-  endTime:   $('entry-end-time'),
-  address:   $('entry-address'),
-  notes:     $('entry-notes'),
-  singleRow: $('single-date-row'),
-  multiRow:  $('multi-date-row'),
-  deleteBtn: $('btn-delete-entry'),
-  typeSel:   $('type-selector'),
+  overlay:    $('modal-overlay'),
+  titleEl:    $('modal-title'),
+  form:       $('modal-form'),
+  id:         $('entry-id'),
+  title:      $('entry-title'),
+  titleLabel: $('entry-title-label'),
+  date:       $('entry-date'),
+  startDate:  $('entry-start-date'),
+  endDate:    $('entry-end-date'),
+  startTime:  $('entry-start-time'),
+  endTime:    $('entry-end-time'),
+  url:        $('entry-url'),
+  address:    $('entry-address'),
+  notes:      $('entry-notes'),
+  singleRow:  $('single-date-row'),
+  multiRow:   $('multi-date-row'),
+  timeRow:    $('time-row'),
+  urlRow:     $('url-row'),
+  addressRow: $('address-row'),
+  notesRow:   $('notes-row'),
+  deleteBtn:  $('btn-delete-entry'),
+  typeSel:    $('type-selector'),
 };
 
 function getType() {
   return modal.typeSel.querySelector('.type-btn.active')?.dataset.type || 'activity';
 }
 function setType(type) {
+  const isStay = type === 'accommodation';
   modal.typeSel.querySelectorAll('.type-btn').forEach(b =>
     b.classList.toggle('active', b.dataset.type === type)
   );
-  modal.singleRow.hidden = type === 'accommodation';
-  modal.multiRow.hidden  = type !== 'accommodation';
+  modal.singleRow.hidden  = isStay;
+  modal.multiRow.hidden   = !isStay;
+  modal.timeRow.hidden    = isStay;
+  modal.urlRow.hidden     = !isStay;
+  modal.addressRow.hidden = isStay;
+  modal.notesRow.hidden   = isStay;
+  modal.date.required      = !isStay;
+  modal.startDate.required = isStay;
+  modal.endDate.required   = isStay;
+  modal.titleLabel.textContent = t(isStay ? 'modal.cityLabel' : 'modal.titleLabel');
+  modal.title.placeholder      = t(isStay ? 'modal.cityPlaceholder' : 'modal.titlePlaceholder');
+}
+
+// Stays live in accommodations.json, calendar entries in trip.json — an
+// existing entry cannot change store, so lock the type buttons accordingly.
+function lockTypeButtons(kind) {
+  modal.typeSel.querySelectorAll('.type-btn').forEach(b => {
+    const isStayBtn = b.dataset.type === 'accommodation';
+    b.disabled = kind === 'stay' ? !isStayBtn : kind === 'calendar' ? isStayBtn : false;
+  });
 }
 
 modal.typeSel.addEventListener('click', e => {
@@ -474,8 +501,10 @@ modal.typeSel.addEventListener('click', e => {
 function openAddModal(defaultDate) {
   modal.form.reset();
   modal.id.value = '';
+  modal.form.dataset.kind = '';
   modal.titleEl.textContent = t('modal.addTitle');
   modal.deleteBtn.hidden = true;
+  lockTypeButtons('');
   setType('activity');
   if (defaultDate) modal.date.value = defaultDate;
   modal.overlay.hidden = false;
@@ -487,22 +516,46 @@ function openEditModal(id) {
   if (!e) return;
   modal.form.reset();
   modal.id.value = e.id;
+  modal.form.dataset.kind = 'calendar';
   modal.titleEl.textContent = t('modal.editTitle');
   modal.deleteBtn.hidden = false;
+  lockTypeButtons('calendar');
   setType(e.type);
-  modal.title.value   = e.title || '';
-  modal.address.value = e.address || '';
-  modal.notes.value   = e.notes || '';
-  if (e.type === 'accommodation') {
-    modal.startDate.value = e.startDate || '';
-    modal.endDate.value   = e.endDate || '';
-  } else {
-    modal.date.value      = e.date || '';
-    modal.startTime.value = e.startTime || '';
-    modal.endTime.value   = e.endTime || '';
-  }
+  modal.title.value     = e.title || '';
+  modal.address.value   = e.address || '';
+  modal.notes.value     = e.notes || '';
+  modal.date.value      = e.date || '';
+  modal.startTime.value = e.startTime || '';
+  modal.endTime.value   = e.endTime || '';
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
+}
+
+function openStayModal(id) {
+  const a = tripData.accommodations.find(x => x.id === id);
+  if (!a) return;
+  modal.form.reset();
+  modal.id.value = a.id;
+  modal.form.dataset.kind = 'stay';
+  modal.titleEl.textContent = t('modal.editTitle');
+  modal.deleteBtn.hidden = false;
+  lockTypeButtons('stay');
+  setType('accommodation');
+  modal.title.value     = a.city || '';
+  modal.startDate.value = a.check_in || '';
+  modal.endDate.value   = a.check_out || '';
+  modal.url.value       = a.url || '';
+  modal.overlay.hidden = false;
+  setTimeout(() => modal.title.focus(), 50);
+}
+
+// Refetch stays after a write so ordering, colours and derived views stay canonical.
+async function reloadAccommodations() {
+  const r = await fetch('/api/accommodations');
+  tripData.accommodations = await r.json();
+  tripData.colorMap = buildColorMap(tripData.accommodations);
+  renderPlanner();
+  renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
 }
 
 function closeModal() { modal.overlay.hidden = true; }
@@ -518,20 +571,36 @@ modal.form.addEventListener('submit', async e => {
   e.preventDefault();
   const type = getType();
   const id = modal.id.value;
+
+  if (type === 'accommodation') {
+    const payload = {
+      city:      modal.title.value.trim(),
+      check_in:  modal.startDate.value,
+      check_out: modal.endDate.value,
+      url:       modal.url.value.trim() || null,
+    };
+    try {
+      const r = await fetch(id ? `/api/accommodations/${id}` : '/api/accommodations', {
+        method: id ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error();
+      closeModal();
+      await reloadAccommodations();
+    } catch { alert(t('modal.saveFailed')); }
+    return;
+  }
+
   const payload = {
     type,
-    title:   modal.title.value.trim(),
-    address: modal.address.value.trim(),
-    notes:   modal.notes.value.trim(),
+    title:     modal.title.value.trim(),
+    address:   modal.address.value.trim(),
+    notes:     modal.notes.value.trim(),
+    date:      modal.date.value,
+    startTime: modal.startTime.value,
+    endTime:   modal.endTime.value,
   };
-  if (type === 'accommodation') {
-    payload.startDate = modal.startDate.value;
-    payload.endDate   = modal.endDate.value;
-  } else {
-    payload.date      = modal.date.value;
-    payload.startTime = modal.startTime.value;
-    payload.endTime   = modal.endTime.value;
-  }
   try {
     if (id) {
       const r = await fetch(`/api/calendar/${id}`, {
@@ -558,6 +627,13 @@ $('btn-delete-entry').addEventListener('click', async () => {
   const id = modal.id.value;
   if (!id || !confirm(t('modal.confirmDelete'))) return;
   try {
+    if (modal.form.dataset.kind === 'stay') {
+      const r = await fetch(`/api/accommodations/${id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error();
+      closeModal();
+      await reloadAccommodations();
+      return;
+    }
     await fetch(`/api/calendar/${id}`, { method: 'DELETE' });
     tripData.calendar = tripData.calendar.filter(x => x.id !== id);
     closeModal();

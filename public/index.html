@@ -109,6 +109,15 @@
 
   </main>
 
+  <!-- Stays timeline -->
+  <section class="stays-section">
+    <div class="stays-section-inner">
+      <h2 class="stays-section-title" data-i18n="stays.title">Stays</h2>
+      <div id="stays-timeline"></div>
+      <div id="stays-issues"></div>
+    </div>
+  </section>
+
   <!-- Route map -->
   <section class="map-section">
     <div class="map-section-inner">
@@ -263,7 +272,7 @@
           </div>
         </div>
         <div class="form-row">
-          <label for="entry-title"><span data-i18n="modal.titleLabel">Title</span> <span class="required">*</span></label>
+          <label for="entry-title"><span id="entry-title-label" data-i18n="modal.titleLabel">Title</span> <span class="required">*</span></label>
           <input type="text" id="entry-title" data-i18n-placeholder="modal.titlePlaceholder" placeholder="What are you doing?" required />
         </div>
         <div class="form-row" id="single-date-row">
@@ -278,7 +287,7 @@
             <input type="date" id="entry-end-date" />
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row" id="time-row">
           <label data-i18n="modal.timeLabel">Time</label>
           <div class="time-range">
             <input type="time" id="entry-start-time" />
@@ -286,11 +295,15 @@
             <input type="time" id="entry-end-time" />
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row" id="url-row" hidden>
+          <label for="entry-url" data-i18n="modal.urlLabel">Booking link</label>
+          <input type="url" id="entry-url" placeholder="https://…" />
+        </div>
+        <div class="form-row" id="address-row">
           <label for="entry-address" data-i18n="modal.locationLabel">Location</label>
           <input type="text" id="entry-address" data-i18n-placeholder="modal.locationPlaceholder" placeholder="Optional" />
         </div>
-        <div class="form-row">
+        <div class="form-row" id="notes-row">
           <label for="entry-notes" data-i18n="modal.notesLabel">Notes</label>
           <textarea id="entry-notes" rows="3" data-i18n-placeholder="modal.notesPlaceholder" placeholder="Any additional info…"></textarea>
         </div>
@@ -373,6 +386,7 @@
   <script src="/js/i18n.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/timeline.js"></script>
   <script src="/js/map.js"></script>
   <script src="/js/budget.js"></script>
   <script src="/js/wishlist.js"></script>

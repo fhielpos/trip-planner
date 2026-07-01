@@ -191,9 +191,73 @@ app.get('/api/trip', (req, res) => {
   res.json(readData());
 });
 
-// Get accommodations (read from file; edit the JSON directly to change)
+// ── Accommodations ─────────────────────────────
+
+function writeAccommodations(list) {
+  list.sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+  fs.writeFileSync(ACCOM_FILE, JSON.stringify(list, null, 2) + '\n', 'utf8');
+}
+
+function readAccommodations() {
+  const list = JSON.parse(fs.readFileSync(ACCOM_FILE, 'utf8'));
+  // Older files have no ids; assign and persist them once.
+  if (list.some(a => !a.id)) {
+    list.forEach((a, i) => { if (!a.id) a.id = `a${i + 1}`; });
+    writeAccommodations(list);
+  }
+  return list;
+}
+
+function validStayDates(check_in, check_out) {
+  const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  return ok(check_in) && ok(check_out) && check_in < check_out;
+}
+
 app.get('/api/accommodations', (req, res) => {
-  res.json(JSON.parse(fs.readFileSync(ACCOM_FILE, 'utf8')));
+  res.json(readAccommodations());
+});
+
+app.post('/api/accommodations', (req, res) => {
+  const { city, check_in, check_out, country, url, color, lat, lon } = req.body;
+  if (!city || !validStayDates(check_in, check_out)) {
+    return res.status(400).json({ error: 'city, check_in and check_out (check_in < check_out) are required' });
+  }
+  const list = readAccommodations();
+  const stay = {
+    id: 'a' + Date.now(),
+    city: String(city),
+    country: country || '',
+    check_in, check_out,
+    lat: lat ?? null,
+    lon: lon ?? null,
+    color: color || null,
+    url: url || null,
+  };
+  list.push(stay);
+  writeAccommodations(list);
+  res.status(201).json(stay);
+});
+
+app.put('/api/accommodations/:id', (req, res) => {
+  const list = readAccommodations();
+  const idx = list.findIndex(a => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Stay not found' });
+  const merged = { ...list[idx], ...req.body, id: req.params.id };
+  if (!merged.city || !validStayDates(merged.check_in, merged.check_out)) {
+    return res.status(400).json({ error: 'city, check_in and check_out (check_in < check_out) are required' });
+  }
+  list[idx] = merged;
+  writeAccommodations(list);
+  res.json(merged);
+});
+
+app.delete('/api/accommodations/:id', (req, res) => {
+  const list = readAccommodations();
+  const idx = list.findIndex(a => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Stay not found' });
+  list.splice(idx, 1);
+  writeAccommodations(list);
+  res.status(204).end();
 });
 
 // Get flights parsed from flighty.txt export
@@ -468,7 +532,7 @@ app.get('/api/export', (req, res) => {
     trip:           readData(),
     budget:         readBudget(),
     wishlist:       readWishlist(),
-    accommodations: JSON.parse(fs.readFileSync(ACCOM_FILE, 'utf8')),
+    accommodations: readAccommodations(),
     flighty:        fs.readFileSync(FLIGHTY_FILE, 'utf8'),
   };
   res.setHeader('Content-Disposition', `attachment; filename="trip-export-${date}.json"`);
