@@ -20,6 +20,7 @@ async function initBudget(tripData) {
   _budgetTrip = tripData;
   const res = await fetch('/api/budget');
   _budget = await res.json();
+  if (!_budget.subBudgets) _budget.subBudgets = [];
   _renderBudget();
 }
 
@@ -81,6 +82,7 @@ function _cityForDate(dateStr) {
 
 function _renderBudget() {
   _renderStats();
+  _renderSubBudgets();
   _renderCategories();
   _renderEntries();
 }
@@ -151,6 +153,46 @@ function _renderStats() {
       </div>` : ''}
     </div>
   `;
+}
+
+function _renderSubBudgets() {
+  const el = document.getElementById('budget-subbudgets');
+  if (!el) return;
+
+  const subs = _budget.subBudgets || [];
+  if (!subs.length || !_budget.initialBudget) { el.innerHTML = ''; return; }
+
+  const spentByCat = {};
+  for (const e of _budget.entries) {
+    spentByCat[e.category] = (spentByCat[e.category] || 0) + e.amount;
+  }
+
+  const sorted = [...subs].sort(
+    (a, b) => BUDGET_CATEGORIES.indexOf(a.category) - BUDGET_CATEGORIES.indexOf(b.category)
+  );
+
+  const rows = sorted.map(sub => {
+    const spent = spentByCat[sub.category] || 0;
+    const pct   = sub.amount > 0 ? (spent / sub.amount) * 100 : 0;
+    const over  = spent > sub.amount;
+    const color = pct < 75 ? 'var(--c-stay)' : pct < 100 ? 'var(--accent)' : 'var(--c-flight--neg, #e87a7a)';
+    return `
+      <div class="budget-cat-row">
+        <span class="budget-cat-dot" style="background:${BUDGET_CAT_COLORS[sub.category]}"></span>
+        <span class="budget-cat-name">${t('budget.cat.' + sub.category)}</span>
+        <div class="budget-cat-track">
+          <div class="budget-cat-fill" style="width:${Math.min(100, pct).toFixed(1)}%; background:${color}"></div>
+        </div>
+        <span class="budget-cat-amt${over ? ' budget-val--negative' : ''}">${_fmt(spent)} / ${_fmt(sub.amount)}</span>
+        <span class="budget-cat-pct${over ? ' budget-val--negative' : ''}">${pct.toFixed(0)}%</span>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="budget-block">
+      <h3 class="budget-sub-title">${t('budget.sub.title')}</h3>
+      ${rows}
+    </div>`;
 }
 
 function _renderCategories() {
@@ -294,9 +336,33 @@ function _closeExpenseModal() {
 
 // ── Settings modal ─────────────────────────────
 
+function _catOptions(selected) {
+  return BUDGET_CATEGORIES.map(cat =>
+    `<option value="${cat}"${cat === selected ? ' selected' : ''}>${t('budget.cat.' + cat)}</option>`
+  ).join('');
+}
+
+function _addSubBudgetRow(category, amount) {
+  const container = document.getElementById('settings-subbudgets');
+  const row = document.createElement('div');
+  row.className = 'subbudget-edit-row';
+  row.innerHTML = `
+    <select class="form-select subbudget-cat">${_catOptions(category)}</select>
+    <input type="number" class="subbudget-amt" min="0" step="10" placeholder="0" value="${amount != null ? amount : ''}" />
+    <button type="button" class="subbudget-remove" aria-label="remove">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>`;
+  container.appendChild(row);
+}
+
 function _openSettingsModal() {
   document.getElementById('settings-initial-budget').value = _budget.initialBudget || '';
   document.getElementById('settings-currency').value = _budget.currency || 'EUR';
+  const container = document.getElementById('settings-subbudgets');
+  container.innerHTML = '';
+  (_budget.subBudgets || []).forEach(s => _addSubBudgetRow(s.category, s.amount));
   document.getElementById('budget-settings-overlay').hidden = false;
 }
 
@@ -373,11 +439,30 @@ document.getElementById('budget-settings-overlay').addEventListener('click', e =
   if (e.target === document.getElementById('budget-settings-overlay')) _closeSettingsModal();
 });
 
+document.getElementById('btn-add-subbudget').addEventListener('click', () => {
+  const used = [...document.querySelectorAll('#settings-subbudgets .subbudget-cat')].map(s => s.value);
+  const next = BUDGET_CATEGORIES.find(c => !used.includes(c)) || 'other';
+  _addSubBudgetRow(next, null);
+});
+
+document.getElementById('settings-subbudgets').addEventListener('click', e => {
+  const btn = e.target.closest('.subbudget-remove');
+  if (btn) btn.closest('.subbudget-edit-row').remove();
+});
+
 document.getElementById('budget-settings-form').addEventListener('submit', async e => {
   e.preventDefault();
+  const byCat = {};
+  for (const row of document.querySelectorAll('#settings-subbudgets .subbudget-edit-row')) {
+    const category = row.querySelector('.subbudget-cat').value;
+    const amount   = parseFloat(row.querySelector('.subbudget-amt').value);
+    if (amount > 0) byCat[category] = { category, amount };
+  }
+  const subBudgets = Object.values(byCat);
   const payload = {
     initialBudget: parseFloat(document.getElementById('settings-initial-budget').value),
     currency:      document.getElementById('settings-currency').value,
+    subBudgets,
   };
   try {
     const r = await fetch('/api/budget/settings', {

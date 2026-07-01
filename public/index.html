@@ -133,6 +133,7 @@
         </div>
       </div>
       <div id="budget-stats-grid"></div>
+      <div id="budget-subbudgets"></div>
       <div id="budget-categories-bar"></div>
       <div id="budget-entries-list"></div>
     </div>
@@ -214,6 +215,12 @@
             <option value="CHF">CHF (Fr)</option>
             <option value="GBP">GBP (£)</option>
           </select>
+        </div>
+        <div class="form-row">
+          <label data-i18n="budget.sub.label">Sub-budgets per category</label>
+          <p class="form-hint" data-i18n="budget.sub.hint">Set a spending cap for individual categories. Optional.</p>
+          <div id="settings-subbudgets"></div>
+          <button type="button" class="btn-secondary btn-add-sub" id="btn-add-subbudget" data-i18n="budget.sub.add">Add sub-budget</button>
         </div>
         <div class="form-actions">
           <div class="form-actions-right">

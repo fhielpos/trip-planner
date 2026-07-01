@@ -6,7 +6,6 @@
   "dow.fri": "Vie",
   "dow.sat": "Sáb",
   "dow.sun": "Dom",
-
   "info.days": "días",
   "info.hours": "hrs",
   "info.mins": "min",
@@ -19,21 +18,16 @@
   "info.stayUntil": "{city} · hasta {date}",
   "info.nextStay": "Próximo: {city} · {date} · {nights}n",
   "info.noUpcomingStays": "Sin alojamientos próximos",
-
   "planner.add": "Agregar",
   "planner.loading": "Cargando…",
   "planner.failed": "Error al cargar los datos del viaje.",
-
   "chip.checkin": "Check-in: {city}",
   "chip.checkout": "Check-out: {city}",
   "chip.more": "+{n} más",
   "chip.train": "{from}→{to}",
-
   "card.addEvent": "Agregar evento",
-
   "map.title": "Ruta",
   "map.viewReservation": "Ver reserva ↗",
-
   "modal.addTitle": "Agregar Actividad",
   "modal.editTitle": "Editar Entrada",
   "modal.typeLabel": "Tipo",
@@ -56,7 +50,6 @@
   "modal.confirmDelete": "¿Eliminar esta entrada?",
   "modal.saveFailed": "Error al guardar.",
   "modal.deleteFailed": "Error al eliminar.",
-
   "budget.title": "Presupuesto",
   "budget.configure": "Configurar",
   "budget.addEntry": "Agregar gasto",
@@ -76,6 +69,10 @@
   "budget.stats.dailyLeft": "Presupuesto diario restante",
   "budget.stats.projectedLeft": "Proyectado restante",
   "budget.categories.title": "Por categoría",
+  "budget.sub.title": "Sub-presupuestos",
+  "budget.sub.label": "Sub-presupuestos por categoría",
+  "budget.sub.hint": "Define un tope de gasto para categorías individuales. Opcional.",
+  "budget.sub.add": "Agregar sub-presupuesto",
   "budget.cat.food": "Comida",
   "budget.cat.transport": "Transporte",
   "budget.cat.accommodation": "Alojamiento",
@@ -93,7 +90,6 @@
   "budget.entry.descPlaceholder": "¿En qué fue?",
   "budget.entry.city": "Ciudad",
   "budget.entry.confirmDelete": "¿Eliminar este gasto?",
-
   "wishlist.title": "Lista de deseos",
   "wishlist.addItem": "Agregar ítem",
   "wishlist.empty": "Tu lista de deseos está vacía",

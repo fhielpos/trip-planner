@@ -306,6 +306,11 @@ app.put('/api/budget/settings', (req, res) => {
   const b = readBudget();
   if (req.body.initialBudget !== undefined) b.initialBudget = Number(req.body.initialBudget);
   if (req.body.currency)                    b.currency = req.body.currency;
+  if (Array.isArray(req.body.subBudgets)) {
+    b.subBudgets = req.body.subBudgets
+      .filter(s => s && s.category && Number(s.amount) > 0)
+      .map(s => ({ category: s.category, amount: Number(s.amount) }));
+  }
   writeBudget(b);
   res.json(b);
 });

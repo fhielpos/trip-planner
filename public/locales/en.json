@@ -6,7 +6,6 @@
   "dow.fri": "Fri",
   "dow.sat": "Sat",
   "dow.sun": "Sun",
-
   "info.days": "days",
   "info.hours": "hrs",
   "info.mins": "min",
@@ -19,21 +18,16 @@
   "info.stayUntil": "{city} · until {date}",
   "info.nextStay": "Next: {city} · {date} · {nights}n",
   "info.noUpcomingStays": "No upcoming stays",
-
   "planner.add": "Add",
   "planner.loading": "Loading…",
   "planner.failed": "Failed to load trip data.",
-
   "chip.checkin": "Check-in: {city}",
   "chip.checkout": "Check-out: {city}",
   "chip.more": "+{n} more",
   "chip.train": "{from}→{to}",
-
   "card.addEvent": "Add event",
-
   "map.title": "Route",
   "map.viewReservation": "View reservation ↗",
-
   "modal.addTitle": "Add Activity",
   "modal.editTitle": "Edit Entry",
   "modal.typeLabel": "Type",
@@ -56,7 +50,6 @@
   "modal.confirmDelete": "Delete this entry?",
   "modal.saveFailed": "Save failed.",
   "modal.deleteFailed": "Delete failed.",
-
   "budget.title": "Budget",
   "budget.configure": "Configure",
   "budget.addEntry": "Add expense",
@@ -76,6 +69,10 @@
   "budget.stats.dailyLeft": "Daily budget left",
   "budget.stats.projectedLeft": "Projected left",
   "budget.categories.title": "By category",
+  "budget.sub.title": "Sub-budgets",
+  "budget.sub.label": "Sub-budgets per category",
+  "budget.sub.hint": "Set a spending cap for individual categories. Optional.",
+  "budget.sub.add": "Add sub-budget",
   "budget.cat.food": "Food",
   "budget.cat.transport": "Transport",
   "budget.cat.accommodation": "Stay",
@@ -93,7 +90,6 @@
   "budget.entry.descPlaceholder": "What was it for?",
   "budget.entry.city": "City",
   "budget.entry.confirmDelete": "Delete this expense?",
-
   "wishlist.title": "Wishlist",
   "wishlist.addItem": "Add item",
   "wishlist.empty": "Your wishlist is empty",
