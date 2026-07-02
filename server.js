@@ -13,10 +13,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Operator-controlled config, not exposed as a user-facing setting — set
-// RECOMMENDATIONS_ENABLED=false in the environment to turn the whole
-// feature off (endpoint 404s, both "See recommendations" entry points
-// stop rendering). Defaults on.
-const RECOMMENDATIONS_ENABLED = process.env.RECOMMENDATIONS_ENABLED !== 'false';
+// RECOMMENDATIONS_ENABLED=true in the environment to turn the whole
+// feature on (endpoint 404s and both "See recommendations" entry points
+// stay hidden otherwise). Defaults off.
+const RECOMMENDATIONS_ENABLED = process.env.RECOMMENDATIONS_ENABLED === 'true';
 
 if (process.env.APP_PASSWORD) {
   app.use(basicAuth({
