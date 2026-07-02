@@ -175,6 +175,7 @@ function parseFlightyText(text) {
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(path.join(__dirname, 'data', 'images')));
 
 // Read/write a JSON file as a whole document. `fallback` (value or thunk) is
 // used only when the file doesn't exist, so trip.json — which always ships

@@ -1584,7 +1584,27 @@ body {
   border-bottom: 1px solid var(--border);
   background:
     linear-gradient(180deg, var(--today-bg, var(--accent-dim)) 0%, transparent 85%),
+    var(--today-image, none) center / cover no-repeat,
     var(--bg);
+}
+/* Photos are vivid/bright edge-to-edge, not just at the bottom, so the
+   scrim has to darken the whole frame (not fade out at the top like a
+   plain gradient background) and text switches to a fixed light palette
+   instead of the theme's --text-* colors, which assume a page-color bg. */
+.today-section.has-image {
+  background:
+    linear-gradient(180deg, rgba(10,8,6,0.55) 0%, rgba(10,8,6,0.38) 35%, rgba(10,8,6,0.42) 65%, rgba(10,8,6,0.82) 100%),
+    var(--today-image, none) center / cover no-repeat,
+    var(--bg);
+  --today-fg-1: #fbf6ef;
+  --today-fg-2: rgba(251,246,239,0.88);
+  --today-fg-3: rgba(251,246,239,0.72);
+}
+.today-section.has-image .today-city,
+.today-section.has-image .today-sub,
+.today-section.has-image .today-block-title,
+.today-section.has-image .today-row {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.85), 0 1px 10px rgba(0,0,0,0.4);
 }
 .today-inner {
   max-width: 1300px;
@@ -1611,12 +1631,12 @@ body {
   font-size: 2.4rem;
   font-weight: 700;
   line-height: 1.05;
-  color: var(--text-1);
+  color: var(--today-fg-1, var(--text-1));
 }
 .today-sub {
   margin-top: 0.3rem;
   font-size: 0.85rem;
-  color: var(--text-2);
+  color: var(--today-fg-2, var(--text-2));
 }
 .today-sub::first-letter { text-transform: uppercase; }
 .today-lastnight {
@@ -1626,11 +1646,13 @@ body {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--today-accent, var(--accent));
+  color: var(--today-fg-1, var(--today-accent, var(--accent)));
+  background: var(--today-lastnight-bg, transparent);
   border: 1px solid var(--today-accent, var(--accent));
   border-radius: 999px;
   padding: 0.15rem 0.6rem;
 }
+.today-section.has-image .today-lastnight { --today-lastnight-bg: rgba(10,8,6,0.45); }
 
 .today-block { margin-top: 1.25rem; }
 .today-block-title {
@@ -1639,7 +1661,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--today-fg-3, var(--text-3));
   margin-bottom: 0.4rem;
 }
 
@@ -1649,7 +1671,7 @@ body {
   gap: 0.55rem;
   padding: 0.28rem 0;
   font-size: 0.9rem;
-  color: var(--text-1);
+  color: var(--today-fg-1, var(--text-1));
 }
 .today-row-icon { flex-shrink: 0; }
 .today-row-label { min-width: 0; }
@@ -1658,12 +1680,13 @@ body {
   text-decoration: none;
   font-size: 0.85rem;
 }
+.today-section.has-image .today-row-link { text-shadow: 0 1px 2px rgba(0,0,0,0.85); }
 .today-row--act { cursor: pointer; }
 .today-row--act:hover .today-row-label { color: var(--today-accent, var(--accent)); }
 .today-row--backup {
   cursor: pointer;
   font-size: 0.78rem;
-  color: var(--text-3);
+  color: var(--today-fg-3, var(--text-3));
   padding-left: 1.3rem;
 }
 
@@ -1672,20 +1695,24 @@ body {
   margin-top: 1.25rem;
   font: inherit;
   font-size: 0.85rem;
-  color: var(--text-2);
-  background: none;
-  border: 1px solid var(--border);
+  color: var(--today-fg-2, var(--text-2));
+  background: var(--today-budget-bg, none);
+  border: 1px solid var(--today-budget-border, var(--border));
   border-radius: var(--radius);
   padding: 0.45rem 0.75rem;
   cursor: pointer;
 }
-.today-budget:hover { color: var(--text-1); border-color: var(--text-3); }
+.today-section.has-image .today-budget {
+  --today-budget-bg: rgba(10,8,6,0.4);
+  --today-budget-border: rgba(251,246,239,0.35);
+}
+.today-budget:hover { color: var(--today-fg-1, var(--text-1)); border-color: var(--today-fg-3, var(--text-3)); }
 
 .today-scroll-hint {
   display: none;
   background: none;
   border: none;
-  color: var(--text-3);
+  color: var(--today-fg-3, var(--text-3));
   font-size: 1.4rem;
   cursor: pointer;
   text-align: center;

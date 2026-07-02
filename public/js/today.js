@@ -73,6 +73,12 @@ function renderToday(data) {
   section.style.setProperty('--today-accent', colour?.accent || 'var(--accent)');
   section.style.setProperty('--today-bg', colour?.bg || 'var(--accent-dim)');
 
+  // No active stay only happens on a checkout day with no same-day check-in
+  // (the final day of the trip) — fall back to the departing stay's image.
+  const imageStay = stay || (data.accommodations || []).find(a => a.check_out === today);
+  section.style.setProperty('--today-image', imageStay?.image ? `url(/images/${imageStay.image})` : 'none');
+  section.classList.toggle('has-image', Boolean(imageStay?.image));
+
   const dayNum = Math.round((parseLocal(today) - parseLocal(data.trip.startDate)) / 86400000) + 1;
   const totalDays = Math.round((parseLocal(data.trip.endDate) - parseLocal(data.trip.startDate)) / 86400000) + 1;
   const dateLabel = parseLocal(today).toLocaleDateString(getDateLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
