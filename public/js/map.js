@@ -7,21 +7,24 @@ let _lastFlights = null;
 let _lastTrains  = null;
 let _lastAccommodations = null;
 let _lastAirports = null;
+let _lastCalendar = null;
 
 // Type + leg filters — both start fully on; toggled via the chip bar
 // built into #map-filters. See docs/superpowers/specs/
-// 2026-07-02-map-filters-and-data-driven-airports-design.md.
+// 2026-07-02-map-filters-and-data-driven-airports-design.md and
+// 2026-07-02-attraction-recommendations-design.md (the "place" type).
 const _filters = {
-  types: { flight: true, train: true, stay: true },
+  types: { flight: true, train: true, stay: true, place: true },
   legs:  { outbound: true, europe: true, return: true },
 };
 
-function renderMap(flights, trains, accommodations, airports) {
+function renderMap(flights, trains, accommodations, airports, calendarEntries) {
   _lastFlights = flights;
   _lastTrains  = trains;
   _lastAccommodations = accommodations;
   _lastAirports = airports;
-  _buildMap(flights, trains, accommodations, airports);
+  _lastCalendar = calendarEntries;
+  _buildMap(flights, trains, accommodations, airports, calendarEntries);
 }
 
 function _tileUrl() {
@@ -67,10 +70,10 @@ function _trainPoints(lat1, lon1, lat2, lon2, n) {
 }
 
 function _pinIcon(type) {
-  const bg   = type === 'flight'
-    ? _cssVar('--accent', '#d49258')
-    : _cssVar('--c-train', '#5fa88e');
-  const glyph = type === 'flight' ? '✈' : '⊛';
+  const bg = type === 'flight' ? _cssVar('--accent', '#d49258')
+    : type === 'train' ? _cssVar('--c-train', '#5fa88e')
+    : _cssVar('--c-activity', '#d8b47a');
+  const glyph = type === 'flight' ? '✈' : type === 'train' ? '⊛' : '★';
   return L.divIcon({
     className: '',
     html: `<div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div>`,
@@ -156,6 +159,8 @@ function _buildFilterBar() {
     `<span class="map-filter-swatch-line map-filter-swatch-line--train"></span><span>${t('map.legendTrain')}</span>`));
   typeRow.appendChild(_chip('type', 'stay', _filters.types,
     `<span class="map-filter-swatch-dot"></span><span>${t('map.legendStay')}</span>`));
+  typeRow.appendChild(_chip('type', 'place', _filters.types,
+    `<span class="map-filter-swatch-dot map-filter-swatch-dot--place"></span><span>${t('map.legendPlace')}</span>`));
 
   const legRow = document.createElement('div');
   legRow.className = 'map-filter-row';
@@ -170,12 +175,12 @@ function _buildFilterBar() {
     btn.addEventListener('click', () => {
       const group = btn.dataset.kind === 'type' ? _filters.types : _filters.legs;
       group[btn.dataset.value] = !group[btn.dataset.value];
-      _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports);
+      _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar);
     });
   });
 }
 
-function _buildMap(flights, trains, accommodations, airports) {
+function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   const container = document.getElementById('trip-map');
   if (!container || typeof L === 'undefined') return;
 
@@ -298,6 +303,22 @@ function _buildMap(flights, trains, accommodations, airports) {
       `));
   }
 
+  // ── Place pins (scheduled activities that carry coordinates) ──
+  if (_filters.types.place) {
+    for (const entry of (calendarEntries || [])) {
+      if (entry.lat == null || entry.lon == null) continue;
+      if (!_filters.legs[_legFor(entry.date, windows)]) continue;
+
+      L.marker([entry.lat, entry.lon], { icon: _pinIcon('place') })
+        .addTo(_map)
+        .bindPopup(L.popup({ className: 'map-popup', minWidth: 160 }).setContent(`
+          <div class="map-popup-city">${entry.title}</div>
+          <div class="map-popup-sub">${entry.date}</div>
+        `));
+      allCoords.push([entry.lat, entry.lon]);
+    }
+  }
+
   // Fit to European portion — South America would shrink the view to world scale
   const euCoords = allCoords.filter(([lat]) => lat > 35);
   const fitCoords = euCoords.length ? euCoords : allCoords;
@@ -312,6 +333,6 @@ function _buildMap(flights, trains, accommodations, airports) {
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
   if (_lastFlights || _lastTrains) {
-    requestAnimationFrame(() => _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports));
+    requestAnimationFrame(() => _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar));
   }
 });

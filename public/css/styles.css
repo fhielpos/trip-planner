@@ -877,6 +877,7 @@ body {
   background: var(--accent);
   flex-shrink: 0;
 }
+.map-filter-swatch-dot--place { background: var(--c-activity); }
 
 /* Marker pin */
 .map-pin {
