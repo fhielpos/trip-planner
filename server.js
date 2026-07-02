@@ -119,10 +119,8 @@ function parseFlightyText(text) {
     const fromCity = routeParts?.[0]?.trim() || '';
     const toCity   = routeParts?.[1]?.trim() || '';
 
-    // Direction: classify by home airports; ambiguous legs resolved below
-    let direction = 'connection';
-    if (HOME_AIRPORTS.has(fromCode)) direction = 'outbound';
-    else if (HOME_AIRPORTS.has(toCode)) direction = 'return';
+    // Placeholder — every flight gets reclassified by the midpoint pass below.
+    const direction = 'connection';
 
     flights.push({
       id: `f${flights.length + 1}`,
@@ -178,12 +176,50 @@ function parseFlightyText(text) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Read/write a JSON file as a whole document. `fallback` (value or thunk) is
+// used only when the file doesn't exist, so trip.json — which always ships
+// with the repo — behaves exactly as before (crash if missing).
+function jsonStore(file, fallback) {
+  return {
+    read() {
+      if (fallback !== undefined && !fs.existsSync(file)) {
+        return typeof fallback === 'function' ? fallback() : fallback;
+      }
+      return JSON.parse(fs.readFileSync(file, 'utf8'));
+    },
+    write(data) {
+      fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
+    },
+  };
+}
+
+// Merge `patch` into the list item with the given id; returns the updated
+// item, or null if no item has that id.
+function mergeById(list, id, patch) {
+  const idx = list.findIndex(item => item.id === id);
+  if (idx === -1) return null;
+  list[idx] = { ...list[idx], ...patch, id };
+  return list[idx];
+}
+
+// Remove the list item with the given id; returns whether one was removed.
+function removeById(list, id) {
+  const idx = list.findIndex(item => item.id === id);
+  if (idx === -1) return false;
+  list.splice(idx, 1);
+  return true;
+}
+
+const tripStore = jsonStore(DATA_FILE);
+
 function readData() {
-  return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  const data = tripStore.read();
+  if (!data.trains) data.trains = [];
+  return data;
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  tripStore.write(data);
 }
 
 // Get all trip data
@@ -193,13 +229,15 @@ app.get('/api/trip', (req, res) => {
 
 // ── Accommodations ─────────────────────────────
 
+const accomStore = jsonStore(ACCOM_FILE);
+
 function writeAccommodations(list) {
   list.sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
-  fs.writeFileSync(ACCOM_FILE, JSON.stringify(list, null, 2) + '\n', 'utf8');
+  accomStore.write(list);
 }
 
 function readAccommodations() {
-  const list = JSON.parse(fs.readFileSync(ACCOM_FILE, 'utf8'));
+  const list = accomStore.read();
   // Older files have no ids; assign and persist them once.
   if (list.some(a => !a.id)) {
     list.forEach((a, i) => { if (!a.id) a.id = `a${i + 1}`; });
@@ -253,17 +291,16 @@ app.put('/api/accommodations/:id', (req, res) => {
 
 app.delete('/api/accommodations/:id', (req, res) => {
   const list = readAccommodations();
-  const idx = list.findIndex(a => a.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Stay not found' });
-  list.splice(idx, 1);
+  if (!removeById(list, req.params.id)) return res.status(404).json({ error: 'Stay not found' });
   writeAccommodations(list);
   res.status(204).end();
 });
 
-// Get flights parsed from flighty.txt export
+// Flights parsed from the flighty.txt export — the file is static at
+// runtime (nothing ever writes to it), so parse it once instead of per request.
+const FLIGHTS = parseFlightyText(fs.readFileSync(FLIGHTY_FILE, 'utf8'));
 app.get('/api/flights', (req, res) => {
-  const text = fs.readFileSync(FLIGHTY_FILE, 'utf8');
-  res.json(parseFlightyText(text));
+  res.json(FLIGHTS);
 });
 
 // Update trip info
@@ -289,19 +326,16 @@ app.post('/api/calendar', (req, res) => {
 // Update a calendar entry
 app.put('/api/calendar/:id', (req, res) => {
   const data = readData();
-  const idx = data.calendar.findIndex(e => e.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Entry not found' });
-  data.calendar[idx] = { ...data.calendar[idx], ...req.body };
+  const updated = mergeById(data.calendar, req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Entry not found' });
   writeData(data);
-  res.json(data.calendar[idx]);
+  res.json(updated);
 });
 
 // Delete a calendar entry
 app.delete('/api/calendar/:id', (req, res) => {
   const data = readData();
-  const idx = data.calendar.findIndex(e => e.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Entry not found' });
-  data.calendar.splice(idx, 1);
+  if (!removeById(data.calendar, req.params.id)) return res.status(404).json({ error: 'Entry not found' });
   writeData(data);
   res.status(204).end();
 });
@@ -309,23 +343,20 @@ app.delete('/api/calendar/:id', (req, res) => {
 // Update a flight
 app.put('/api/flights/:id', (req, res) => {
   const data = readData();
-  const idx = data.flights.findIndex(f => f.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Flight not found' });
-  data.flights[idx] = { ...data.flights[idx], ...req.body };
+  const updated = mergeById(data.flights, req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Flight not found' });
   writeData(data);
-  res.json(data.flights[idx]);
+  res.json(updated);
 });
 
 // ── Trains ─────────────────────────────────────
 
 app.get('/api/trains', (req, res) => {
-  const data = readData();
-  res.json(data.trains || []);
+  res.json(readData().trains);
 });
 
 app.post('/api/trains', (req, res) => {
   const data = readData();
-  if (!data.trains) data.trains = [];
   const train = { id: 't' + Date.now(), ...req.body };
   data.trains.push(train);
   writeData(data);
@@ -334,33 +365,24 @@ app.post('/api/trains', (req, res) => {
 
 app.put('/api/trains/:id', (req, res) => {
   const data = readData();
-  if (!data.trains) data.trains = [];
-  const idx = data.trains.findIndex(t => t.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Train not found' });
-  data.trains[idx] = { ...data.trains[idx], ...req.body };
+  const updated = mergeById(data.trains, req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'Train not found' });
   writeData(data);
-  res.json(data.trains[idx]);
+  res.json(updated);
 });
 
 app.delete('/api/trains/:id', (req, res) => {
   const data = readData();
-  if (!data.trains) data.trains = [];
-  const idx = data.trains.findIndex(t => t.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'Train not found' });
-  data.trains.splice(idx, 1);
+  if (!removeById(data.trains, req.params.id)) return res.status(404).json({ error: 'Train not found' });
   writeData(data);
   res.status(204).end();
 });
 
 // ── Budget ─────────────────────────────────────
 
-function readBudget() {
-  if (!fs.existsSync(BUDGET_FILE)) return { initialBudget: 0, currency: 'EUR', entries: [] };
-  return JSON.parse(fs.readFileSync(BUDGET_FILE, 'utf8'));
-}
-function writeBudget(data) {
-  fs.writeFileSync(BUDGET_FILE, JSON.stringify(data, null, 2));
-}
+const budgetStore = jsonStore(BUDGET_FILE, () => ({ initialBudget: 0, currency: 'EUR', entries: [] }));
+function readBudget()       { return budgetStore.read(); }
+function writeBudget(data)  { budgetStore.write(data); }
 
 app.get('/api/budget', (req, res) => {
   res.json(readBudget());
@@ -401,11 +423,10 @@ app.post('/api/budget/entries', (req, res) => {
 
 app.put('/api/budget/entries/:id', (req, res) => {
   const b = readBudget();
-  const idx = b.entries.findIndex(e => e.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
-  b.entries[idx] = { ...b.entries[idx], ...req.body, id: req.params.id, amount: Number(req.body.amount) };
+  const updated = mergeById(b.entries, req.params.id, { ...req.body, amount: Number(req.body.amount) });
+  if (!updated) return res.status(404).json({ error: 'not found' });
   writeBudget(b);
-  res.json(b.entries[idx]);
+  res.json(updated);
 });
 
 app.delete('/api/budget/entries/:id', (req, res) => {
@@ -417,13 +438,9 @@ app.delete('/api/budget/entries/:id', (req, res) => {
 
 // ── Wishlist ────────────────────────────────────
 
-function readWishlist() {
-  if (!fs.existsSync(WISHLIST_FILE)) return { items: [] };
-  return JSON.parse(fs.readFileSync(WISHLIST_FILE, 'utf8'));
-}
-function writeWishlist(data) {
-  fs.writeFileSync(WISHLIST_FILE, JSON.stringify(data, null, 2));
-}
+const wishlistStore = jsonStore(WISHLIST_FILE, () => ({ items: [] }));
+function readWishlist()      { return wishlistStore.read(); }
+function writeWishlist(data) { wishlistStore.write(data); }
 
 app.get('/api/wishlist', (req, res) => res.json(readWishlist()));
 
@@ -442,12 +459,11 @@ app.post('/api/wishlist', (req, res) => {
 
 app.put('/api/wishlist/:id', (req, res) => {
   const w = readWishlist();
-  const idx = w.items.findIndex(i => i.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: 'not found' });
-  w.items[idx] = { ...w.items[idx], ...req.body, id: req.params.id };
-  if (req.body.price !== undefined) w.items[idx].price = Number(req.body.price);
+  const updated = mergeById(w.items, req.params.id, req.body);
+  if (!updated) return res.status(404).json({ error: 'not found' });
+  if (req.body.price !== undefined) updated.price = Number(req.body.price);
   writeWishlist(w);
-  res.json(w.items[idx]);
+  res.json(updated);
 });
 
 app.delete('/api/wishlist/:id', (req, res) => {
@@ -456,6 +472,13 @@ app.delete('/api/wishlist/:id', (req, res) => {
   writeWishlist(w);
   res.sendStatus(204);
 });
+
+// Read a <meta property="X" content="Y"> value, tolerating either attribute order.
+function metaContent(html, property) {
+  return html.match(new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"'<>]+)["']`, 'i'))?.[1]
+      || html.match(new RegExp(`<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']${property}["']`, 'i'))?.[1]
+      || null;
+}
 
 function _decodeHtmlEntities(str) {
   return str
@@ -484,19 +507,13 @@ app.post('/api/wishlist/fetch-url', async (req, res) => {
     }
     const html = await resp.text();
 
-    const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"'<>]+)["']/i)?.[1]
-                 || html.match(/<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']og:title["']/i)?.[1];
+    const ogTitle = metaContent(html, 'og:title');
     const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
     let rawName = _decodeHtmlEntities((ogTitle || titleTag || '').trim());
     rawName = rawName.split(/\s+[|\-–—]\s+/)[0].trim().substring(0, 200);
 
     // 1. Open Graph / meta tags
-    let priceStr =
-      html.match(/<meta[^>]+property=["']og:price:amount["'][^>]+content=["']([^"'<>]+)["']/i)?.[1]
-      || html.match(/<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']og:price:amount["']/i)?.[1]
-      || html.match(/<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"'<>]+)["']/i)?.[1]
-      || html.match(/<meta[^>]+content=["']([^"'<>]+)["'][^>]+property=["']product:price:amount["']/i)?.[1]
-      || null;
+    let priceStr = metaContent(html, 'og:price:amount') || metaContent(html, 'product:price:amount');
 
     // 2. JSON-LD structured data (used by Decathlon, many large retailers)
     if (!priceStr) {

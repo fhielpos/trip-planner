@@ -69,9 +69,7 @@ function renderToday(data) {
   if (!inTrip) { section.innerHTML = ''; return; }
 
   const stay = getActiveStay(data.accommodations || [], today);
-  const colour = stay
-    ? (stay.color ? hexToColour(stay.color) : (data.colorMap?.[stay.check_in] ?? null))
-    : null;
+  const colour = stay ? (data.colorMap?.[stay.check_in] ?? null) : null;
   section.style.setProperty('--today-accent', colour?.accent || 'var(--accent)');
   section.style.setProperty('--today-bg', colour?.bg || 'var(--accent-dim)');
 

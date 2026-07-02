@@ -39,13 +39,8 @@ function _cssVar(name, fallback) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
-// Quadratic bezier — high arc for long-haul flights on a Mercator map
-function _curvedPoints(lat1, lon1, lat2, lon2, n, curveDown = false) {
-  const dLon = lon2 - lon1;
-  const dLat = lat2 - lat1;
-  const sign = curveDown ? -1 : 1;
-  const ctrlLat = (lat1 + lat2) / 2 + sign * (Math.abs(dLon) * 0.45 + Math.abs(dLat) * 0.18);
-  const ctrlLon = (lon1 + lon2) / 2;
+// Quadratic bezier sampled at n+1 points, given an explicit control point.
+function _bezierPoints(lat1, lon1, ctrlLat, ctrlLon, lat2, lon2, n) {
   const pts = [];
   for (let i = 0; i <= n; i++) {
     const t = i / n, u = 1 - t;
@@ -57,20 +52,22 @@ function _curvedPoints(lat1, lon1, lat2, lon2, n, curveDown = false) {
   return pts;
 }
 
+// High arc for long-haul flights on a Mercator map
+function _curvedPoints(lat1, lon1, lat2, lon2, n, curveDown = false) {
+  const dLon = lon2 - lon1;
+  const dLat = lat2 - lat1;
+  const sign = curveDown ? -1 : 1;
+  const ctrlLat = (lat1 + lat2) / 2 + sign * (Math.abs(dLon) * 0.45 + Math.abs(dLat) * 0.18);
+  const ctrlLon = (lon1 + lon2) / 2;
+  return _bezierPoints(lat1, lon1, ctrlLat, ctrlLon, lat2, lon2, n);
+}
+
 // Gentle arc for trains — much less curvature than flights
 function _trainPoints(lat1, lon1, lat2, lon2, n) {
   const dist = Math.abs(lat2 - lat1) + Math.abs(lon2 - lon1);
   const ctrlLat = (lat1 + lat2) / 2 + dist * 0.06;
   const ctrlLon = (lon1 + lon2) / 2;
-  const pts = [];
-  for (let i = 0; i <= n; i++) {
-    const t = i / n, u = 1 - t;
-    pts.push([
-      u * u * lat1 + 2 * u * t * ctrlLat + t * t * lat2,
-      u * u * lon1 + 2 * u * t * ctrlLon + t * t * lon2,
-    ]);
-  }
-  return pts;
+  return _bezierPoints(lat1, lon1, ctrlLat, ctrlLon, lat2, lon2, n);
 }
 
 function _pinIcon(type) {
@@ -187,11 +184,5 @@ function _buildMap(flights, trains) {
 document.getElementById('theme-toggle').addEventListener('click', () => {
   if (_lastFlights || _lastTrains) {
     requestAnimationFrame(() => _buildMap(_lastFlights, _lastTrains));
-  }
-});
-
-document.addEventListener('langchange', () => {
-  if (_lastFlights || _lastTrains) {
-    _buildMap(_lastFlights, _lastTrains);
   }
 });

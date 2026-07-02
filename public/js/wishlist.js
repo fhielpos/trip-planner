@@ -11,17 +11,6 @@ async function initWishlist() {
   _renderWishlist();
 }
 
-function _fmtWishlistPrice(price) {
-  const currency = getBudgetCurrency?.() || 'EUR';
-  try {
-    return new Intl.NumberFormat(getDateLocale(), {
-      style: 'currency', currency, maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return currency + ' ' + Math.round(price).toLocaleString();
-  }
-}
-
 function _escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -58,12 +47,12 @@ function _renderWishlist() {
     <div class="wishlist-summary">
       <div class="wishlist-sum-item">
         <span class="wishlist-sum-label">${t('wishlist.total')}</span>
-        <span class="wishlist-sum-val">${_fmtWishlistPrice(total)}</span>
+        <span class="wishlist-sum-val">${formatCurrency(total)}</span>
       </div>
       ${allImpact !== null ? `
       <div class="wishlist-sum-item">
         <span class="wishlist-sum-label">${t('wishlist.ifAllBought')}</span>
-        <span class="wishlist-sum-val wishlist-impact--${allImpactClass}">${_fmtWishlistPrice(allImpact)}</span>
+        <span class="wishlist-sum-val wishlist-impact--${allImpactClass}">${formatCurrency(allImpact)}</span>
       </div>` : ''}
       <span class="wishlist-sum-count">${countLabel}</span>
     </div>`;
@@ -101,7 +90,7 @@ function _renderWishlist() {
     const impact = (remaining !== null && item.price > 0) ? remaining - item.price : null;
     const impactClass = impact === null ? '' : impact >= 0 ? 'positive' : 'negative';
     const impactHtml = impact !== null
-      ? `<span class="wishlist-impact wishlist-impact--${impactClass}">${_fmtWishlistPrice(impact)} ${t('wishlist.ifBought')}</span>`
+      ? `<span class="wishlist-impact wishlist-impact--${impactClass}">${formatCurrency(impact)} ${t('wishlist.ifBought')}</span>`
       : '';
     const linkHtml = item.url
       ? `<a class="wishlist-link" href="${_escHtml(item.url)}" target="_blank" rel="noopener noreferrer">↗</a>`
@@ -118,7 +107,7 @@ function _renderWishlist() {
           ${impactHtml}
         </div>
         <div class="wishlist-item-actions">
-          <span class="wishlist-item-price">${item.price > 0 ? _fmtWishlistPrice(item.price) : '—'}</span>
+          <span class="wishlist-item-price">${item.price > 0 ? formatCurrency(item.price) : '—'}</span>
           <button class="wishlist-buy-btn" data-id="${item.id}" title="${t('wishlist.markBought')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12"/>

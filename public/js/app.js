@@ -124,11 +124,6 @@ function getActiveStay(accommodations, dayStr) {
   return accommodations.find(a => a.check_in <= dayStr && a.check_out > dayStr) || null;
 }
 
-// City name from accommodation entry
-function locationLabel(stay) {
-  return stay ? stay.city : '';
-}
-
 // ── Route Strip ────────────────────────────────
 
 function renderRouteStrip(flights) {
@@ -149,17 +144,24 @@ function renderRouteStrip(flights) {
 
 // ── Info Bar ───────────────────────────────────
 
-function renderInfoBar(trip, flights, calendar, accommodations) {
+function renderInfoBar() {
+  const { flights, accommodations } = tripData;
+
   // Countdown to first outbound departure
   const first = flights.find(f => f.direction === 'outbound') || flights[0];
   if (first) {
     const dep = parseDatetime(first.departureDate, first.departureTime || '00:00');
+    const segsEl = document.getElementById('cd-segments');
+    const subEl  = document.getElementById('cd-sub');
+    const daysEl = document.getElementById('cd-days');
+    const hrsEl  = document.getElementById('cd-hours');
+    const minEl  = document.getElementById('cd-mins');
+    const secEl  = document.getElementById('cd-secs');
     function tick() {
       const diff = dep - Date.now();
       if (diff <= 0) {
-        const segs = document.getElementById('cd-segments');
-        if (segs) segs.hidden = true;
-        document.getElementById('cd-sub').textContent = t('info.departed');
+        if (segsEl) segsEl.hidden = true;
+        subEl.textContent = t('info.departed');
         clearInterval(countdownInterval);
         return;
       }
@@ -168,12 +170,11 @@ function renderInfoBar(trip, flights, calendar, accommodations) {
       const h = Math.floor((s % 86400) / 3600);
       const m = Math.floor((s % 3600) / 60);
       const sc = s % 60;
-      document.getElementById('cd-days').textContent = d;
-      document.getElementById('cd-hours').textContent = pad2(h);
-      document.getElementById('cd-mins').textContent = pad2(m);
-      document.getElementById('cd-secs').textContent = pad2(sc);
-      document.getElementById('cd-sub').textContent =
-        t('info.toFlight', { airport: first.from });
+      daysEl.textContent = d;
+      hrsEl.textContent  = pad2(h);
+      minEl.textContent  = pad2(m);
+      secEl.textContent  = pad2(sc);
+      subEl.textContent  = t('info.toFlight', { airport: first.from });
     }
     if (countdownInterval) clearInterval(countdownInterval);
     tick();
@@ -224,12 +225,12 @@ function renderInfoBar(trip, flights, calendar, accommodations) {
 // ── Planner helpers ────────────────────────────
 
 const CHIPS_MAX = 4;
+let chipsByDate = {}; // dayStr → chips[], rebuilt each renderPlanner()
 
 function renderChips(container, chips, max) {
   container.innerHTML = '';
-  const count = max === Infinity ? chips.length : Math.min(chips.length, max);
-  for (let i = 0; i < count; i++) {
-    const c = chips[i];
+  const shown = chips.slice(0, max);
+  for (const c of shown) {
     const el = document.createElement('span');
     el.className = `chip chip--${c.type}`;
     el.textContent = c.label;
@@ -238,17 +239,17 @@ function renderChips(container, chips, max) {
     if (c.url) el.dataset.url = c.url;
     container.appendChild(el);
   }
-  if (max !== Infinity && chips.length > max) {
+  if (chips.length > shown.length) {
     const m = document.createElement('span');
     m.className = 'chip chip--more';
-    m.textContent = t('chip.more', { n: chips.length - max });
+    m.textContent = t('chip.more', { n: chips.length - shown.length });
     container.appendChild(m);
   }
 }
 
 function toggleCardExpand(card, expand) {
   const chipsEl = card.querySelector('.day-chips');
-  const chips = JSON.parse(card.dataset.chips || '[]');
+  const chips = chipsByDate[card.dataset.date] || [];
   let addBtn = card.querySelector('.day-add-btn');
 
   if (expand) {
@@ -274,8 +275,8 @@ function toggleCardExpand(card, expand) {
 // ── Planner Grid ───────────────────────────────
 
 function renderPlanner() {
-  const { trip, flights, calendar, accommodations } = tripData;
-  const colorMap = tripData.colorMap || buildColorMap(accommodations);
+  const { trip, flights, calendar, accommodations, colorMap } = tripData;
+  chipsByDate = {};
 
   // Span full weeks containing trip start and end
   const gridStart = mondayOf(trip.startDate);
@@ -322,15 +323,15 @@ function renderPlanner() {
     // Flights departing today
     for (const f of flights) {
       if (f.departureDate !== dayStr) continue;
-      const t = f.departureTime ? ` ${formatTime(f.departureTime)}` : '';
-      chips.push({ type: 'flight', label: `${f.flightNumber} ${f.from}→${f.to}${t}`, id: null, url: f.flightyUrl || null });
+      const time = f.departureTime ? ` ${formatTime(f.departureTime)}` : '';
+      chips.push({ type: 'flight', label: `${f.flightNumber} ${f.from}→${f.to}${time}`, id: null, url: f.flightyUrl || null });
     }
 
     // Trains departing today
-    for (const tr of (tripData.trains || [])) {
+    for (const tr of tripData.trains) {
       if (tr.departureDate !== dayStr) continue;
-      const t = tr.departureTime ? ` ${formatTime(tr.departureTime)}` : '';
-      chips.push({ type: 'train', label: `${tr.fromCity}→${tr.toCity}${t}`, id: null });
+      const time = tr.departureTime ? ` ${formatTime(tr.departureTime)}` : '';
+      chips.push({ type: 'train', label: `${tr.fromCity}→${tr.toCity}${time}`, id: null });
     }
 
     // Accommodation check-in / check-out (from accommodations.json)
@@ -344,8 +345,8 @@ function renderPlanner() {
 
     // Events & activities
     for (const e of (calByDate[dayStr] || [])) {
-      const t = e.startTime ? ` ${formatTime(e.startTime)}` : '';
-      chips.push({ type: e.type, label: `${e.title}${t}`, id: e.id });
+      const time = e.startTime ? ` ${formatTime(e.startTime)}` : '';
+      chips.push({ type: e.type, label: `${e.title}${time}`, id: e.id });
     }
 
     // Card element
@@ -353,7 +354,7 @@ function renderPlanner() {
     const isPast = inTrip && dayStr < today;
     card.className = `day-card${isToday ? ' is-today' : ''}${!inTrip ? ' out-of-trip' : ''}${isPast ? ' is-past' : ''}`;
     card.dataset.date = dayStr;
-    card.dataset.chips = JSON.stringify(chips);
+    chipsByDate[dayStr] = chips;
 
     if (colour && inTrip) {
       card.style.setProperty('--day-bg',     colour.bg);
@@ -384,7 +385,7 @@ function renderPlanner() {
     if (stay && colour) {
       const loc = document.createElement('div');
       loc.className = 'day-location';
-      loc.textContent = locationLabel(stay);
+      loc.textContent = stay.city;
       card.appendChild(loc);
     }
 
@@ -566,7 +567,7 @@ async function reloadAccommodations() {
   tripData.accommodations = await r.json();
   tripData.colorMap = buildColorMap(tripData.accommodations);
   renderPlanner();
-  renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
+  renderInfoBar();
 }
 
 function closeModal() { modal.overlay.hidden = true; }
@@ -630,7 +631,7 @@ modal.form.addEventListener('submit', async e => {
     }
     closeModal();
     renderPlanner();
-    renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
+    renderInfoBar();
   } catch { alert(t('modal.saveFailed')); }
 });
 
@@ -649,7 +650,7 @@ $('btn-delete-entry').addEventListener('click', async () => {
     tripData.calendar = tripData.calendar.filter(x => x.id !== id);
     closeModal();
     renderPlanner();
-    renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
+    renderInfoBar();
   } catch { alert(t('modal.deleteFailed')); }
 });
 
@@ -666,22 +667,22 @@ $('btn-add-activity').addEventListener('click', () => {
 async function init() {
   await initI18n();
   try {
-    const [tripRes, accomRes, flightsRes, trainsRes] = await Promise.all([
+    // /api/trip already includes trains; only accommodations and the
+    // freshly-parsed flighty.txt flights need their own requests.
+    const [tripRes, accomRes, flightsRes] = await Promise.all([
       fetch('/api/trip'),
       fetch('/api/accommodations'),
       fetch('/api/flights'),
-      fetch('/api/trains'),
     ]);
     tripData = await tripRes.json();
     tripData.accommodations = await accomRes.json();
     tripData.flights = await flightsRes.json();
-    tripData.trains  = await trainsRes.json();
     tripData.colorMap = buildColorMap(tripData.accommodations);
     document.getElementById('trip-name').textContent = tripData.trip.name;
     document.getElementById('trip-destination').textContent = tripData.trip.destination;
     document.title = tripData.trip.name;
     renderRouteStrip(tripData.flights);
-    renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
+    renderInfoBar();
     renderPlanner();
     if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains);
     if (typeof initBudget    === 'function') initBudget(tripData);
@@ -695,7 +696,7 @@ async function init() {
 document.addEventListener('langchange', () => {
   if (!tripData) return;
   renderPlanner();
-  renderInfoBar(tripData.trip, tripData.flights, tripData.calendar, tripData.accommodations);
+  renderInfoBar();
 });
 
 init();

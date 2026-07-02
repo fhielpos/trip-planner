@@ -96,9 +96,7 @@ function _computeStats() {
 }
 
 function _cityForDate(dateStr) {
-  if (!_budgetTrip?.accommodations) return '';
-  const stay = _budgetTrip.accommodations.find(a => a.check_in <= dateStr && a.check_out > dateStr);
-  return stay ? stay.city : '';
+  return getActiveStay(_budgetTrip?.accommodations || [], dateStr)?.city || '';
 }
 
 // ── Render ─────────────────────────────────────
@@ -594,8 +592,9 @@ function getBudgetCurrency() {
   return _budget?.currency || 'EUR';
 }
 
-function refreshBudget() {
-  if (_budget) _renderBudget();
+// Shared with wishlist.js, which has no currency of its own.
+function formatCurrency(amount) {
+  return _fmt(amount);
 }
 
 // Data for the Today view's budget line (null until budget is loaded/configured)

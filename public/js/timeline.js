@@ -33,10 +33,6 @@ function _nights(start, end) {
   return Math.round((parseLocal(end) - parseLocal(start)) / 86400000);
 }
 
-function _stayColour(stay, index) {
-  return stay.color ? hexToColour(stay.color) : PALETTE[index % PALETTE.length];
-}
-
 // Greedy lane assignment: a stay drops into the first lane it doesn't overlap.
 // Non-overlapping itineraries collapse into a single lane.
 function _assignLanes(stays) {
@@ -108,7 +104,7 @@ function renderStaysTimeline(data) {
   lanes.className = 'tl-lanes';
   lanes.style.setProperty('--tl-lane-count', laneCount);
   placed.forEach(({ stay, lane }, i) => {
-    const colour = _stayColour(stay, i);
+    const colour = data.colorMap?.[stay.check_in] ?? PALETTE[i % PALETTE.length];
     const bar = document.createElement('button');
     bar.type = 'button';
     bar.className = 'tl-bar';

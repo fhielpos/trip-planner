@@ -678,9 +678,8 @@ body {
   .info-countdown { padding: 0.55rem 0.85rem; }
   .info-item { padding: 0.38rem 0.85rem; }
 
-  /* Toolbar: dow headers gone, pin add-btn to the right */
+  /* Toolbar: dow headers gone */
   .dow-headers { display: none; }
-  .planner-toolbar { justify-content: flex-end; }
 
   /* Agenda: single-column, hide out-of-trip padding days */
   .planner-grid { grid-template-columns: 1fr; gap: 4px; }
@@ -822,19 +821,7 @@ body {
 .map-popup .leaflet-popup-content { margin: 0; line-height: 1.4; }
 .map-popup .leaflet-popup-tip    { background: var(--bg-card); }
 .map-popup-city    { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; padding: 0.55rem 0.75rem 0.05rem; color: var(--text-1); }
-.map-popup-country { font-family: var(--font-display); font-size: 0.65rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 0.75rem 0.25rem; }
-.map-popup-dates   { font-family: var(--font-display); font-size: 0.72rem; color: var(--text-2); padding: 0 0.75rem 0.55rem; }
 .map-popup-sub     { font-family: var(--font-display); font-size: 0.70rem; color: var(--text-2); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
-.map-popup-link    {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  color: var(--accent);
-  padding: 0.35rem 0.75rem;
-  border-top: 1px solid var(--border-soft);
-  text-decoration: none;
-}
-.map-popup-link:hover { text-decoration: underline; }
 
 @media (max-width: 640px) {
   #trip-map { height: 300px; }
@@ -1113,9 +1100,7 @@ body {
   color: var(--text-3);
   font-family: var(--font-display);
   font-size: 0.82rem;
-  cursor: pointer;
 }
-.budget-empty:hover { color: var(--accent); }
 
 /* Form additions */
 .form-select {

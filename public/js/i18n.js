@@ -38,8 +38,6 @@ function setLang(lang) {
   document.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
 }
 
-function getLang() { return _lang; }
-
 // Returns the BCP-47 locale string to pass to toLocaleDateString
 function getDateLocale() {
   return _lang === 'es' ? 'es-ES' : 'en-US';
