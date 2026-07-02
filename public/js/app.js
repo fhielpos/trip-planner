@@ -263,12 +263,33 @@ function renderChips(container, chips, max) {
   }
 }
 
+// Day-cards are only ~172px wide in the 7-column desktop grid — far too
+// narrow for a recommendation card's name/category/link/Add button. The
+// panel is appended to <body> instead of the card, positioned to float
+// near the triggering button but clamped to stay on-screen, so it isn't
+// constrained by the card's own width. (Absolute, not fixed, positioning:
+// document-relative coordinates so it scrolls naturally with the page.)
+function _positionFloatingPanel(panel, anchorEl) {
+  const rect = anchorEl.getBoundingClientRect();
+  const width = Math.min(360, window.innerWidth - 24);
+  let left = rect.left + window.scrollX;
+  const maxLeft = window.scrollX + window.innerWidth - width - 12;
+  if (left > maxLeft) left = maxLeft;
+  if (left < window.scrollX + 12) left = window.scrollX + 12;
+  panel.style.width = `${width}px`;
+  panel.style.left = `${left}px`;
+  panel.style.top = `${rect.bottom + window.scrollY + 6}px`;
+}
+
+function _closeDayRecsPanel(dateStr) {
+  document.querySelector(`.day-recs-panel[data-for="${dateStr}"]`)?.remove();
+}
+
 function toggleCardExpand(card, expand) {
   const chipsEl = card.querySelector('.day-chips');
   const chips = chipsByDate[card.dataset.date] || [];
-  let addBtn    = card.querySelector('.day-add-btn');
-  let recsBtn   = card.querySelector('.day-recs-btn');
-  let recsPanel = card.querySelector('.day-recs-panel');
+  let addBtn  = card.querySelector('.day-add-btn');
+  let recsBtn = card.querySelector('.day-recs-btn');
 
   if (expand) {
     card.classList.add('expanded');
@@ -290,12 +311,27 @@ function toggleCardExpand(card, expand) {
       recsBtn.textContent = t('recommendations.seeLink');
       recsBtn.addEventListener('click', e => {
         e.stopPropagation();
-        let panel = card.querySelector('.day-recs-panel');
-        if (panel) { panel.hidden = !panel.hidden; return; }
-        panel = document.createElement('div');
+        const dateStr = card.dataset.date;
+        const existing = document.querySelector(`.day-recs-panel[data-for="${dateStr}"]`);
+        if (existing) { existing.remove(); return; }
+
+        const panel = document.createElement('div');
         panel.className = 'day-recs-panel';
-        card.appendChild(panel);
-        renderRecommendations(panel, stay.id, card.dataset.date);
+        panel.dataset.for = dateStr;
+        panel.addEventListener('click', ev => ev.stopPropagation());
+        document.body.appendChild(panel);
+        _positionFloatingPanel(panel, recsBtn);
+        renderRecommendations(panel, stay.id, dateStr);
+
+        // Close on an outside click, but not the same click that opened it.
+        setTimeout(() => {
+          document.addEventListener('click', function onOutside(ev) {
+            if (!panel.contains(ev.target) && ev.target !== recsBtn) {
+              panel.remove();
+              document.removeEventListener('click', onOutside);
+            }
+          });
+        }, 0);
       });
       card.appendChild(recsBtn);
     }
@@ -303,8 +339,8 @@ function toggleCardExpand(card, expand) {
     card.classList.remove('expanded');
     renderChips(chipsEl, chips, CHIPS_MAX);
     if (addBtn) addBtn.remove();
+    _closeDayRecsPanel(card.dataset.date);
     if (recsBtn) recsBtn.remove();
-    if (recsPanel) recsPanel.remove();
   }
 }
 

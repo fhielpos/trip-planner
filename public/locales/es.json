@@ -33,6 +33,7 @@
   "today.spentToday": "{spent} gastado hoy",
   "weather.historicalTooltip": "Típico para esta fecha, según los últimos 3 años — no es un pronóstico en vivo",
   "recommendations.seeLink": "Ver recomendaciones",
+  "recommendations.loading": "Cargando recomendaciones…",
   "recommendations.empty": "No se encontraron recomendaciones cerca.",
   "recommendations.loadFailed": "No se pudieron cargar las recomendaciones.",
   "recommendations.add": "Agregar",

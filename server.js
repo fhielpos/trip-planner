@@ -514,6 +514,20 @@ app.get('/api/airports', async (req, res) => {
 const recommendationsStore = jsonStore(RECOMMENDATIONS_FILE, () => ({}));
 const recommendationsFetchLimit = createLimiter(4);
 
+// OSM's `wikipedia` tag is "lang:Title" — turn it into a real URL. Used as
+// a fallback when a POI has no `website` tag (most named attractions have
+// at least one of the two; a picture would be nicer but OSM rarely has a
+// direct, usable image URL, so a link is the reliable middle ground).
+function wikipediaUrl(tag) {
+  if (!tag) return null;
+  const sep = tag.indexOf(':');
+  if (sep === -1) return null;
+  const lang = tag.slice(0, sep).trim();
+  const title = tag.slice(sep + 1).trim();
+  if (!lang || !title) return null;
+  return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+}
+
 // Returns null on failure (network error, non-ok status) so the caller can
 // tell "genuinely no POIs here" (an empty array — cacheable) apart from
 // "the request didn't work" (not cacheable). A descriptive User-Agent is
@@ -543,6 +557,7 @@ async function fetchOverpassPOIsOnce(lat, lon) {
         lat:      el.lat,
         lon:      el.lon,
         address:  [el.tags['addr:street'], el.tags['addr:housenumber']].filter(Boolean).join(' ') || null,
+        link:     el.tags.website || wikipediaUrl(el.tags.wikipedia) || null,
       }));
   } catch {
     return null;

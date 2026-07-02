@@ -29,9 +29,12 @@ function _recCard(rec, defaultDate) {
       <span class="rec-card-name">${_recEscHtml(rec.name)}</span>
       <span class="rec-card-category">${_recEscHtml(rec.category)}</span>
     </div>
-    <button type="button" class="rec-card-add"${added ? ' disabled' : ''}>
-      ${added ? t('recommendations.added') : t('recommendations.add')}
-    </button>`;
+    <div class="rec-card-actions">
+      ${rec.link ? `<a class="rec-card-link" href="${_recEscHtml(rec.link)}" target="_blank" rel="noopener" title="${_recEscHtml(rec.name)}">↗</a>` : ''}
+      <button type="button" class="rec-card-add"${added ? ' disabled' : ''}>
+        ${added ? t('recommendations.added') : t('recommendations.add')}
+      </button>
+    </div>`;
   if (!added) {
     card.querySelector('.rec-card-add').addEventListener('click', e => {
       // Recommendation panels can be nested inside a day-card, which has
@@ -56,10 +59,14 @@ async function renderRecommendations(container, stayId, defaultDate) {
   // catches clicks on card text/whitespace too, so nothing in here can
   // reach a parent day-card's click-to-expand/collapse handler.
   container.addEventListener('click', e => e.stopPropagation());
+  // A cold cache can take several seconds (Overpass, with retries) — show
+  // something immediately so this doesn't read as broken while it loads.
+  container.textContent = t('recommendations.loading');
   try {
     const res = await fetch(`/api/recommendations/${stayId}`);
     if (!res.ok) { container.textContent = t('recommendations.loadFailed'); return; }
     const recs = await res.json();
+    container.textContent = ''; // clear the loading message before rendering the result
     if (!recs.length) { container.textContent = t('recommendations.empty'); return; }
     recs.forEach(rec => container.appendChild(_recCard(rec, defaultDate)));
   } catch {

@@ -516,13 +516,21 @@ body {
   gap: 0.4rem;
   margin-top: 0.5rem;
 }
-/* Grid context: an unbounded list would make one day-card towers over its
-   row neighbors, so scroll instead of grow (unlike the Today view's
-   overlay panel, a day-card has no background image to distort — a plain
-   height cap is enough here). */
+/* Floats above the page rather than living inside the day-card: a desktop
+   day-card is only ~172px wide (7-column grid), nowhere near enough room
+   for a rec-card's name/category/link/Add button. Positioned via JS
+   (app.js _positionFloatingPanel) relative to the document, not the
+   viewport, so it scrolls naturally with the page. */
 .day-recs-panel {
-  max-height: 220px;
+  position: absolute;
+  z-index: 50;
+  max-height: 320px;
   overflow-y: auto;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
 .rec-card {
   display: flex;
@@ -574,6 +582,24 @@ body {
   background: none;
   color: var(--text-3);
 }
+.rec-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+.rec-card-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--text-3);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.rec-card-link:hover { color: var(--accent); background: var(--accent-dim); }
 
 /* =============================================
    Legend
