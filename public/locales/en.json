@@ -118,6 +118,7 @@
   "budget.entry.description": "Description",
   "budget.entry.descPlaceholder": "What was it for?",
   "budget.entry.city": "City",
+  "budget.entry.cityNone": "No city",
   "budget.entry.confirmDelete": "Delete this expense?",
   "wishlist.title": "Wishlist",
   "wishlist.addItem": "Add item",

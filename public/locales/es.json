@@ -118,6 +118,7 @@
   "budget.entry.description": "Descripción",
   "budget.entry.descPlaceholder": "¿En qué fue?",
   "budget.entry.city": "Ciudad",
+  "budget.entry.cityNone": "Sin ciudad",
   "budget.entry.confirmDelete": "¿Eliminar este gasto?",
   "wishlist.title": "Lista de deseos",
   "wishlist.addItem": "Agregar ítem",

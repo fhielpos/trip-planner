@@ -26,7 +26,11 @@ const CATEGORY_SWATCHES = [
 // ── Categories (built-in + user-defined) ───────
 
 function _customCats() { return _budget?.categories || []; }
-function _allCatIds() { return [...BUDGET_CATEGORIES, ..._customCats().map(c => c.id)]; }
+function _allCatIds() {
+  const ids = [...BUDGET_CATEGORIES.filter(c => c !== 'other'), ..._customCats().map(c => c.id)];
+  ids.sort((a, b) => _catName(a).localeCompare(_catName(b)));
+  return [...ids, 'other'];
+}
 function _catName(id) {
   const c = _customCats().find(c => c.id === id);
   if (c) return c.name;
@@ -97,6 +101,27 @@ function _computeStats() {
 
 function _cityForDate(dateStr) {
   return getActiveStay(_budgetTrip?.accommodations || [], dateStr)?.city || '';
+}
+
+// Unique trip cities, in itinerary order (accommodations.json is sorted by check_in).
+function _tripCities() {
+  const seen = new Set();
+  const cities = [];
+  for (const a of _budgetTrip?.accommodations || []) {
+    if (!seen.has(a.city)) { seen.add(a.city); cities.push(a.city); }
+  }
+  return cities;
+}
+
+function _renderCitySelect(selected) {
+  const el = document.getElementById('budget-city');
+  const cities = _tripCities();
+  // Preserve pre-existing values that don't match any trip city (e.g. legacy free-text entries).
+  if (selected && !cities.includes(selected)) cities.push(selected);
+  const options = [`<option value="">${t('budget.entry.cityNone')}</option>`,
+    ...cities.map(c => `<option value="${c}"${c === selected ? ' selected' : ''}>${c}</option>`)];
+  el.innerHTML = options.join('');
+  el.value = selected || '';
 }
 
 // ── Render ─────────────────────────────────────
@@ -364,14 +389,14 @@ function _openExpenseModal(id) {
     document.getElementById('budget-date').value       = entry.date;
     document.getElementById('budget-amount').value     = entry.amount;
     document.getElementById('budget-description').value = entry.description || '';
-    document.getElementById('budget-city').value       = entry.city || '';
+    _renderCitySelect(entry.city || '');
     _setSelectedCat(entry.category);
     deleteBtn.hidden = false;
   } else {
     titleEl.textContent = t('budget.entry.add');
     const today = appToday();
     document.getElementById('budget-date').value = today;
-    document.getElementById('budget-city').value = _cityForDate(today);
+    _renderCitySelect(_cityForDate(today));
     _setSelectedCat('food');
     deleteBtn.hidden = true;
   }
