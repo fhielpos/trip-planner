@@ -694,16 +694,19 @@ $('btn-add-activity').addEventListener('click', () => {
 async function init() {
   await initI18n();
   try {
-    // /api/trip already includes trains; only accommodations and the
-    // freshly-parsed flighty.txt flights need their own requests.
-    const [tripRes, accomRes, flightsRes] = await Promise.all([
+    // /api/trip already includes trains; only accommodations, the
+    // freshly-parsed flighty.txt flights, and airport coordinates (looked
+    // up for whatever codes those flights use) need their own requests.
+    const [tripRes, accomRes, flightsRes, airportsRes] = await Promise.all([
       fetch('/api/trip'),
       fetch('/api/accommodations'),
       fetch('/api/flights'),
+      fetch('/api/airports'),
     ]);
     tripData = await tripRes.json();
     tripData.accommodations = await accomRes.json();
     tripData.flights = await flightsRes.json();
+    tripData.airports = await airportsRes.json();
     tripData.colorMap = buildColorMap(tripData.accommodations);
     document.getElementById('trip-name').textContent = tripData.trip.name;
     document.getElementById('trip-destination').textContent = tripData.trip.destination;
@@ -711,7 +714,7 @@ async function init() {
     renderRouteStrip(tripData.flights);
     renderInfoBar();
     renderPlanner();
-    if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains);
+    if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports);
     if (typeof initBudget    === 'function') initBudget(tripData);
     if (typeof initWishlist  === 'function') initWishlist();
 

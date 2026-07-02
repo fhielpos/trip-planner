@@ -25,6 +25,7 @@ const FLIGHTY_FILE = path.join(__dirname, 'data', 'flighty.txt');
 const BUDGET_FILE    = path.join(__dirname, 'data', 'budget.json');
 const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
 const WEATHER_FILE   = path.join(__dirname, 'data', 'weather.json');
+const AIRPORTS_FILE  = path.join(__dirname, 'data', 'airports.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -466,6 +467,40 @@ app.get('/api/weather', async (req, res) => {
 const FLIGHTS = parseFlightyText(fs.readFileSync(FLIGHTY_FILE, 'utf8'));
 app.get('/api/flights', (req, res) => {
   res.json(FLIGHTS);
+});
+
+// ── Airports ────────────────────────────────────
+// Coordinates looked up from hexdb.io's free keyless airport API instead of
+// a hand-maintained table — a code is fetched once and cached forever
+// (airport locations don't change, unlike weather).
+
+const airportsStore = jsonStore(AIRPORTS_FILE, () => ({}));
+const airportsFetchLimit = createLimiter(4);
+
+async function fetchAirport(code) {
+  return airportsFetchLimit(async () => {
+    try {
+      const res = await fetch(`https://hexdb.io/api/v1/airport/iata/${code}`, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return null;
+      const json = await res.json();
+      if (json.latitude == null || json.longitude == null) return null;
+      return { lat: json.latitude, lon: json.longitude };
+    } catch {
+      return null;
+    }
+  });
+}
+
+app.get('/api/airports', async (req, res) => {
+  const codes = [...new Set(FLIGHTS.flatMap(f => [f.from, f.to]))];
+  const cache = airportsStore.read();
+  const missing = codes.filter(c => !cache[c]);
+  if (missing.length) {
+    const fetched = await Promise.all(missing.map(fetchAirport));
+    missing.forEach((code, i) => { if (fetched[i]) cache[code] = fetched[i]; });
+    airportsStore.write(cache);
+  }
+  res.json(cache);
 });
 
 // Update trip info
