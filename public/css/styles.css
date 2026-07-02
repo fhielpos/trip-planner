@@ -1613,10 +1613,15 @@ body {
   position: relative;
 }
 
-.today-dev {
+.today-dev-nav {
   position: absolute;
   top: 0.75rem;
   right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.today-dev {
   font-family: monospace;
   font-size: 0.62rem;
   letter-spacing: 0.08em;
@@ -1625,6 +1630,23 @@ body {
   border-radius: var(--radius-sm);
   padding: 0.15rem 0.45rem;
 }
+.today-dev-arrow {
+  font: inherit;
+  font-family: monospace;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--bg);
+  background: var(--today-accent, var(--accent));
+  border: none;
+  border-radius: var(--radius-sm);
+  width: 1.3rem;
+  height: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.today-dev-arrow:hover { filter: brightness(1.15); }
 
 .today-city {
   font-family: var(--font-display);

@@ -58,6 +58,13 @@ function collectTodayActivities(calendar, today) {
   return items;
 }
 
+// Dev-only: jump the `?today=` override by `delta` days and reload.
+function goToDevDay(delta) {
+  const url = new URL(location.href);
+  url.searchParams.set('today', addDays(DEV_DATE, delta));
+  location.href = url.toString();
+}
+
 function renderToday(data) {
   const section = document.getElementById('today-section');
   if (!section || !data?.trip) return;
@@ -120,7 +127,12 @@ function renderToday(data) {
 
   section.innerHTML = `
     <div class="today-inner">
-      ${DEV_DATE ? `<span class="today-dev">DEV · ${DEV_DATE}</span>` : ''}
+      ${DEV_DATE ? `
+      <div class="today-dev-nav">
+        <button type="button" class="today-dev-arrow" id="today-dev-prev" aria-label="previous day">‹</button>
+        <span class="today-dev">DEV · ${DEV_DATE}</span>
+        <button type="button" class="today-dev-arrow" id="today-dev-next" aria-label="next day">›</button>
+      </div>` : ''}
       <div class="today-hero">
         <h2 class="today-city">${heroCity}</h2>
         <div class="today-sub">${t('budget.stats.dayOf', { day: dayNum, total: totalDays })} · ${dateLabel}</div>
@@ -149,4 +161,6 @@ function renderToday(data) {
   section.querySelector('#today-scroll-hint')?.addEventListener('click', () =>
     document.querySelector('.info-bar')?.scrollIntoView({ behavior: 'smooth' })
   );
+  section.querySelector('#today-dev-prev')?.addEventListener('click', () => goToDevDay(-1));
+  section.querySelector('#today-dev-next')?.addEventListener('click', () => goToDevDay(1));
 }
