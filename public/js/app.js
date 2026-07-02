@@ -482,6 +482,8 @@ const modal = {
   titleEl:    $('modal-title'),
   form:       $('modal-form'),
   id:         $('entry-id'),
+  lat:        $('entry-lat'),
+  lon:        $('entry-lon'),
   title:      $('entry-title'),
   titleLabel: $('entry-title-label'),
   date:       $('entry-date'),
@@ -537,7 +539,7 @@ modal.typeSel.addEventListener('click', e => {
   if (btn) setType(btn.dataset.type);
 });
 
-function openAddModal(defaultDate) {
+function openAddModal(defaultDate, prefill) {
   modal.form.reset();
   modal.id.value = '';
   modal.form.dataset.kind = '';
@@ -546,6 +548,12 @@ function openAddModal(defaultDate) {
   lockTypeButtons('');
   setType('activity');
   if (defaultDate) modal.date.value = defaultDate;
+  if (prefill) {
+    modal.title.value   = prefill.title || '';
+    modal.address.value = prefill.address || '';
+    modal.lat.value      = prefill.lat ?? '';
+    modal.lon.value      = prefill.lon ?? '';
+  }
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
 }
@@ -566,6 +574,8 @@ function openEditModal(id) {
   modal.date.value      = e.date || '';
   modal.startTime.value = e.startTime || '';
   modal.endTime.value   = e.endTime || '';
+  modal.lat.value        = e.lat ?? '';
+  modal.lon.value        = e.lon ?? '';
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
 }
@@ -639,6 +649,8 @@ modal.form.addEventListener('submit', async e => {
     date:      modal.date.value,
     startTime: modal.startTime.value,
     endTime:   modal.endTime.value,
+    lat:       modal.lat.value ? Number(modal.lat.value) : null,
+    lon:       modal.lon.value ? Number(modal.lon.value) : null,
   };
   try {
     if (id) {
@@ -659,6 +671,9 @@ modal.form.addEventListener('submit', async e => {
     closeModal();
     renderPlanner();
     renderInfoBar();
+    if (typeof renderMap === 'function') {
+      renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports, tripData.calendar);
+    }
   } catch { alert(t('modal.saveFailed')); }
 });
 
@@ -714,7 +729,7 @@ async function init() {
     renderRouteStrip(tripData.flights);
     renderInfoBar();
     renderPlanner();
-    if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports);
+    if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports, tripData.calendar);
     if (typeof initBudget    === 'function') initBudget(tripData);
     if (typeof initWishlist  === 'function') initWishlist();
 
