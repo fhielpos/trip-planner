@@ -26,6 +26,7 @@ const BUDGET_FILE    = path.join(__dirname, 'data', 'budget.json');
 const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
 const WEATHER_FILE   = path.join(__dirname, 'data', 'weather.json');
 const AIRPORTS_FILE  = path.join(__dirname, 'data', 'airports.json');
+const RECOMMENDATIONS_FILE = path.join(__dirname, 'data', 'recommendations.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -501,6 +502,82 @@ app.get('/api/airports', async (req, res) => {
     airportsStore.write(cache);
   }
   res.json(cache);
+});
+
+// ── Recommendations ─────────────────────────────
+// Nearby points of interest per stay, from OpenStreetMap's free Overpass
+// API — see docs/superpowers/specs/2026-07-02-attraction-recommendations-design.md.
+// Cached forever per stay once fetched (like airports.json): POI data
+// barely changes, and Overpass's public instance asks callers not to
+// refetch unnecessarily.
+
+const recommendationsStore = jsonStore(RECOMMENDATIONS_FILE, () => ({}));
+const recommendationsFetchLimit = createLimiter(4);
+
+// Returns null on failure (network error, non-ok status) so the caller can
+// tell "genuinely no POIs here" (an empty array — cacheable) apart from
+// "the request didn't work" (not cacheable). A descriptive User-Agent is
+// required here, not just polite: Node's fetch sends none by default, and
+// Overpass's public instance reliably 406s requests that lack one — the
+// requests aren't flaky, they're rejected deterministically without it.
+async function fetchOverpassPOIsOnce(lat, lon) {
+  const query = `[out:json][timeout:20];` +
+    `(node["tourism"~"attraction|museum|viewpoint|gallery|artwork|zoo"](around:2000,${lat},${lon}););` +
+    `out body 30;`;
+  try {
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+    const res = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'trip-planner/1.0 (personal trip-planning app, non-commercial)',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.elements || [])
+      .filter(el => el.tags?.name && el.lat != null && el.lon != null)
+      .map(el => ({
+        name:     el.tags.name,
+        category: el.tags.tourism,
+        lat:      el.lat,
+        lon:      el.lon,
+        address:  [el.tags['addr:street'], el.tags['addr:housenumber']].filter(Boolean).join(' ') || null,
+      }));
+  } catch {
+    return null;
+  }
+}
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function fetchOverpassPOIs(lat, lon) {
+  return recommendationsFetchLimit(async () => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const result = await fetchOverpassPOIsOnce(lat, lon);
+      if (result !== null) return result;
+      if (attempt < 3) await sleep(800);
+    }
+    return null;
+  });
+}
+
+app.get('/api/recommendations/:stayId', async (req, res) => {
+  const stay = readAccommodations().find(a => a.id === req.params.stayId);
+  if (!stay || stay.lat == null || stay.lon == null) {
+    return res.status(404).json({ error: 'Stay not found or missing coordinates' });
+  }
+
+  const cache = recommendationsStore.read();
+  if (cache[stay.id]) return res.json(cache[stay.id]);
+
+  const fetched = await fetchOverpassPOIs(stay.lat, stay.lon);
+  if (fetched === null) {
+    return res.status(502).json({ error: 'Failed to fetch recommendations, try again' });
+  }
+  cache[stay.id] = fetched;
+  recommendationsStore.write(cache);
+  res.json(fetched);
 });
 
 // Update trip info
