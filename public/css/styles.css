@@ -510,6 +510,63 @@ body {
   background: var(--accent-dim);
 }
 
+.rec-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.rec-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.rec-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.rec-card-name {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-card-category {
+  font-size: 0.66rem;
+  color: var(--text-3);
+  text-transform: capitalize;
+}
+.rec-card-add {
+  flex-shrink: 0;
+  padding: 0.25rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rec-card-add:hover { background: var(--accent); color: #fff; }
+.rec-card-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+  border-color: var(--border);
+  background: none;
+  color: var(--text-3);
+}
+
 /* =============================================
    Legend
    ============================================= */
