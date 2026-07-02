@@ -266,7 +266,9 @@ function renderChips(container, chips, max) {
 function toggleCardExpand(card, expand) {
   const chipsEl = card.querySelector('.day-chips');
   const chips = chipsByDate[card.dataset.date] || [];
-  let addBtn = card.querySelector('.day-add-btn');
+  let addBtn    = card.querySelector('.day-add-btn');
+  let recsBtn   = card.querySelector('.day-recs-btn');
+  let recsPanel = card.querySelector('.day-recs-panel');
 
   if (expand) {
     card.classList.add('expanded');
@@ -281,10 +283,28 @@ function toggleCardExpand(card, expand) {
       });
       card.appendChild(addBtn);
     }
+    const stay = getActiveStay(tripData.accommodations, card.dataset.date);
+    if (stay && !recsBtn) {
+      recsBtn = document.createElement('button');
+      recsBtn.className = 'day-add-btn day-recs-btn';
+      recsBtn.textContent = t('recommendations.seeLink');
+      recsBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        let panel = card.querySelector('.day-recs-panel');
+        if (panel) { panel.hidden = !panel.hidden; return; }
+        panel = document.createElement('div');
+        panel.className = 'day-recs-panel';
+        card.appendChild(panel);
+        renderRecommendations(panel, stay.id, card.dataset.date);
+      });
+      card.appendChild(recsBtn);
+    }
   } else {
     card.classList.remove('expanded');
     renderChips(chipsEl, chips, CHIPS_MAX);
     if (addBtn) addBtn.remove();
+    if (recsBtn) recsBtn.remove();
+    if (recsPanel) recsPanel.remove();
   }
 }
 

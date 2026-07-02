@@ -33,7 +33,11 @@ function _recCard(rec, defaultDate) {
       ${added ? t('recommendations.added') : t('recommendations.add')}
     </button>`;
   if (!added) {
-    card.querySelector('.rec-card-add').addEventListener('click', () => {
+    card.querySelector('.rec-card-add').addEventListener('click', e => {
+      // Recommendation panels can be nested inside a day-card, which has
+      // its own click-to-expand/collapse handler — without this, an
+      // unstopped click bubbles up and toggles the card mid-interaction.
+      e.stopPropagation();
       openAddModal(defaultDate, {
         title:   rec.name,
         address: rec.address || '',
@@ -48,6 +52,10 @@ function _recCard(rec, defaultDate) {
 async function renderRecommendations(container, stayId, defaultDate) {
   container.innerHTML = '';
   container.classList.add('rec-panel');
+  // Belt-and-suspenders alongside the Add button's own stopPropagation:
+  // catches clicks on card text/whitespace too, so nothing in here can
+  // reach a parent day-card's click-to-expand/collapse handler.
+  container.addEventListener('click', e => e.stopPropagation());
   try {
     const res = await fetch(`/api/recommendations/${stayId}`);
     if (!res.ok) { container.textContent = t('recommendations.loadFailed'); return; }

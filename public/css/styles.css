@@ -516,6 +516,14 @@ body {
   gap: 0.4rem;
   margin-top: 0.5rem;
 }
+/* Grid context: an unbounded list would make one day-card towers over its
+   row neighbors, so scroll instead of grow (unlike the Today view's
+   overlay panel, a day-card has no background image to distort — a plain
+   height cap is enough here). */
+.day-recs-panel {
+  max-height: 220px;
+  overflow-y: auto;
+}
 .rec-card {
   display: flex;
   align-items: center;
