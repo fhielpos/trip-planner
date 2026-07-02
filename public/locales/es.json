@@ -31,6 +31,7 @@
   "today.lastNight": "Última noche acá",
   "today.budgetLine": "{spent} gastado hoy · {daily}/día disponible",
   "today.spentToday": "{spent} gastado hoy",
+  "weather.historicalTooltip": "Típico para esta fecha, según los últimos 3 años — no es un pronóstico en vivo",
   "stays.title": "Estadías",
   "stays.overlap": "Superposición: {a} y {b} · {start} – {end} · {n}n",
   "stays.gap": "Sin alojamiento · {start} – {end} · {n}n",

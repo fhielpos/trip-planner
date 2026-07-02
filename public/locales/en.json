@@ -31,6 +31,7 @@
   "today.lastNight": "Last night here",
   "today.budgetLine": "{spent} spent today · {daily}/day available",
   "today.spentToday": "{spent} spent today",
+  "weather.historicalTooltip": "Typical for this date, based on the last 3 years — not a live forecast",
   "stays.title": "Stays",
   "stays.overlap": "Overlap: {a} & {b} · {start} – {end} · {n}n",
   "stays.gap": "No stay booked · {start} – {end} · {n}n",

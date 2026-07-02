@@ -124,6 +124,22 @@ function getActiveStay(accommodations, dayStr) {
   return accommodations.find(a => a.check_in <= dayStr && a.check_out > dayStr) || null;
 }
 
+// WMO weathercode → emoji, bucketed rather than a full per-code table.
+function weatherIcon(code) {
+  if (code === 0) return '☀️';
+  if (code === 1 || code === 2) return '🌤️';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if (code >= 95) return '⛈️';
+  if (code >= 71 && code <= 86 && code !== 80 && code !== 81 && code !== 82) return '❄️';
+  return '🌧️';
+}
+
+// Looks up a stay+day's weather entry from tripData.weather (byStay → date map).
+function getWeather(stayId, dayStr) {
+  return tripData?.weather?.[stayId]?.[dayStr] || null;
+}
+
 // ── Route Strip ────────────────────────────────
 
 function renderRouteStrip(flights) {
@@ -385,7 +401,18 @@ function renderPlanner() {
     if (stay && colour) {
       const loc = document.createElement('div');
       loc.className = 'day-location';
-      loc.textContent = stay.city;
+      const cityEl = document.createElement('span');
+      cityEl.className = 'day-location-city';
+      cityEl.textContent = stay.city;
+      loc.appendChild(cityEl);
+      const w = getWeather(stay.id, dayStr);
+      if (w) {
+        const wEl = document.createElement('span');
+        wEl.className = 'day-weather';
+        wEl.textContent = `${weatherIcon(w.code)} ${w.tempMax}°`;
+        if (w.source === 'historical') wEl.title = t('weather.historicalTooltip');
+        loc.appendChild(wEl);
+      }
       card.appendChild(loc);
     }
 
@@ -687,6 +714,15 @@ async function init() {
     if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains);
     if (typeof initBudget    === 'function') initBudget(tripData);
     if (typeof initWishlist  === 'function') initWishlist();
+
+    // Fetched separately, off the critical path: a cache-miss day can take
+    // several seconds to compute server-side (many Open-Meteo calls), and
+    // the rest of the app shouldn't wait on it.
+    fetch('/api/weather').then(r => r.json()).then(weather => {
+      tripData.weather = weather;
+      renderPlanner();
+      if (typeof renderToday === 'function') renderToday(tripData);
+    }).catch(() => {});
   } catch (err) {
     console.error(err);
     document.getElementById('planner-grid').textContent = t('planner.failed');

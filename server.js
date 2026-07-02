@@ -24,6 +24,7 @@ const ACCOM_FILE   = path.join(__dirname, 'data', 'accommodations.json');
 const FLIGHTY_FILE = path.join(__dirname, 'data', 'flighty.txt');
 const BUDGET_FILE    = path.join(__dirname, 'data', 'budget.json');
 const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
+const WEATHER_FILE   = path.join(__dirname, 'data', 'weather.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -295,6 +296,169 @@ app.delete('/api/accommodations/:id', (req, res) => {
   if (!removeById(list, req.params.id)) return res.status(404).json({ error: 'Stay not found' });
   writeAccommodations(list);
   res.status(204).end();
+});
+
+// ── Weather ─────────────────────────────────────
+// Forecast for the next ~16 days (Open-Meteo's reliable live-forecast
+// window); for stay days outside that window, a 3-year historical average
+// for the same calendar date stands in as a "typical weather" estimate.
+// Recomputed once per calendar day on read (see GET /api/weather below),
+// not per request — see docs/superpowers/specs/2026-07-02-weather-forecast-design.md.
+
+const weatherStore = jsonStore(WEATHER_FILE, () => ({ computedFor: null, byStay: {} }));
+
+const WEATHER_HORIZON_DAYS  = 15;
+const WEATHER_HISTORY_YEARS = 3;
+
+function todayUTC() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysUTC(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function shiftYear(dateStr, yearDelta) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return `${y + yearDelta}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function dateRange(start, end) {
+  const out = [];
+  for (let d = start; d <= end; d = addDaysUTC(d, 1)) out.push(d);
+  return out;
+}
+
+// A trip's worth of stays can add up to dozens of Open-Meteo calls in one
+// computeWeather() pass (each historical chunk queries 3 prior years) —
+// firing them all at once trips Open-Meteo's burst rate limit (429), so
+// cap how many are in flight together.
+function createLimiter(concurrency) {
+  let active = 0;
+  const queue = [];
+  const next = () => {
+    if (active >= concurrency || !queue.length) return;
+    active++;
+    const { fn, resolve, reject } = queue.shift();
+    fn().then(resolve, reject).finally(() => { active--; next(); });
+  };
+  return fn => new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); next(); });
+}
+const weatherFetchLimit = createLimiter(4);
+
+async function fetchDaily(baseUrl, lat, lon, start, end) {
+  const url = `${baseUrl}?latitude=${lat}&longitude=${lon}` +
+    `&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=UTC` +
+    `&start_date=${start}&end_date=${end}`;
+  return weatherFetchLimit(async () => {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.daily || null;
+    } catch {
+      return null;
+    }
+  });
+}
+
+function mostFrequent(arr) {
+  const counts = {};
+  for (const v of arr) counts[v] = (counts[v] || 0) + 1;
+  return Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
+}
+
+async function fetchForecastDays(lat, lon, start, end) {
+  const daily = await fetchDaily('https://api.open-meteo.com/v1/forecast', lat, lon, start, end);
+  if (!daily) return {};
+  const out = {};
+  daily.time.forEach((date, i) => {
+    out[date] = {
+      tempMax: Math.round(daily.temperature_2m_max[i]),
+      tempMin: Math.round(daily.temperature_2m_min[i]),
+      code:    daily.weathercode[i],
+      source:  'forecast',
+    };
+  });
+  return out;
+}
+
+// Averages the given date range across the previous WEATHER_HISTORY_YEARS
+// years, keyed back to the original (trip-year) dates.
+async function fetchHistoricalDays(lat, lon, start, end) {
+  const targetDates = dateRange(start, end);
+  const perYear = await Promise.all(
+    Array.from({ length: WEATHER_HISTORY_YEARS }, (_, i) => i + 1).map(yearsAgo =>
+      fetchDaily(
+        'https://archive-api.open-meteo.com/v1/archive',
+        lat, lon,
+        shiftYear(start, -yearsAgo), shiftYear(end, -yearsAgo)
+      )
+    )
+  );
+
+  const out = {};
+  targetDates.forEach((date, i) => {
+    const maxes = [], mins = [], codes = [];
+    for (const daily of perYear) {
+      if (!daily || daily.temperature_2m_max[i] == null) continue;
+      maxes.push(daily.temperature_2m_max[i]);
+      mins.push(daily.temperature_2m_min[i]);
+      codes.push(daily.weathercode[i]);
+    }
+    if (!maxes.length) return;
+    out[date] = {
+      tempMax: Math.round(maxes.reduce((a, b) => a + b, 0) / maxes.length),
+      tempMin: Math.round(mins.reduce((a, b) => a + b, 0) / mins.length),
+      code:    mostFrequent(codes),
+      source:  'historical',
+    };
+  });
+  return out;
+}
+
+async function weatherForStay(stay, today, horizonEnd) {
+  if (stay.lat == null || stay.lon == null) return {};
+  const stayEnd = addDaysUTC(stay.check_out, -1); // check_out is exclusive
+  if (stayEnd < stay.check_in) return {};
+
+  const fStart = stay.check_in > today ? stay.check_in : today;
+  const fEnd   = stayEnd < horizonEnd ? stayEnd : horizonEnd;
+  const hasForecast = fStart <= fEnd;
+
+  const jobs = [];
+  if (hasForecast) {
+    jobs.push(fetchForecastDays(stay.lat, stay.lon, fStart, fEnd));
+    if (stay.check_in < fStart) jobs.push(fetchHistoricalDays(stay.lat, stay.lon, stay.check_in, addDaysUTC(fStart, -1)));
+    if (fEnd < stayEnd) jobs.push(fetchHistoricalDays(stay.lat, stay.lon, addDaysUTC(fEnd, 1), stayEnd));
+  } else {
+    jobs.push(fetchHistoricalDays(stay.lat, stay.lon, stay.check_in, stayEnd));
+  }
+
+  const parts = await Promise.all(jobs);
+  return Object.assign({}, ...parts);
+}
+
+async function computeWeather() {
+  const today = todayUTC();
+  const horizonEnd = addDaysUTC(today, WEATHER_HORIZON_DAYS);
+  const stays = readAccommodations();
+  const byStay = {};
+  await Promise.all(stays.map(async stay => {
+    byStay[stay.id] = await weatherForStay(stay, today, horizonEnd);
+  }));
+  return { computedFor: today, byStay };
+}
+
+app.get('/api/weather', async (req, res) => {
+  let cache = weatherStore.read();
+  if (cache.computedFor !== todayUTC()) {
+    cache = await computeWeather();
+    weatherStore.write(cache);
+  }
+  res.json(cache.byStay);
 });
 
 // Flights parsed from the flighty.txt export — the file is static at

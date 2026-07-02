@@ -94,6 +94,11 @@ function renderToday(data) {
   const flag = stay ? countryFlag(stay.country) : '';
   const heroCity = stay ? `${flag ? flag + ' ' : ''}${stay.city}` : t('today.transit');
 
+  const w = stay ? getWeather(stay.id, today) : null;
+  const weatherLine = w
+    ? `${w.source === 'historical' ? '~' : ''}${weatherIcon(w.code)} ${w.tempMax}°/${w.tempMin}°`
+    : null;
+
   const events = collectTodayEvents(data, today);
   const acts = collectTodayActivities(data.calendar, today);
 
@@ -136,6 +141,7 @@ function renderToday(data) {
       <div class="today-hero">
         <h2 class="today-city">${heroCity}</h2>
         <div class="today-sub">${t('budget.stats.dayOf', { day: dayNum, total: totalDays })} · ${dateLabel}</div>
+        ${weatherLine ? `<div class="today-weather"${w.source === 'historical' ? ` title="${t('weather.historicalTooltip')}"` : ''}>${weatherLine}</div>` : ''}
         ${lastNight ? `<div class="today-lastnight">${t('today.lastNight')}</div>` : ''}
       </div>
       ${events.length ? `
