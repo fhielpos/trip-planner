@@ -305,7 +305,7 @@ function toggleCardExpand(card, expand) {
       card.appendChild(addBtn);
     }
     const stay = getActiveStay(tripData.accommodations, card.dataset.date);
-    if (stay && !recsBtn) {
+    if (stay && tripData.config?.recommendationsEnabled && !recsBtn) {
       recsBtn = document.createElement('button');
       recsBtn.className = 'day-add-btn day-recs-btn';
       recsBtn.textContent = t('recommendations.seeLink');
@@ -766,18 +766,21 @@ async function init() {
   await initI18n();
   try {
     // /api/trip already includes trains; only accommodations, the
-    // freshly-parsed flighty.txt flights, and airport coordinates (looked
-    // up for whatever codes those flights use) need their own requests.
-    const [tripRes, accomRes, flightsRes, airportsRes] = await Promise.all([
+    // freshly-parsed flighty.txt flights, airport coordinates (looked up
+    // for whatever codes those flights use), and operator-set config need
+    // their own requests.
+    const [tripRes, accomRes, flightsRes, airportsRes, configRes] = await Promise.all([
       fetch('/api/trip'),
       fetch('/api/accommodations'),
       fetch('/api/flights'),
       fetch('/api/airports'),
+      fetch('/api/config'),
     ]);
     tripData = await tripRes.json();
     tripData.accommodations = await accomRes.json();
     tripData.flights = await flightsRes.json();
     tripData.airports = await airportsRes.json();
+    tripData.config = await configRes.json();
     tripData.colorMap = buildColorMap(tripData.accommodations);
     document.getElementById('trip-name').textContent = tripData.trip.name;
     document.getElementById('trip-destination').textContent = tripData.trip.destination;

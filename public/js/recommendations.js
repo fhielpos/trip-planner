@@ -25,6 +25,7 @@ function _recCard(rec, defaultDate) {
   const card = document.createElement('div');
   card.className = 'rec-card';
   card.innerHTML = `
+    ${rec.image ? `<img class="rec-card-thumb" src="${_recEscHtml(rec.image)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}
     <div class="rec-card-info">
       <span class="rec-card-name">${_recEscHtml(rec.name)}</span>
       <span class="rec-card-category">${_recEscHtml(rec.category)}</span>

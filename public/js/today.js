@@ -154,7 +154,7 @@ function renderToday(data) {
         <h3 class="today-block-title">${t('today.activities')}</h3>
         ${acts.map(actRow).join('')}
       </div>` : ''}
-      ${imageStay ? `
+      ${imageStay && data.config?.recommendationsEnabled ? `
       <div class="today-block today-recs-block">
         <button type="button" class="today-recs-toggle" id="today-recs-toggle">${t('recommendations.seeLink')}</button>
         <div class="today-recs-panel" id="today-recs-panel" hidden></div>

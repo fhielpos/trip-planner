@@ -12,6 +12,12 @@ const COMMIT = process.env.COMMIT || (() => {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Operator-controlled config, not exposed as a user-facing setting — set
+// RECOMMENDATIONS_ENABLED=false in the environment to turn the whole
+// feature off (endpoint 404s, both "See recommendations" entry points
+// stop rendering). Defaults on.
+const RECOMMENDATIONS_ENABLED = process.env.RECOMMENDATIONS_ENABLED !== 'false';
+
 if (process.env.APP_PASSWORD) {
   app.use(basicAuth({
     users: { 'franco': process.env.APP_PASSWORD },
@@ -513,6 +519,35 @@ app.get('/api/airports', async (req, res) => {
 
 const recommendationsStore = jsonStore(RECOMMENDATIONS_FILE, () => ({}));
 const recommendationsFetchLimit = createLimiter(4);
+const wikipediaFetchLimit = createLimiter(4);
+
+// Wikipedia's free REST API returns a real thumbnail for any page that has
+// one — measured at ~30% coverage across a sample of named POIs (most
+// don't have a Wikipedia article at all; those that do usually have an
+// image). No key, same "lang:Title" tag already used for the link
+// fallback, so this is additive rather than a new data dependency.
+async function fetchWikipediaThumbnail(wikipediaTag) {
+  if (!wikipediaTag) return null;
+  const sep = wikipediaTag.indexOf(':');
+  if (sep === -1) return null;
+  const lang = wikipediaTag.slice(0, sep).trim();
+  const title = wikipediaTag.slice(sep + 1).trim();
+  if (!lang || !title) return null;
+  return wikipediaFetchLimit(async () => {
+    try {
+      const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'trip-planner/1.0 (personal trip-planning app, non-commercial)' },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.thumbnail?.source || null;
+    } catch {
+      return null;
+    }
+  });
+}
 
 // OSM's `wikipedia` tag is "lang:Title" — turn it into a real URL. Used as
 // a fallback when a POI has no `website` tag (most named attractions have
@@ -549,16 +584,20 @@ async function fetchOverpassPOIsOnce(lat, lon) {
     });
     if (!res.ok) return null;
     const json = await res.json();
-    return (json.elements || [])
+    const pois = (json.elements || [])
       .filter(el => el.tags?.name && el.lat != null && el.lon != null)
       .map(el => ({
-        name:     el.tags.name,
-        category: el.tags.tourism,
-        lat:      el.lat,
-        lon:      el.lon,
-        address:  [el.tags['addr:street'], el.tags['addr:housenumber']].filter(Boolean).join(' ') || null,
-        link:     el.tags.website || wikipediaUrl(el.tags.wikipedia) || null,
+        name:      el.tags.name,
+        category:  el.tags.tourism,
+        lat:       el.lat,
+        lon:       el.lon,
+        address:   [el.tags['addr:street'], el.tags['addr:housenumber']].filter(Boolean).join(' ') || null,
+        link:      el.tags.website || wikipediaUrl(el.tags.wikipedia) || null,
+        wikipedia: el.tags.wikipedia || null, // used below to fetch a thumbnail, stripped before returning
       }));
+
+    const images = await Promise.all(pois.map(p => fetchWikipediaThumbnail(p.wikipedia)));
+    return pois.map(({ wikipedia, ...poi }, i) => ({ ...poi, image: images[i] }));
   } catch {
     return null;
   }
@@ -578,6 +617,8 @@ async function fetchOverpassPOIs(lat, lon) {
 }
 
 app.get('/api/recommendations/:stayId', async (req, res) => {
+  if (!RECOMMENDATIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+
   const stay = readAccommodations().find(a => a.id === req.params.stayId);
   if (!stay || stay.lat == null || stay.lon == null) {
     return res.status(404).json({ error: 'Stay not found or missing coordinates' });
@@ -850,6 +891,8 @@ app.get('/api/export', (req, res) => {
 });
 
 app.get('/api/version', (req, res) => res.json({ commit: COMMIT }));
+
+app.get('/api/config', (req, res) => res.json({ recommendationsEnabled: RECOMMENDATIONS_ENABLED }));
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Trip Planner running at http://localhost:${PORT}`);
