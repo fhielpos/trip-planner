@@ -154,6 +154,11 @@ function renderToday(data) {
         <h3 class="today-block-title">${t('today.activities')}</h3>
         ${acts.map(actRow).join('')}
       </div>` : ''}
+      ${imageStay ? `
+      <div class="today-block today-recs-block">
+        <button type="button" class="today-recs-toggle" id="today-recs-toggle">${t('recommendations.seeLink')}</button>
+        <div class="today-recs-panel" id="today-recs-panel" hidden></div>
+      </div>` : ''}
       ${budgetLine ? `<button type="button" class="today-budget" id="today-budget">💶 ${budgetLine}</button>` : ''}
       <button type="button" class="today-scroll-hint" id="today-scroll-hint" aria-label="calendar">⌄</button>
     </div>`;
@@ -169,4 +174,15 @@ function renderToday(data) {
   );
   section.querySelector('#today-dev-prev')?.addEventListener('click', () => goToDevDay(-1));
   section.querySelector('#today-dev-next')?.addEventListener('click', () => goToDevDay(1));
+
+  const recsToggle = section.querySelector('#today-recs-toggle');
+  const recsPanel  = section.querySelector('#today-recs-panel');
+  recsToggle?.addEventListener('click', () => {
+    const opening = recsPanel.hidden;
+    recsPanel.hidden = !opening;
+    if (opening && !recsPanel.dataset.loaded) {
+      recsPanel.dataset.loaded = '1';
+      renderRecommendations(recsPanel, imageStay.id, today);
+    }
+  });
 }

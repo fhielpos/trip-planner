@@ -1823,6 +1823,45 @@ body {
 }
 .today-budget:hover { color: var(--today-fg-1, var(--text-1)); border-color: var(--today-fg-3, var(--text-3)); }
 
+.today-recs-toggle {
+  display: inline-block;
+  margin-top: 1.25rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--today-fg-2, var(--text-2));
+  background: var(--today-budget-bg, none);
+  border: 1px solid var(--today-budget-border, var(--border));
+  border-radius: var(--radius);
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+}
+.today-section.has-image .today-recs-toggle {
+  --today-budget-bg: rgba(10,8,6,0.4);
+  --today-budget-border: rgba(251,246,239,0.35);
+}
+.today-recs-toggle:hover { color: var(--today-fg-1, var(--text-1)); border-color: var(--today-fg-3, var(--text-3)); }
+/* Floats over the hero instead of pushing layout down: .today-section's
+   background image is sized via `cover` off the section's own height (see
+   "Today View" rules above), so letting an open recommendations list grow
+   the section would re-scale that image into a distorted, zoomed-in crop
+   every time it's opened. An absolutely-positioned dropdown leaves section
+   height untouched regardless of how many cards it holds. */
+.today-recs-block { position: relative; }
+.today-recs-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+
 .today-scroll-hint {
   display: none;
   background: none;
