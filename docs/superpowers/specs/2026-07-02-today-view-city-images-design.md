@@ -138,6 +138,34 @@ Landmark/scene per city, chosen to be unambiguous at a glance:
 | Ámsterdam | `amsterdam.png` | A canal lined with narrow gabled townhouses, houseboats on the water, a bicycle crossing an arched bridge |
 | Bruselas | `brussels.png` | The Grand-Place's ornate gilded guildhalls under an evening sky |
 
+### Ámsterdam — actual prompt used
+
+The reusable template above was refined into this fuller, city-specific
+prompt for `amsterdam.png`, generated with a reference image attached for
+style consistency:
+
+> Use the attached image as a style reference.
+>
+> Create a 1600×900 travel poster illustration.
+>
+> A vivid, richly colored flat vector illustration of Amsterdam.
+>
+> A picturesque canal lined with narrow gabled townhouses stretches through
+> the center of the scene. Houseboats rest on the water and a cyclist
+> crosses an elegant arched bridge in the foreground.
+>
+> Include trees, cafés, pedestrians, flowers, reflections in the canal, and
+> warm city lighting.
+>
+> Fill the entire frame with foreground, midground, and background detail.
+>
+> Golden-hour lighting, saturated colors, rich gradients, highly detailed
+> vector artwork, modern travel-poster style.
+>
+> The canal and bridge are centered in the middle third of the frame.
+>
+> No text, no watermark, no logo.
+
 ## Data model changes
 
 - `data/accommodations.json`: add an `"image": "<filename>.png"` field to
