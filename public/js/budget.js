@@ -483,9 +483,7 @@ document.getElementById('btn-budget-settings').addEventListener('click', _openSe
 
 document.getElementById('budget-modal-close').addEventListener('click', _closeExpenseModal);
 document.getElementById('budget-cancel-btn').addEventListener('click', _closeExpenseModal);
-document.getElementById('budget-overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('budget-overlay')) _closeExpenseModal();
-});
+wireModal(document.getElementById('budget-overlay'), _closeExpenseModal);
 
 document.getElementById('budget-cat-selector').addEventListener('click', e => {
   const btn = e.target.closest('.type-btn');
@@ -541,9 +539,7 @@ document.getElementById('budget-delete-btn').addEventListener('click', async () 
 
 document.getElementById('budget-settings-close').addEventListener('click', _closeSettingsModal);
 document.getElementById('budget-settings-cancel').addEventListener('click', _closeSettingsModal);
-document.getElementById('budget-settings-overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('budget-settings-overlay')) _closeSettingsModal();
-});
+wireModal(document.getElementById('budget-settings-overlay'), _closeSettingsModal);
 
 document.getElementById('btn-add-category').addEventListener('click', () => {
   const used = [...document.querySelectorAll('#settings-categories .category-edit-row')].map(r => r.dataset.color);

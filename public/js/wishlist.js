@@ -206,9 +206,7 @@ async function _fetchUrl() {
 document.getElementById('btn-add-wishlist').addEventListener('click', _openWishlistModal);
 document.getElementById('wishlist-modal-close').addEventListener('click', _closeWishlistModal);
 document.getElementById('wishlist-cancel-btn').addEventListener('click', _closeWishlistModal);
-document.getElementById('wishlist-overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('wishlist-overlay')) _closeWishlistModal();
-});
+wireModal(document.getElementById('wishlist-overlay'), _closeWishlistModal);
 
 document.getElementById('wishlist-mode-selector').addEventListener('click', e => {
   const btn = e.target.closest('.type-btn');

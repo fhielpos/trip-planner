@@ -13,6 +13,7 @@ RUN mkdir -p /app/data
 
 ARG COMMIT=unknown
 ENV COMMIT=$COMMIT
+ENV NODE_ENV=production
 
 EXPOSE 3000
 

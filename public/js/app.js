@@ -665,12 +665,18 @@ async function reloadAccommodations() {
 
 function closeModal() { modal.overlay.hidden = true; }
 
+// Wires click-outside-to-close and Escape-to-close for a modal overlay.
+// Shared across app.js/budget.js/wishlist.js so every modal behaves the same way.
+function wireModal(overlay, closeFn) {
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeFn(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !overlay.hidden) closeFn();
+  });
+}
+
 $('modal-close').addEventListener('click', closeModal);
 $('btn-cancel').addEventListener('click', closeModal);
-modal.overlay.addEventListener('click', e => { if (e.target === modal.overlay) closeModal(); });
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !modal.overlay.hidden) closeModal();
-});
+wireModal(modal.overlay, closeModal);
 
 modal.form.addEventListener('submit', async e => {
   e.preventDefault();

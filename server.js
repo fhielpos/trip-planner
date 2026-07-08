@@ -2,6 +2,8 @@ const express = require('express');
 const basicAuth = require('express-basic-auth');
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
+const net = require('net');
 const { execSync } = require('child_process');
 
 const COMMIT = process.env.COMMIT || (() => {
@@ -756,8 +758,9 @@ app.post('/api/budget/entries', (req, res) => {
 
 app.put('/api/budget/entries/:id', (req, res) => {
   const b = readBudget();
-  const updated = mergeById(b.entries, req.params.id, { ...req.body, amount: Number(req.body.amount) });
+  const updated = mergeById(b.entries, req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'not found' });
+  if (req.body.amount !== undefined) updated.amount = Number(req.body.amount);
   writeBudget(b);
   res.json(updated);
 });
@@ -821,10 +824,29 @@ function _decodeHtmlEntities(str) {
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
 }
 
+function isPrivateAddress(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    return lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd') ||
+      lower.startsWith('fe80') || lower.startsWith('::ffff:127.');
+  }
+  return true;
+}
+
 app.post('/api/wishlist/fetch-url', async (req, res) => {
   const { url } = req.body;
   if (!url || !/^https?:\/\//.test(url)) return res.status(400).json({ error: 'Invalid URL' });
   try {
+    const { hostname } = new URL(url);
+    const addresses = await dns.promises.lookup(hostname, { all: true });
+    if (addresses.some(a => isPrivateAddress(a.address))) {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
     const resp = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -893,6 +915,14 @@ app.get('/api/export', (req, res) => {
 app.get('/api/version', (req, res) => res.json({ commit: COMMIT }));
 
 app.get('/api/config', (req, res) => res.json({ recommendationsEnabled: RECOMMENDATIONS_ENABLED }));
+
+// Catch-all error handler — keeps error responses JSON instead of Express's
+// default HTML/stack-trace page (data/*.json can be hand-edited concurrently
+// and produce malformed JSON that throws on read).
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Trip Planner running at http://localhost:${PORT}`);
