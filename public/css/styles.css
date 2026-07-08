@@ -110,6 +110,19 @@ body {
   color: var(--text-2);
 }
 
+.offline-indicator {
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
 .lang-toggle {
   background: none;
   border: 1px solid var(--border);
@@ -1222,6 +1235,7 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
 }
+.budget-entry.is-pending { border: 1px dashed var(--accent); opacity: 0.8; }
 
 /* Empty / no-budget states */
 .budget-empty {
