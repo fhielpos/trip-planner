@@ -185,6 +185,20 @@ function parseFlightyText(text) {
 }
 
 app.use(express.json());
+
+// Templates the current commit into the service worker's own bytes so a
+// deploy actually changes the file the browser compares against — serving
+// it as a plain static file would leave every deploy invisible to the SW's
+// update check, since that check only looks at the script's bytes, not
+// anything it fetches at runtime.
+app.get('/sw.js', (req, res) => {
+  const sw = fs.readFileSync(path.join(__dirname, 'public', 'sw.js'), 'utf8')
+    .replaceAll('__COMMIT__', COMMIT);
+  res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(sw);
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/images', express.static(path.join(__dirname, 'data', 'images')));
 

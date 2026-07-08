@@ -39,20 +39,18 @@ const DATA_PATHS = [
 
 const DATA_CACHE = 'data-v1';
 
-async function getCommit() {
-  try {
-    const res = await fetch('/api/version');
-    const data = await res.json();
-    return data.commit || 'dev';
-  } catch {
-    return 'dev';
-  }
-}
+// Templated server-side (see server.js's /sw.js route) so this file's own
+// bytes change on every deploy — that's what makes the browser's SW update
+// check (a byte comparison against the previously registered script) fire
+// install/activate on the next deploy. The placeholder below only survives
+// if this file is ever served as a raw static asset instead of through
+// that route.
+const COMMIT = '__COMMIT__';
+const SHELL_CACHE = `shell-${COMMIT === '__COMMIT__' ? 'dev' : COMMIT}`;
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    const commit = await getCommit();
-    const cache = await caches.open(`shell-${commit}`);
+    const cache = await caches.open(SHELL_CACHE);
     await cache.addAll(SHELL_ASSETS);
     self.skipWaiting();
   })());
@@ -60,12 +58,10 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const commit = await getCommit();
-    const currentShellCache = `shell-${commit}`;
     const keys = await caches.keys();
     await Promise.all(
       keys
-        .filter(key => key.startsWith('shell-') && key !== currentShellCache)
+        .filter(key => key.startsWith('shell-') && key !== SHELL_CACHE)
         .map(key => caches.delete(key))
     );
     self.clients.claim();
@@ -75,8 +71,10 @@ self.addEventListener('activate', event => {
 async function networkFirst(request) {
   try {
     const response = await fetch(request);
-    const cache = await caches.open(DATA_CACHE);
-    cache.put(request, response.clone());
+    if (response.ok) {
+      const cache = await caches.open(DATA_CACHE);
+      cache.put(request, response.clone());
+    }
     return response;
   } catch {
     const cached = await caches.match(request);
