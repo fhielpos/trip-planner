@@ -110,6 +110,27 @@ body {
   color: var(--text-2);
 }
 
+/* Current country, while the trip is on — an ink-stamp accent, not another
+   pill like the offline indicator, so it reads as "stamped" rather than
+   "status". */
+.passport-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.55rem;
+  border: 1.5px dashed var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+  flex-shrink: 0;
+}
+.passport-stamp-flag { font-size: 0.85rem; display: inline-block; transform: rotate(4deg); }
+
 .offline-indicator {
   font-family: var(--font-display);
   font-size: 0.68rem;
@@ -2107,14 +2128,242 @@ body {
   justify-content: space-between;
   margin-bottom: 0.75rem;
 }
-.stays-section-header .stays-section-title { margin-bottom: 0; }
+.stays-section-header .stays-section-title,
+.stays-section-header .map-section-title { margin-bottom: 0; }
 .stays-details-link {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
 }
+.map-section-links { display: flex; gap: 0.5rem; }
 
 @media (max-width: 640px) {
   .accom-main { padding: 0.75rem; }
   .accom-table { font-size: 0.78rem; }
+}
+
+/* ── Journey page: countries visited + transport log ── */
+.journey-countries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.journey-country-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.journey-country-flag { font-size: 1rem; line-height: 1; }
+.journey-country-name {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-1);
+}
+.journey-country-nights { font-size: 0.75rem; color: var(--text-3); }
+
+.journey-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.journey-row {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1fr;
+  align-items: center;
+  gap: 0.5rem 1.1rem;
+  padding: 0.7rem 1.1rem;
+  border-left: 3px solid var(--leg-color, var(--border));
+  border-bottom: 1px dashed var(--border-soft);
+}
+.journey-list .journey-row:last-child { border-bottom: none; }
+.journey-row:hover { background: var(--bg-hover); }
+.journey-row-main { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.journey-row-index { font-size: 0.68rem; color: var(--text-3); flex-shrink: 0; }
+.journey-row-icon { flex-shrink: 0; }
+.journey-row-route {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.journey-row-figure { display: flex; flex-direction: column; gap: 0.2rem; }
+.journey-row-figure-label {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.journey-row-figure-val { font-size: 0.85rem; color: var(--text-1); }
+
+@media (max-width: 640px) {
+  .journey-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "main main" "date distance";
+    row-gap: 0.4rem;
+  }
+  .journey-row-main               { grid-area: main; }
+  .journey-row-figure:nth-child(2) { grid-area: date; }
+  .journey-row-figure:nth-child(3) { grid-area: distance; }
+}
+
+/* =============================================
+   Itinerary Page — printable boarding passes
+   One card per transport leg, shaped like an actual boarding pass: a main
+   stub plus a torn-off ticket stub separated by a perforation (two circular
+   notches punched through to the page background). Meant to be printed —
+   see the @media print block, which forces the light theme's cream/ink
+   palette regardless of the on-screen theme, since it already reads as
+   paper rather than a new print-specific palette.
+   ============================================= */
+.itinerary-main { max-width: 900px; }
+.itinerary-hint {
+  color: var(--text-3);
+  font-size: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.bp {
+  position: relative;
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--bp-accent, var(--accent));
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.bp::before, .bp::after {
+  content: '';
+  position: absolute;
+  right: 163px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  z-index: 1;
+}
+.bp::before { top: -8px; }
+.bp::after  { bottom: -8px; }
+
+.bp-main { flex: 1; min-width: 0; padding: 0.9rem 1.1rem; }
+.bp-eyebrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 0.5rem;
+}
+.bp-seq { letter-spacing: 0.05em; }
+
+.bp-route { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 0.65rem; }
+.bp-route-side { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.bp-route-side--right { align-items: flex-end; text-align: right; }
+.bp-city {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bp-code { font-size: 0.7rem; color: var(--text-3); letter-spacing: 0.05em; }
+.bp-route-icon { font-size: 1.1rem; flex-shrink: 0; opacity: 0.85; }
+
+.bp-fields {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border-soft);
+}
+.bp-field { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.bp-field-label {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.bp-field-val {
+  font-size: 0.8rem;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+
+.bp-stub {
+  width: 170px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.9rem 0.75rem;
+  border-left: 2px dashed var(--border);
+  background: var(--bg-hover);
+  text-align: center;
+}
+.bp-stub-route { font-size: 0.85rem; font-weight: 600; color: var(--text-1); }
+.bp-stub-date { font-size: 0.68rem; color: var(--text-3); }
+.bp-stub-icon { font-size: 1.3rem; margin: 0.1rem 0; }
+.bp-barcode { display: flex; align-items: stretch; gap: 1.5px; height: 22px; width: 100%; opacity: 0.55; }
+.bp-barcode span { background: var(--text-1); display: block; }
+
+@media (max-width: 640px) {
+  .bp { flex-direction: column; }
+  .bp::before, .bp::after { display: none; }
+  .bp-stub {
+    width: auto;
+    flex-direction: row;
+    justify-content: space-between;
+    border-left: none;
+    border-top: 2px dashed var(--border);
+  }
+  .bp-barcode { width: 60px; }
+  .bp-fields { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  @page { margin: 1.2cm; }
+  :root, [data-theme] {
+    --bg:          #f0ebe4;
+    --bg-card:     #f9f6f1;
+    --bg-hover:    #e6dfd8;
+    --border:      #d8cfc6;
+    --border-soft: #e4ddd6;
+    --text-1: #261e18;
+    --text-2: #7a6858;
+    --text-3: #a8988a;
+    --accent: #b87850;
+    --c-stay: #468070; --c-event: #7050a8; --c-activity: #a8681e;
+    --c-flight: #3870a0; --c-train: #347a50;
+  }
+  body { background: var(--bg); }
+  .itinerary-main { max-width: none; padding: 0.5rem; }
+  .bp { box-shadow: none; }
 }

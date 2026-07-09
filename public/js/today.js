@@ -65,6 +65,16 @@ function goToDevDay(delta) {
   location.href = url.toString();
 }
 
+// Header badge, always visible (even once scrolled past the Today hero)
+// showing the country of whichever stay is active right now.
+function _renderPassportStamp(stay) {
+  const el = document.getElementById('passport-stamp');
+  if (!el) return;
+  if (!stay || !stay.country) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<span class="passport-stamp-flag">${countryFlag(stay.country)}</span>${stay.country}`;
+}
+
 function renderToday(data) {
   const section = document.getElementById('today-section');
   if (!section || !data?.trip) return;
@@ -73,9 +83,10 @@ function renderToday(data) {
   const inTrip = today >= data.trip.startDate && today <= data.trip.endDate;
   document.body.classList.toggle('today-active', inTrip);
   section.hidden = !inTrip;
-  if (!inTrip) { section.innerHTML = ''; return; }
+  if (!inTrip) { section.innerHTML = ''; _renderPassportStamp(null); return; }
 
   const stay = getActiveStay(data.accommodations || [], today);
+  _renderPassportStamp(stay);
   const colour = stay ? (data.colorMap?.[stay.check_in] ?? null) : null;
   section.style.setProperty('--today-accent', colour?.accent || 'var(--accent)');
   section.style.setProperty('--today-bg', colour?.bg || 'var(--accent-dim)');

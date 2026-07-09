@@ -170,5 +170,22 @@
   "accom.edit.addressPlaceholder": "Optional",
   "accom.edit.totalPrice": "Total price",
   "stays.viewDetails": "View details",
-  "accom.geocodeFailed": "Address not found"
+  "accom.geocodeFailed": "Address not found",
+  "map.viewJourney": "View journey",
+  "journey.title": "Journey",
+  "journey.stats.countries": "Countries",
+  "journey.stats.distance": "Distance traveled",
+  "journey.stats.flights": "Flights",
+  "journey.stats.trains": "Train rides",
+  "journey.col.date": "Date",
+  "journey.col.distance": "Distance",
+  "itinerary.title": "Itinerary",
+  "itinerary.print": "Print",
+  "itinerary.hint": "One boarding pass per flight and train — print or save as PDF before you go.",
+  "itinerary.boardingPass": "Boarding pass",
+  "itinerary.trainTicket": "Train ticket",
+  "itinerary.flight": "Flight",
+  "itinerary.notes": "Notes",
+  "itinerary.departs": "Departs",
+  "itinerary.arrives": "Arrives"
 }
