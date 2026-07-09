@@ -75,11 +75,11 @@ function _trainPoints(lat1, lon1, lat2, lon2, n) {
   return _bezierPoints(lat1, lon1, ctrlLat, ctrlLon, lat2, lon2, n);
 }
 
-function _pinIcon(type) {
-  const bg = type === 'flight' ? _cssVar('--accent', '#d49258')
+function _pinIcon(type, colorOverride) {
+  const bg = colorOverride || (type === 'flight' ? _cssVar('--accent', '#d49258')
     : type === 'train' ? _cssVar('--c-train', '#5fa88e')
-    : _cssVar('--c-activity', '#d8b47a');
-  const glyph = type === 'flight' ? '✈' : type === 'train' ? '🚆' : '★';
+    : _cssVar('--c-activity', '#d8b47a'));
+  const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️' : '★';
   return L.divIcon({
     className: '',
     html: `<div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div>`,
@@ -214,21 +214,14 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
 
   const allCoords = [];   // for fitBounds
 
-  // ── Stay markers (drawn first, so pins layer on top) ───
+  // ── Stay markers ────────────────────────────────
   if (_filters.types.stay) {
     for (const group of _groupStaysByCoord(accommodations || [])) {
       const leg = _legFor(group.stays[0].check_in, windows);
       if (!_filters.legs[leg]) continue;
 
       const color = group.color || accentColor;
-      L.circleMarker([group.lat, group.lon], {
-        radius: 22,
-        color,
-        weight: 1,
-        opacity: 0.5,
-        fillColor: color,
-        fillOpacity: 0.18,
-      })
+      L.marker([group.lat, group.lon], { icon: _pinIcon('stay', color) })
         .addTo(_map)
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
           <div class="map-popup-city">${group.stays[0].city}</div>
