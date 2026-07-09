@@ -7,6 +7,7 @@ const net = require('net');
 const { execSync } = require('child_process');
 
 const COMMIT = process.env.COMMIT || (() => {
+  try { return fs.readFileSync(path.join(__dirname, '.build-id'), 'utf8').trim(); } catch {}
   try { return execSync('git rev-parse --short HEAD', { stdio: ['pipe','pipe','ignore'] }).toString().trim(); }
   catch { return 'unknown'; }
 })();
