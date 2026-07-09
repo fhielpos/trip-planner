@@ -112,7 +112,7 @@ function _pinIcon(type, colorOverride) {
   const bg = colorOverride || (type === 'flight' ? _cssVar('--accent', '#d49258')
     : type === 'train' ? _cssVar('--c-train', '#5fa88e')
     : _cssVar('--c-activity', '#d8b47a'));
-  const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️' : '★';
+  const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️' : '📍';
   return L.divIcon({
     className: '',
     html: `<div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div>`,

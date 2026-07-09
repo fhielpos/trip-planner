@@ -733,24 +733,62 @@ app.put('/api/trip', (req, res) => {
 });
 
 // Add a calendar entry
-app.post('/api/calendar', (req, res) => {
+app.post('/api/calendar', async (req, res) => {
   const data = readData();
   const entry = {
     id: 'c' + Date.now(),
     ...req.body
   };
+  const trimmed = (entry.address || '').trim();
+  if (trimmed) {
+    const geocoded = await geocodeAddress(trimmed);
+    if (geocoded) {
+      entry.lat = geocoded.lat;
+      entry.lon = geocoded.lon;
+      entry.geocode_status = 'ok';
+    } else {
+      entry.geocode_status = 'failed';
+    }
+  }
   data.calendar.push(entry);
   writeData(data);
   res.status(201).json(entry);
 });
 
 // Update a calendar entry
-app.put('/api/calendar/:id', (req, res) => {
+app.put('/api/calendar/:id', async (req, res) => {
   const data = readData();
-  const updated = mergeById(data.calendar, req.params.id, req.body);
-  if (!updated) return res.status(404).json({ error: 'Entry not found' });
+  const idx = data.calendar.findIndex(e => e.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Entry not found' });
+  const merged = { ...data.calendar[idx], ...req.body, id: req.params.id };
+
+  // Re-geocode whenever the address text actually changes — matches the
+  // accommodations pattern, and avoids showing a pin at a stale location
+  // (the hidden lat/lon fields in the edit modal carry over the previous
+  // value regardless of address edits, so they can't be trusted here).
+  if (merged.address !== data.calendar[idx].address) {
+    const trimmed = (merged.address || '').trim();
+    if (!trimmed) {
+      merged.lat = null;
+      merged.lon = null;
+      merged.geocode_status = null;
+    } else {
+      const geocoded = await geocodeAddress(trimmed);
+      if (geocoded) {
+        merged.lat = geocoded.lat;
+        merged.lon = geocoded.lon;
+        merged.geocode_status = 'ok';
+      } else {
+        merged.lat = null;
+        merged.lon = null;
+        merged.geocode_status = 'failed';
+      }
+    }
+  }
+
+  data.calendar[idx] = merged;
   writeData(data);
-  res.json(updated);
+  res.json(merged);
 });
 
 // Delete a calendar entry
