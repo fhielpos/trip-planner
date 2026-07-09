@@ -183,9 +183,13 @@ function renderToday(data) {
   section.querySelector('#today-budget')?.addEventListener('click', () =>
     document.querySelector('.budget-section')?.scrollIntoView({ behavior: 'smooth' })
   );
-  section.querySelector('#today-scroll-hint')?.addEventListener('click', () =>
-    document.querySelector('.info-bar')?.scrollIntoView({ behavior: 'smooth' })
-  );
+  section.querySelector('#today-scroll-hint')?.addEventListener('click', () => {
+    const target = document.querySelector('.day-card.is-today') || document.querySelector('.info-bar');
+    if (!target) return;
+    const headerHeight = document.querySelector('.app-header')?.getBoundingClientRect().height || 0;
+    const top = target.getBoundingClientRect().top + window.scrollY - headerHeight - 8;
+    window.scrollTo({ top, behavior: 'smooth' });
+  });
   section.querySelector('#today-dev-prev')?.addEventListener('click', () => goToDevDay(-1));
   section.querySelector('#today-dev-next')?.addEventListener('click', () => goToDevDay(1));
 
