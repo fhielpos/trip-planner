@@ -121,6 +121,18 @@ function renderStaysTimeline(data) {
   });
   track.appendChild(lanes);
 
+  // Bar width is set as a % of the track, so the pixel width isn't known
+  // until layout happens — measure it once mounted and degrade narrow bars
+  // (dates first, then the city label) instead of letting the parent's
+  // overflow:hidden clip text mid-glyph.
+  requestAnimationFrame(() => {
+    lanes.querySelectorAll('.tl-bar').forEach(bar => {
+      const w = bar.offsetWidth;
+      bar.classList.toggle('tl-bar--no-dates', w < 160);
+      bar.classList.toggle('tl-bar--no-label', w < 40);
+    });
+  });
+
   // Issue list
   if (!overlaps.length && !gaps.length) {
     const ok = document.createElement('div');
