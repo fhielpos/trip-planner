@@ -444,9 +444,10 @@ function createLimiter(concurrency) {
 }
 const weatherFetchLimit = createLimiter(4);
 
-async function fetchDaily(baseUrl, lat, lon, start, end) {
+async function fetchDaily(baseUrl, lat, lon, start, end, extraFields = []) {
+  const dailyFields = ['temperature_2m_max', 'temperature_2m_min', 'weathercode', ...extraFields].join(',');
   const url = `${baseUrl}?latitude=${lat}&longitude=${lon}` +
-    `&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=UTC` +
+    `&daily=${dailyFields}&timezone=auto` +
     `&start_date=${start}&end_date=${end}`;
   return weatherFetchLimit(async () => {
     try {
@@ -467,7 +468,7 @@ function mostFrequent(arr) {
 }
 
 async function fetchForecastDays(lat, lon, start, end) {
-  const daily = await fetchDaily('https://api.open-meteo.com/v1/forecast', lat, lon, start, end);
+  const daily = await fetchDaily('https://api.open-meteo.com/v1/forecast', lat, lon, start, end, ['sunrise', 'sunset']);
   if (!daily) return {};
   const out = {};
   daily.time.forEach((date, i) => {
@@ -476,6 +477,10 @@ async function fetchForecastDays(lat, lon, start, end) {
       tempMin: Math.round(daily.temperature_2m_min[i]),
       code:    daily.weathercode[i],
       source:  'forecast',
+      ...(daily.sunrise && daily.sunset ? {
+        sunrise: daily.sunrise[i].slice(11, 16), // "2026-07-09T06:45" -> "06:45"
+        sunset:  daily.sunset[i].slice(11, 16),
+      } : {}),
     };
   });
   return out;
