@@ -130,6 +130,17 @@ function renderStaysTimeline(data) {
       const w = bar.offsetWidth;
       bar.classList.toggle('tl-bar--no-dates', w < 160);
       bar.classList.toggle('tl-bar--no-label', w < 40);
+      // The 160px threshold is a guess based on typical label length — once
+      // dates are already hidden, a long city name (e.g. "Buenos Aires")
+      // can still get ellipsis-clipped into a fragment like "Bu…". Checked
+      // only in the no-dates regime: at full width the city label shares
+      // space with dates under flex-shrink, so scrollWidth/clientWidth
+      // isn't a reliable fits-or-not signal there (false positives on
+      // labels that render complete, e.g. "Loutraki").
+      const cityEl = bar.querySelector('.tl-bar-city');
+      if (cityEl && bar.classList.contains('tl-bar--no-dates') && cityEl.scrollWidth > cityEl.clientWidth) {
+        bar.classList.add('tl-bar--no-label');
+      }
     });
   });
 
