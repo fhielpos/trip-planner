@@ -67,6 +67,9 @@ function _curvedPoints(lat1, lon1, lat2, lon2, n, curveDown = false) {
   return _bezierPoints(lat1, lon1, ctrlLat, ctrlLon, lat2, lon2, n);
 }
 
+// Zoom level a pin click flies to — close enough to see streets
+const PIN_CLICK_ZOOM = 13;
+
 // Gentle arc for trains — much less curvature than flights
 function _trainPoints(lat1, lon1, lat2, lon2, n) {
   const dist = Math.abs(lat2 - lat1) + Math.abs(lon2 - lon1);
@@ -223,6 +226,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       const color = group.color || accentColor;
       L.marker([group.lat, group.lon], { icon: _pinIcon('stay', color) })
         .addTo(_map)
+        .on('click', () => _map.flyTo([group.lat, group.lon], PIN_CLICK_ZOOM))
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
           <div class="map-popup-city">${group.stays[0].city}</div>
           ${group.isExact ? `<div class="map-popup-sub">${_escHtml(group.stays[0].address)}</div>` : ''}
@@ -264,6 +268,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
     const lines = flist.map(f => `${f.flightNumber} · ${f.from}→${f.to} · ${f.departureDate}`).join('<br>');
     L.marker([c.lat, c.lon], { icon: _pinIcon('flight') })
       .addTo(_map)
+      .on('click', () => _map.flyTo([c.lat, c.lon], PIN_CLICK_ZOOM))
       .bindPopup(L.popup({ className: 'map-popup', minWidth: 180 }).setContent(`
         <div class="map-popup-city">${labels[code] || code}</div>
         <div class="map-popup-sub">${lines}</div>
@@ -304,6 +309,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       .join('<br>');
     L.marker([lat, lon], { icon: _pinIcon('train') })
       .addTo(_map)
+      .on('click', () => _map.flyTo([lat, lon], PIN_CLICK_ZOOM))
       .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
         <div class="map-popup-city">${city}</div>
         <div class="map-popup-sub">${lines}</div>
@@ -318,6 +324,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
 
       L.marker([entry.lat, entry.lon], { icon: _pinIcon('place') })
         .addTo(_map)
+        .on('click', () => _map.flyTo([entry.lat, entry.lon], PIN_CLICK_ZOOM))
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 160 }).setContent(`
           <div class="map-popup-city">${entry.title}</div>
           <div class="map-popup-sub">${entry.date}</div>
