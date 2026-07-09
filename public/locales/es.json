@@ -53,6 +53,7 @@
   "map.legOutbound": "Ida",
   "map.legEurope": "Europa",
   "map.legReturn": "Vuelta",
+  "map.resetView": "Restablecer vista",
   "modal.addTitle": "Agregar Actividad",
   "modal.editTitle": "Editar Entrada",
   "modal.typeLabel": "Tipo",

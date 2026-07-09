@@ -53,6 +53,7 @@
   "map.legOutbound": "Outbound",
   "map.legEurope": "Europe",
   "map.legReturn": "Return",
+  "map.resetView": "Reset view",
   "modal.addTitle": "Add Activity",
   "modal.editTitle": "Edit Entry",
   "modal.typeLabel": "Type",

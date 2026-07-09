@@ -8,6 +8,36 @@ let _lastTrains  = null;
 let _lastAccommodations = null;
 let _lastAirports = null;
 let _lastCalendar = null;
+let _lastAllCoords = [];
+
+// Fits the map to the full route — same logic used on initial render and by
+// the reset-view control, so a pin click's zoom-in can always be undone.
+function _applyFitView(coords) {
+  const euCoords = coords.filter(([lat]) => lat > 35);
+  const fitCoords = euCoords.length ? euCoords : coords;
+  if (fitCoords.length >= 2) {
+    _map.fitBounds(L.latLngBounds(fitCoords).pad(0.25));
+  } else if (fitCoords.length === 1) {
+    _map.setView(fitCoords[0], 11);
+  } else {
+    _map.setView([46, 10], 4); // everything filtered out — default Europe view rather than a broken map
+  }
+}
+
+const _ResetViewControl = L.Control.extend({
+  options: { position: 'topleft' },
+  onAdd() {
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    const link = L.DomUtil.create('a', 'map-reset-control', container);
+    link.href = '#';
+    link.title = t('map.resetView');
+    link.setAttribute('aria-label', t('map.resetView'));
+    link.innerHTML = '⤢';
+    L.DomEvent.on(link, 'click', L.DomEvent.stop);
+    L.DomEvent.on(link, 'click', () => _applyFitView(_lastAllCoords));
+    return container;
+  },
+});
 
 function _escHtml(str) {
   return String(str)
@@ -209,6 +239,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
     maxZoom: 19,
   }).addTo(_map);
+  new _ResetViewControl().addTo(_map);
 
   const accentColor = _cssVar('--accent', '#d49258');
   const trainColor  = _cssVar('--c-train', '#5fa88e');
@@ -333,16 +364,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
     }
   }
 
-  // Fit to European portion — South America would shrink the view to world scale
-  const euCoords = allCoords.filter(([lat]) => lat > 35);
-  const fitCoords = euCoords.length ? euCoords : allCoords;
-  if (fitCoords.length >= 2) {
-    _map.fitBounds(L.latLngBounds(fitCoords).pad(0.25));
-  } else if (fitCoords.length === 1) {
-    _map.setView(fitCoords[0], 11);
-  } else {
-    _map.setView([46, 10], 4); // everything filtered out — default Europe view rather than a broken map
-  }
+  _lastAllCoords = allCoords;
+  _applyFitView(allCoords);
 }
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
