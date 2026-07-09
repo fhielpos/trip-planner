@@ -232,6 +232,12 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
 
   _buildFilterBar();
 
+  // Filter toggles (and the theme-toggle repaint) rebuild the whole map —
+  // preserve whatever the user was already looking at instead of re-fitting
+  // to the full route each time. Only a fresh render (no prior map) or the
+  // reset-view control should move the view.
+  const prevView = _map ? { center: _map.getCenter(), zoom: _map.getZoom() } : null;
+
   if (_map) { _map.remove(); _map = null; }
 
   _map = L.map('trip-map', { scrollWheelZoom: false, zoomControl: true });
@@ -365,7 +371,11 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   }
 
   _lastAllCoords = allCoords;
-  _applyFitView(allCoords);
+  if (prevView) {
+    _map.setView(prevView.center, prevView.zoom, { animate: false });
+  } else {
+    _applyFitView(allCoords);
+  }
 }
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
