@@ -2475,6 +2475,53 @@ body {
 .doc-edit-btn:hover { color: var(--text-1); border-color: var(--text-2); }
 .doc-edit-btn svg { width: 15px; height: 15px; }
 
+.doc-legs-picker {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.doc-legs-group-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-top: 0.4rem;
+}
+.doc-legs-group-label:first-child { margin-top: 0; }
+.doc-leg-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--text-1);
+  cursor: pointer;
+}
+.doc-leg-option input { cursor: pointer; }
+
+.bp-docs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-top: 0.5rem;
+  margin-top: 0.5rem;
+  border-top: 1px dashed var(--border-soft);
+}
+.doc-open-link--sm {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 @media (max-width: 640px) {
   .doc-card { flex-direction: column; align-items: flex-start; }
   .doc-card-actions { width: 100%; justify-content: flex-end; }

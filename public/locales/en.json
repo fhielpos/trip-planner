@@ -198,6 +198,7 @@
   "documents.fieldValidFrom": "Valid from",
   "documents.fieldValidTo": "Valid to",
   "documents.confirmDelete": "Delete this document?",
+  "documents.legsLabel": "Applies to",
   "budgetInsights.title": "Budget Insights",
   "budgetInsights.viewInsights": "View insights",
   "budgetInsights.cityTitle": "Spend by city",

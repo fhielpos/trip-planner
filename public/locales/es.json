@@ -198,6 +198,7 @@
   "documents.fieldValidFrom": "Válido desde",
   "documents.fieldValidTo": "Válido hasta",
   "documents.confirmDelete": "¿Eliminar este documento?",
+  "documents.legsLabel": "Aplica a",
   "budgetInsights.title": "Análisis de presupuesto",
   "budgetInsights.viewInsights": "Ver análisis",
   "budgetInsights.cityTitle": "Gasto por ciudad",
