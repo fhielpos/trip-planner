@@ -51,7 +51,7 @@ function _boardingPassHtml(leg, index, total) {
   const field1Val = isFlight ? leg.flightNumber : (leg.notes || '—');
   const docsRow = (leg.docs && leg.docs.length) ? `
         <div class="bp-docs">
-          ${leg.docs.map(d => `<a class="doc-open-link doc-open-link--sm" href="/api/documents/${d.id}/file" target="_blank" rel="noopener noreferrer" title="${_escHtml(d.title)}">📄 ${t('documents.open')}</a>`).join('')}
+          ${leg.docs.map(d => `<a class="btn-secondary doc-open-link doc-open-link--sm" href="/api/documents/${d.id}/file" target="_blank" rel="noopener noreferrer" title="${_escHtml(d.title)}">📄 ${t('documents.open')}</a>`).join('')}
         </div>` : '';
 
   return `
