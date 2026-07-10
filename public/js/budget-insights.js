@@ -372,7 +372,7 @@ function _renderTrend() {
       <text x="${xFor(1)}" y="${(capY - 6).toFixed(1)}" class="bi-trend-cap-label" text-anchor="start">${_escHtml(capLabel)}</text>
       <text x="${pinX}" y="${(pinY - 10).toFixed(1)}" class="bi-trend-pin" text-anchor="middle">📍</text>
       <text x="${xFor(1)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="start">${_escHtml(startLabel)}</text>
-      <text x="${xFor(todayIdx)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="middle">${t('budgetInsights.axisToday')}</text>
+      ${todayIdx > 1 && todayIdx < totalDays ? `<text x="${xFor(todayIdx)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="middle">${t('budgetInsights.axisToday')}</text>` : ''}
       <text x="${xFor(totalDays)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="end">${_escHtml(endLabel)}</text>
     </svg>
     <div class="bi-trend-legend">
