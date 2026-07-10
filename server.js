@@ -643,7 +643,7 @@ async function fetchAirport(code) {
 }
 
 app.get('/api/airports', async (req, res) => {
-  const codes = [...new Set(FLIGHTS.flatMap(f => [f.from, f.to]))];
+  const codes = [...new Set(readFlights().flatMap(f => [f.from, f.to]))];
   const cache = airportsStore.read();
   const missing = codes.filter(c => !cache[c]);
   if (missing.length) {
