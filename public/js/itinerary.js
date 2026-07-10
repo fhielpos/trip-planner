@@ -84,9 +84,148 @@ function _boardingPassHtml(leg, index, total) {
     </div>`;
 }
 
-document.addEventListener('langchange', () => { if (_lastLegs) _render(_lastLegs); });
-
 let _lastLegs = null;
+let _lastDocs = null;
+
+function _docCardHtml(doc) {
+  return `
+    <div class="doc-card" data-id="${doc.id}">
+      <div class="doc-card-main">
+        <span class="doc-card-title">${_escHtml(doc.title)}</span>
+        <span class="doc-card-range accom-mono">${fmtDate(doc.valid_from, { year: false })} → ${fmtDate(doc.valid_to, { year: false })}</span>
+      </div>
+      <div class="doc-card-actions no-print">
+        <a class="btn-secondary doc-open-link" href="/api/documents/${doc.id}/file" target="_blank" rel="noopener noreferrer">${t('documents.open')}</a>
+        <button type="button" class="doc-edit-btn" data-edit-id="${doc.id}" title="${t('documents.editTitle')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>
+    </div>`;
+}
+
+function _renderDocs(docs) {
+  const container = document.getElementById('documents-list');
+  if (!docs.length) {
+    container.innerHTML = `<p class="doc-empty">${t('documents.empty')}</p>`;
+    return;
+  }
+  container.innerHTML = [...docs]
+    .sort((a, b) => a.valid_from.localeCompare(b.valid_from))
+    .map(_docCardHtml).join('');
+  container.querySelectorAll('[data-edit-id]').forEach(btn => {
+    btn.addEventListener('click', () => _openDocModal(btn.dataset.editId));
+  });
+}
+
+function _wireModal(overlay, closeFn) {
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeFn(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !overlay.hidden) closeFn();
+  });
+}
+
+function _openDocModal(id) {
+  const overlay = document.getElementById('doc-overlay');
+  const titleEl = document.getElementById('doc-modal-title');
+  const deleteBtn = document.getElementById('doc-delete-btn');
+  const urlRow = document.getElementById('doc-url-row');
+  const urlInput = document.getElementById('doc-url');
+
+  document.getElementById('doc-form').reset();
+  document.getElementById('doc-id').value = '';
+
+  if (id) {
+    const doc = (_lastDocs || []).find(d => d.id === id);
+    if (!doc) return;
+    titleEl.textContent = t('documents.editTitle');
+    document.getElementById('doc-id').value = doc.id;
+    document.getElementById('doc-title').value = doc.title;
+    document.getElementById('doc-valid-from').value = doc.valid_from;
+    document.getElementById('doc-valid-to').value = doc.valid_to;
+    urlRow.hidden = true;
+    urlInput.required = false;
+    deleteBtn.hidden = false;
+  } else {
+    titleEl.textContent = t('documents.add');
+    urlRow.hidden = false;
+    urlInput.required = true;
+    deleteBtn.hidden = true;
+  }
+
+  overlay.hidden = false;
+  setTimeout(() => document.getElementById('doc-title').focus(), 50);
+}
+
+function _closeDocModal() {
+  document.getElementById('doc-overlay').hidden = true;
+}
+
+document.getElementById('btn-add-document').addEventListener('click', () => _openDocModal(null));
+document.getElementById('doc-modal-close').addEventListener('click', _closeDocModal);
+document.getElementById('doc-cancel-btn').addEventListener('click', _closeDocModal);
+_wireModal(document.getElementById('doc-overlay'), _closeDocModal);
+
+document.getElementById('doc-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const id = document.getElementById('doc-id').value;
+  const saveBtn = document.getElementById('doc-save-btn');
+  saveBtn.disabled = true;
+  try {
+    if (id) {
+      const payload = {
+        title: document.getElementById('doc-title').value.trim(),
+        valid_from: document.getElementById('doc-valid-from').value,
+        valid_to: document.getElementById('doc-valid-to').value,
+      };
+      const r = await fetch(`/api/documents/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error();
+      const updated = await r.json();
+      const idx = _lastDocs.findIndex(d => d.id === id);
+      if (idx !== -1) _lastDocs[idx] = updated;
+    } else {
+      const payload = {
+        title: document.getElementById('doc-title').value.trim(),
+        source_url: document.getElementById('doc-url').value.trim(),
+        valid_from: document.getElementById('doc-valid-from').value,
+        valid_to: document.getElementById('doc-valid-to').value,
+      };
+      const r = await fetch('/api/documents', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error();
+      _lastDocs.push(await r.json());
+    }
+    _closeDocModal();
+    _renderDocs(_lastDocs);
+  } catch {
+    alert(t('modal.saveFailed'));
+  } finally {
+    saveBtn.disabled = false;
+  }
+});
+
+document.getElementById('doc-delete-btn').addEventListener('click', async () => {
+  const id = document.getElementById('doc-id').value;
+  if (!id || !confirm(t('documents.confirmDelete'))) return;
+  try {
+    const r = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error();
+    _lastDocs = _lastDocs.filter(d => d.id !== id);
+    _closeDocModal();
+    _renderDocs(_lastDocs);
+  } catch {
+    alert(t('modal.deleteFailed'));
+  }
+});
+
+document.addEventListener('langchange', () => {
+  if (_lastLegs) _render(_lastLegs);
+  if (_lastDocs) _renderDocs(_lastDocs);
+});
 
 function _render(legs) {
   document.getElementById('itinerary-list').innerHTML =
@@ -95,8 +234,13 @@ function _render(legs) {
 
 async function _init() {
   await initI18n();
-  const tripRes = await fetch('/api/trip');
+  const [tripRes, docsRes] = await Promise.all([
+    fetch('/api/trip'),
+    fetch('/api/documents'),
+  ]);
   const trip = await tripRes.json();
+  _lastDocs = await docsRes.json();
+  _renderDocs(_lastDocs);
 
   const flightLegs = (trip.flights || []).map(f => ({
     mode: 'flight',

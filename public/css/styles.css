@@ -2429,6 +2429,57 @@ body {
   .bp-fields { grid-template-columns: repeat(2, 1fr); }
 }
 
+.itinerary-docs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1.75rem 0 1rem;
+}
+.itinerary-docs-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.doc-empty { color: var(--text-3); font-size: 0.85rem; }
+
+.doc-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.6rem;
+}
+.doc-card-main { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.doc-card-title { font-size: 0.95rem; font-weight: 600; color: var(--text-1); }
+.doc-card-range { font-size: 0.75rem; color: var(--text-3); }
+.doc-card-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.doc-open-link { text-decoration: none; padding: 0.3rem 0.75rem; font-size: 0.78rem; }
+.doc-edit-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0.35rem;
+  display: inline-flex;
+  transition: var(--trans);
+}
+.doc-edit-btn:hover { color: var(--text-1); border-color: var(--text-2); }
+.doc-edit-btn svg { width: 15px; height: 15px; }
+
+@media (max-width: 640px) {
+  .doc-card { flex-direction: column; align-items: flex-start; }
+  .doc-card-actions { width: 100%; justify-content: flex-end; }
+}
+
 @media print {
   .no-print { display: none !important; }
   @page { margin: 1.2cm; }
