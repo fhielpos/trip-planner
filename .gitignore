@@ -1,4 +1,6 @@
 node_modules/
 data/
+.superpowers/
+docs/superpowers/
 
 CLAUDE.md

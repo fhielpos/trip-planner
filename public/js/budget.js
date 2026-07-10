@@ -17,6 +17,59 @@ let _budget = null;
 let _budgetTrip = null;
 let _catRowSeq = 0;
 
+const PENDING_ENTRIES_KEY = 'pendingBudgetEntries';
+
+function _loadPendingEntries() {
+  try { return JSON.parse(localStorage.getItem(PENDING_ENTRIES_KEY)) || []; }
+  catch { return []; }
+}
+
+function _savePendingEntries(list) {
+  localStorage.setItem(PENDING_ENTRIES_KEY, JSON.stringify(list));
+}
+
+function _queuePendingEntry(payload) {
+  const tempId = 'pending-' + Date.now();
+  const pending = _loadPendingEntries();
+  pending.push({ tempId, payload });
+  _savePendingEntries(pending);
+  _budget.entries.push({ ...payload, id: tempId, pending: true });
+}
+
+let _syncInFlight = false;
+
+async function _syncPendingEntries() {
+  if (_syncInFlight) return;
+  _syncInFlight = true;
+  try {
+    const pending = _loadPendingEntries();
+    if (!pending.length) return;
+    const remaining = [];
+    for (const item of pending) {
+      try {
+        const r = await fetch('/api/budget/entries', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item.payload),
+        });
+        const saved = await r.json();
+        const idx = _budget.entries.findIndex(e => e.id === item.tempId);
+        if (idx !== -1) _budget.entries[idx] = saved;
+      } catch {
+        remaining.push(item);
+      }
+    }
+    _savePendingEntries(remaining);
+    _renderBudget();
+  } finally {
+    _syncInFlight = false;
+  }
+}
+
+window.addEventListener('online', _syncPendingEntries);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && navigator.onLine) _syncPendingEntries();
+});
+
 // Predefined category colors — the calendar location accents (see PALETTE in app.js)
 const CATEGORY_SWATCHES = [
   '#d46a5a', '#c8b230', '#a060c0', '#38a0a8', '#d05070', '#78b038',
@@ -44,11 +97,19 @@ function _catColor(id) {
 
 async function initBudget(tripData) {
   _budgetTrip = tripData;
-  const res = await fetch('/api/budget');
-  _budget = await res.json();
+  try {
+    const res = await fetch('/api/budget');
+    _budget = await res.json();
+  } catch {
+    _budget = { initialBudget: 0, currency: 'EUR', entries: [], subBudgets: [], categories: [] };
+  }
   if (!_budget.subBudgets) _budget.subBudgets = [];
   if (!_budget.categories) _budget.categories = [];
+  for (const item of _loadPendingEntries()) {
+    _budget.entries.push({ ...item.payload, id: item.tempId, pending: true });
+  }
   _renderBudget();
+  if (navigator.onLine) _syncPendingEntries();
 }
 
 // ── Helpers ────────────────────────────────────
@@ -313,7 +374,7 @@ function _renderEntries() {
     const dow = parseLocal(date).toLocaleDateString(getDateLocale(), { weekday: 'short' });
     const dateLabel = `${dow}, ${fmtDate(date)}`;
     const eRows = dayEntries.map(e => `
-      <div class="budget-entry" data-id="${e.id}">
+      <div class="budget-entry${e.pending ? ' is-pending' : ''}" data-id="${e.id}">
         <span class="budget-entry-dot" style="background:${_catColor(e.category)}"></span>
         <div class="budget-entry-info">
           <span class="budget-entry-desc">${e.description || _catName(e.category)}</span>
@@ -339,7 +400,10 @@ function _renderEntries() {
     </div>`;
 
   el.querySelectorAll('.budget-entry').forEach(row => {
-    row.addEventListener('click', () => _openExpenseModal(row.dataset.id));
+    row.addEventListener('click', () => {
+      if (row.classList.contains('is-pending')) { alert(t('offline.pendingEntry')); return; }
+      _openExpenseModal(row.dataset.id);
+    });
   });
 }
 
@@ -505,8 +569,8 @@ document.getElementById('budget-form').addEventListener('submit', async e => {
     description: document.getElementById('budget-description').value.trim(),
     city:        document.getElementById('budget-city').value.trim(),
   };
-  try {
-    if (id) {
+  if (id) {
+    try {
       const r = await fetch(`/api/budget/entries/${id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -514,16 +578,24 @@ document.getElementById('budget-form').addEventListener('submit', async e => {
       const updated = await r.json();
       const idx = _budget.entries.findIndex(x => x.id === id);
       if (idx !== -1) _budget.entries[idx] = updated;
-    } else {
-      const r = await fetch('/api/budget/entries', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      _budget.entries.push(await r.json());
+      _closeExpenseModal();
+      _renderBudget();
+    } catch {
+      alert(navigator.onLine ? t('modal.saveFailed') : t('offline.editBlocked'));
     }
-    _closeExpenseModal();
-    _renderBudget();
-  } catch { alert(t('modal.saveFailed')); }
+    return;
+  }
+  try {
+    const r = await fetch('/api/budget/entries', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    _budget.entries.push(await r.json());
+  } catch {
+    _queuePendingEntry(payload);
+  }
+  _closeExpenseModal();
+  _renderBudget();
 });
 
 document.getElementById('budget-delete-btn').addEventListener('click', async () => {
@@ -534,7 +606,9 @@ document.getElementById('budget-delete-btn').addEventListener('click', async () 
     _budget.entries = _budget.entries.filter(x => x.id !== id);
     _closeExpenseModal();
     _renderBudget();
-  } catch { alert(t('modal.deleteFailed')); }
+  } catch {
+    alert(navigator.onLine ? t('modal.deleteFailed') : t('offline.editBlocked'));
+  }
 });
 
 document.getElementById('budget-settings-close').addEventListener('click', _closeSettingsModal);
