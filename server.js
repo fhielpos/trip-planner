@@ -36,6 +36,8 @@ const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
 const WEATHER_FILE   = path.join(__dirname, 'data', 'weather.json');
 const AIRPORTS_FILE  = path.join(__dirname, 'data', 'airports.json');
 const RECOMMENDATIONS_FILE = path.join(__dirname, 'data', 'recommendations.json');
+const DOCUMENTS_FILE = path.join(__dirname, 'data', 'documents.json');
+const DOCUMENTS_DIR  = path.join(__dirname, 'data', 'documents-files');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -936,6 +938,104 @@ app.delete('/api/wishlist/:id', (req, res) => {
   w.items = w.items.filter(i => i.id !== req.params.id);
   writeWishlist(w);
   res.sendStatus(204);
+});
+
+// ── Travel documents ───────────────────────────
+// Generic store for any URL-sourced document (rail passes, insurance,
+// visas, ...) that needs to be opened from the app, including offline.
+// The server downloads the source once at add-time and keeps its own
+// copy — see docs/superpowers/specs/2026-07-10-travel-documents-design.md
+// for why (the source PDFs force a download and block iframing).
+
+if (!fs.existsSync(DOCUMENTS_DIR)) fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+
+const documentsStore = jsonStore(DOCUMENTS_FILE, () => []);
+function readDocuments()      { return documentsStore.read(); }
+function writeDocuments(list) { documentsStore.write(list); }
+
+function validDocumentDates(valid_from, valid_to) {
+  const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  return ok(valid_from) && ok(valid_to) && valid_from <= valid_to;
+}
+
+app.get('/api/documents', (req, res) => res.json(readDocuments()));
+
+app.post('/api/documents', async (req, res) => {
+  const { title, source_url, valid_from, valid_to } = req.body;
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'Title required' });
+  if (!source_url || !/^https?:\/\//.test(source_url)) return res.status(400).json({ error: 'Invalid URL' });
+  if (!validDocumentDates(valid_from, valid_to)) return res.status(400).json({ error: 'Invalid dates' });
+
+  try {
+    const { hostname } = new URL(source_url);
+    const addresses = await dns.promises.lookup(hostname, { all: true });
+    if (addresses.some(a => isPrivateAddress(a.address))) {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+    const resp = await fetch(source_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+      signal: AbortSignal.timeout(15000),
+      redirect: 'follow',
+    });
+    if (!resp.ok) return res.status(502).json({ error: `HTTP ${resp.status}` });
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (buf.slice(0, 4).toString('ascii') !== '%PDF') {
+      return res.status(502).json({ error: 'Not a PDF' });
+    }
+
+    const id = 'd' + Date.now();
+    const filename = `${id}.pdf`;
+    fs.writeFileSync(path.join(DOCUMENTS_DIR, filename), buf);
+
+    const entry = {
+      id, title: String(title).trim(), source_url, valid_from, valid_to,
+      filename, added_at: new Date().toISOString(),
+    };
+    const list = readDocuments();
+    list.push(entry);
+    writeDocuments(list);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Download failed' });
+  }
+});
+
+app.put('/api/documents/:id', (req, res) => {
+  const list = readDocuments();
+  const existing = list.find(d => d.id === req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Document not found' });
+
+  const { title, valid_from, valid_to } = req.body;
+  if (title !== undefined && !String(title).trim()) return res.status(400).json({ error: 'Title required' });
+  const nextFrom = valid_from !== undefined ? valid_from : existing.valid_from;
+  const nextTo   = valid_to   !== undefined ? valid_to   : existing.valid_to;
+  if (!validDocumentDates(nextFrom, nextTo)) return res.status(400).json({ error: 'Invalid dates' });
+
+  const patch = { valid_from: nextFrom, valid_to: nextTo };
+  if (title !== undefined) patch.title = String(title).trim();
+  const updated = mergeById(list, req.params.id, patch);
+  writeDocuments(list);
+  res.json(updated);
+});
+
+app.delete('/api/documents/:id', (req, res) => {
+  const list = readDocuments();
+  const doc = list.find(d => d.id === req.params.id);
+  if (!doc || !removeById(list, req.params.id)) return res.status(404).json({ error: 'Document not found' });
+  writeDocuments(list);
+  try { fs.unlinkSync(path.join(DOCUMENTS_DIR, doc.filename)); } catch {}
+  res.sendStatus(204);
+});
+
+app.get('/api/documents/:id/file', (req, res) => {
+  const doc = readDocuments().find(d => d.id === req.params.id);
+  if (!doc) return res.sendStatus(404);
+  const filePath = path.join(DOCUMENTS_DIR, doc.filename);
+  if (!fs.existsSync(filePath)) return res.sendStatus(404);
+  res.set('Content-Type', 'application/pdf');
+  fs.createReadStream(filePath).pipe(res);
 });
 
 // Read a <meta property="X" content="Y"> value, tolerating either attribute order.
