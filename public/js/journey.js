@@ -113,16 +113,18 @@ let _lastCountries = null;
 async function _init() {
   await initI18n();
 
-  const [tripRes, accomRes, airportsRes] = await Promise.all([
+  const [tripRes, accomRes, airportsRes, flightsRes] = await Promise.all([
     fetch('/api/trip'),
     fetch('/api/accommodations'),
     fetch('/api/airports').catch(() => null),
+    fetch('/api/flights'),
   ]);
   const trip = await tripRes.json();
   const accommodations = await accomRes.json();
   const airports = airportsRes && airportsRes.ok ? await airportsRes.json() : {};
+  const flights = await flightsRes.json();
 
-  const flightLegs = (trip.flights || []).map(f => {
+  const flightLegs = flights.map(f => {
     const from = airports[f.from], to = airports[f.to];
     return {
       mode: 'flight',
