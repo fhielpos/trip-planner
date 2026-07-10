@@ -16,28 +16,37 @@ function countryFlag(country) {
   return String.fromCodePoint(...[...cc].map(ch => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 
+// Documents attached to a flight/train's document_ids, resolved against the
+// full documents list. Never throws on a stale/missing id (see delete flow
+// in itinerary.js — leg cleanup on document delete isn't guaranteed atomic
+// with every possible edge case, so resolution here stays defensive).
+function docsForLeg(documents, document_ids) {
+  if (!document_ids || !document_ids.length) return [];
+  return document_ids.map(id => (documents || []).find(d => d.id === id)).filter(Boolean);
+}
+
 // Date-matched events for one day, in day order:
 // check-outs, then flights/trains by departure time, then check-ins.
 function collectTodayEvents(data, today) {
   const events = [];
   for (const a of data.accommodations || []) {
     if (a.check_out === today)
-      events.push({ order: 0, time: '', icon: '🧳', label: t('chip.checkout', { city: a.city }), url: a.url || null });
+      events.push({ order: 0, time: '', icon: '🧳', label: t('chip.checkout', { city: a.city }), url: a.url || null, docs: [] });
   }
   for (const f of data.flights || []) {
     if (f.departureDate !== today) continue;
     const extras = [f.terminal && `T${f.terminal}`, f.gate && `G${f.gate}`].filter(Boolean).join(' ');
     const label = `${f.flightNumber} · ${f.from}→${f.to} · ${formatTime(f.departureTime)}${extras ? ' · ' + extras : ''}`;
-    events.push({ order: 1, time: f.departureTime || '', icon: '✈', label, url: f.flightyUrl || null });
+    events.push({ order: 1, time: f.departureTime || '', icon: '✈', label, url: f.flightyUrl || null, docs: docsForLeg(data.documents, f.document_ids) });
   }
   for (const tr of data.trains || []) {
     if (tr.departureDate !== today) continue;
     const time = tr.departureTime ? ` · ${formatTime(tr.departureTime)}` : '';
-    events.push({ order: 1, time: tr.departureTime || '', icon: '🚆', label: `${tr.fromCity} → ${tr.toCity}${time}`, url: tr.url || null });
+    events.push({ order: 1, time: tr.departureTime || '', icon: '🚆', label: `${tr.fromCity} → ${tr.toCity}${time}`, url: tr.url || null, docs: docsForLeg(data.documents, tr.document_ids) });
   }
   for (const a of data.accommodations || []) {
     if (a.check_in === today)
-      events.push({ order: 2, time: '', icon: '🛏', label: t('chip.checkin', { city: a.city }), url: a.url || null });
+      events.push({ order: 2, time: '', icon: '🛏', label: t('chip.checkin', { city: a.city }), url: a.url || null, docs: [] });
   }
   events.sort((a, b) => a.order - b.order || a.time.localeCompare(b.time));
   return events;
@@ -127,6 +136,7 @@ function renderToday(data) {
       <span class="today-row-icon">${e.icon}</span>
       <span class="today-row-label">${e.label}</span>
       ${e.url ? `<a class="today-row-link" href="${e.url}" target="_blank" rel="noopener">↗</a>` : ''}
+      ${e.docs.map(d => `<a class="today-row-link" href="/api/documents/${d.id}/file" target="_blank" rel="noopener" title="${d.title}">📄</a>`).join('')}
     </div>`;
 
   const actRow = ({ main, backup }) => {
