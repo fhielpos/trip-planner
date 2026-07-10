@@ -2402,7 +2402,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: 0.35rem;
   padding: 0.9rem 0.75rem;
   border-left: 2px dashed var(--border);
@@ -2412,7 +2412,7 @@ body {
 .bp-stub-route { font-size: 0.85rem; font-weight: 600; color: var(--text-1); }
 .bp-stub-date { font-size: 0.68rem; color: var(--text-3); }
 .bp-stub-icon { font-size: 1.3rem; margin: 0.1rem 0; }
-.bp-barcode { display: flex; align-items: stretch; gap: 1.5px; height: 22px; width: 100%; opacity: 0.55; }
+.bp-barcode { display: flex; align-items: stretch; justify-content: center; gap: 1.5px; height: 22px; width: 100%; opacity: 0.55; }
 .bp-barcode span { background: var(--text-1); display: block; }
 
 @media (max-width: 640px) {
