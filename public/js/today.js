@@ -58,6 +58,11 @@ function collectTodayActivities(calendar, today) {
   return items;
 }
 
+// Documents whose validity window includes `today` (YYYY-MM-DD).
+function collectActiveDocuments(documents, today) {
+  return (documents || []).filter(d => d.valid_from <= today && today <= d.valid_to);
+}
+
 // Dev-only: jump the `?today=` override by `delta` days and reload.
 function goToDevDay(delta) {
   const url = new URL(location.href);
@@ -115,6 +120,7 @@ function renderToday(data) {
 
   const events = collectTodayEvents(data, today);
   const acts = collectTodayActivities(data.calendar, today);
+  const activeDocs = collectActiveDocuments(data.documents, today);
 
   const eventRow = e => `
     <div class="today-row">
@@ -167,6 +173,16 @@ function renderToday(data) {
       <div class="today-block">
         <h3 class="today-block-title">${t('today.activities')}</h3>
         ${acts.map(actRow).join('')}
+      </div>` : ''}
+      ${activeDocs.length ? `
+      <div class="today-block">
+        <h3 class="today-block-title">${t('documents.title')}</h3>
+        ${activeDocs.map(d => `
+        <div class="today-row">
+          <span class="today-row-icon">📄</span>
+          <span class="today-row-label">${d.title}</span>
+          <a class="today-row-link" href="/api/documents/${d.id}/file" target="_blank" rel="noopener">↗</a>
+        </div>`).join('')}
       </div>` : ''}
       ${imageStay && data.config?.recommendationsEnabled ? `
       <div class="today-block today-recs-block">

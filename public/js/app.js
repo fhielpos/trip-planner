@@ -780,18 +780,20 @@ async function init() {
     // freshly-parsed flighty.txt flights, airport coordinates (looked up
     // for whatever codes those flights use), and operator-set config need
     // their own requests.
-    const [tripRes, accomRes, flightsRes, airportsRes, configRes] = await Promise.all([
+    const [tripRes, accomRes, flightsRes, airportsRes, configRes, documentsRes] = await Promise.all([
       fetch('/api/trip'),
       fetch('/api/accommodations'),
       fetch('/api/flights'),
       fetch('/api/airports'),
       fetch('/api/config'),
+      fetch('/api/documents'),
     ]);
     tripData = await tripRes.json();
     tripData.accommodations = await accomRes.json();
     tripData.flights = await flightsRes.json();
     tripData.airports = await airportsRes.json();
     tripData.config = await configRes.json();
+    tripData.documents = await documentsRes.json();
     tripData.colorMap = buildColorMap(tripData.accommodations);
     document.getElementById('trip-name').textContent = tripData.trip.name;
     document.getElementById('trip-destination').textContent = tripData.trip.destination;
