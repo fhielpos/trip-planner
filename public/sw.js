@@ -10,6 +10,7 @@
 const SHELL_ASSETS = [
   '/',
   '/index.html',
+  '/accommodations.html',
   '/manifest.json',
   '/css/styles.css',
   '/js/i18n.js',
@@ -21,10 +22,9 @@ const SHELL_ASSETS = [
   '/js/map.js',
   '/js/budget.js',
   '/js/wishlist.js',
+  '/js/accommodations.js',
   '/locales/en.json',
   '/locales/es.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
 ];
 
 const DATA_PATHS = [

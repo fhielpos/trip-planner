@@ -277,14 +277,56 @@ function validStayDates(check_in, check_out) {
   return ok(check_in) && ok(check_out) && check_in < check_out;
 }
 
+function validTotalPrice(v) {
+  return v === undefined || v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0);
+}
+
+const NOMINATIM_USER_AGENT = 'trip-planner/1.0 (personal trip-planning app, non-commercial)';
+let _lastNominatimCall = 0;
+const geocodeLimiter = createLimiter(1);
+
+// Turns a free-text address into { lat, lon }, or null if no match / any
+// failure. Enforces Nominatim's "max 1 req/sec" usage policy via a
+// last-call timestamp gate — createLimiter alone only bounds concurrency,
+// not spacing between calls.
+async function geocodeAddress(address) {
+  return geocodeLimiter(async () => {
+    const wait = _lastNominatimCall + 1100 - Date.now();
+    if (wait > 0) await sleep(wait);
+    _lastNominatimCall = Date.now();
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': NOMINATIM_USER_AGENT,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) return null;
+      const results = await res.json();
+      if (!Array.isArray(results) || results.length === 0) return null;
+      const lat = parseFloat(results[0].lat);
+      const lon = parseFloat(results[0].lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return { lat, lon };
+    } catch {
+      return null;
+    }
+  });
+}
+
 app.get('/api/accommodations', (req, res) => {
   res.json(readAccommodations());
 });
 
 app.post('/api/accommodations', (req, res) => {
-  const { city, check_in, check_out, country, url, color, lat, lon } = req.body;
+  const { city, check_in, check_out, country, url, color, lat, lon, address, total_price } = req.body;
   if (!city || !validStayDates(check_in, check_out)) {
     return res.status(400).json({ error: 'city, check_in and check_out (check_in < check_out) are required' });
+  }
+  if (!validTotalPrice(total_price)) {
+    return res.status(400).json({ error: 'total_price must be a non-negative number or null' });
   }
   const list = readAccommodations();
   const stay = {
@@ -296,13 +338,18 @@ app.post('/api/accommodations', (req, res) => {
     lon: lon ?? null,
     color: color || null,
     url: url || null,
+    address: address || '',
+    total_price: total_price ?? null,
+    exact_lat: null,
+    exact_lon: null,
+    geocode_status: null,
   };
   list.push(stay);
   writeAccommodations(list);
   res.status(201).json(stay);
 });
 
-app.put('/api/accommodations/:id', (req, res) => {
+app.put('/api/accommodations/:id', async (req, res) => {
   const list = readAccommodations();
   const idx = list.findIndex(a => a.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Stay not found' });
@@ -310,6 +357,30 @@ app.put('/api/accommodations/:id', (req, res) => {
   if (!merged.city || !validStayDates(merged.check_in, merged.check_out)) {
     return res.status(400).json({ error: 'city, check_in and check_out (check_in < check_out) are required' });
   }
+  if (!validTotalPrice(merged.total_price)) {
+    return res.status(400).json({ error: 'total_price must be a non-negative number or null' });
+  }
+
+  if (merged.address !== list[idx].address) {
+    const trimmed = (merged.address || '').trim();
+    if (!trimmed) {
+      merged.exact_lat = null;
+      merged.exact_lon = null;
+      merged.geocode_status = null;
+    } else {
+      const geocoded = await geocodeAddress(trimmed);
+      if (geocoded) {
+        merged.exact_lat = geocoded.lat;
+        merged.exact_lon = geocoded.lon;
+        merged.geocode_status = 'ok';
+      } else {
+        merged.exact_lat = null;
+        merged.exact_lon = null;
+        merged.geocode_status = 'failed';
+      }
+    }
+  }
+
   list[idx] = merged;
   writeAccommodations(list);
   res.json(merged);

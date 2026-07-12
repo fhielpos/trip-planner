@@ -1955,3 +1955,166 @@ body {
   body.today-active .info-countdown,
   body.today-active .info-divider { display: none; }
 }
+
+/* =============================================
+   Accommodations Insights Page
+   A travel manifest, not a spreadsheet: each stay is a ticket-stub row
+   carrying its own identity color (the same `color` field used for that
+   stay's day-cards/timeline/legend elsewhere in the app), with figures set
+   in a monospace utility face for a printed-ticket feel.
+   ============================================= */
+.accom-main {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 2rem;
+}
+.accom-back-link {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  text-decoration: none;
+  margin-right: 0.75rem;
+  transition: color var(--trans);
+}
+.accom-back-link:hover { color: var(--text-1); }
+
+.accom-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Manifest summary strip ── */
+.accom-manifest-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 2.25rem;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom: 2px solid var(--accent);
+  border-radius: var(--radius);
+}
+.accom-manifest-item { display: flex; flex-direction: column; gap: 0.2rem; }
+.accom-manifest-label {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.accom-manifest-val {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+/* ── Manifest rows ── */
+.accom-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+.accom-row {
+  display: grid;
+  grid-template-columns: 2.1fr 1.3fr 0.85fr 0.95fr 0.95fr auto;
+  align-items: center;
+  gap: 0.5rem 1.1rem;
+  padding: 0.75rem 1.1rem;
+  border-left: 3px solid var(--stay-color, var(--border));
+  border-bottom: 1px dashed var(--border-soft);
+  transition: background var(--trans);
+}
+.accom-list .accom-row:last-child { border-bottom: none; }
+.accom-row:hover { background: var(--bg-hover); }
+
+.accom-row-city-line { display: flex; align-items: baseline; gap: 0.45rem; }
+.accom-row-index {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.accom-row-city {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-1);
+}
+.accom-row-place {
+  font-size: 0.78rem;
+  color: var(--text-2);
+  margin-top: 0.15rem;
+}
+
+.accom-row-figure { display: flex; flex-direction: column; gap: 0.2rem; }
+.accom-row-figure-label {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.accom-row-figure-val { font-size: 0.85rem; color: var(--text-1); }
+.accom-row-figure-val--accent { color: var(--accent); font-weight: 600; }
+.accom-no-price { color: var(--text-3); }
+
+.accom-row-actions { display: flex; align-items: center; gap: 0.15rem; }
+.accom-link-icon, .accom-edit-btn {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  transition: color var(--trans);
+}
+.accom-link-icon:hover, .accom-edit-btn:hover { color: var(--accent); }
+.accom-link-icon svg, .accom-edit-btn svg { width: 15px; height: 15px; }
+.accom-geocode-failed {
+  color: #e87a7a;
+  cursor: help;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .accom-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "main main"
+      "dates nights"
+      "total pernight"
+      "actions actions";
+  }
+  .accom-row-main     { grid-area: main; }
+  .accom-row-dates    { grid-area: dates; }
+  .accom-row-nights   { grid-area: nights; }
+  .accom-row-total    { grid-area: total; }
+  .accom-row-pernight { grid-area: pernight; }
+  .accom-row-actions  { grid-area: actions; justify-content: flex-end; }
+}
+
+.stays-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.stays-section-header .stays-section-title { margin-bottom: 0; }
+.stays-details-link {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .accom-main { padding: 0.75rem; }
+  .accom-table { font-size: 0.78rem; }
+}

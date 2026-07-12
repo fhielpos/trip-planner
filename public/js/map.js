@@ -9,6 +9,12 @@ let _lastAccommodations = null;
 let _lastAirports = null;
 let _lastCalendar = null;
 
+function _escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // Type + leg filters — both start fully on; toggled via the chip bar
 // built into #map-filters. See docs/superpowers/specs/
 // 2026-07-02-map-filters-and-data-driven-airports-design.md and
@@ -120,17 +126,24 @@ function _airportLabels(flights) {
   return labels;
 }
 
-// Stays sharing exact coordinates (repeat visits to the same city) render
-// as one circle marker listing every visit, rather than stacked duplicates.
+// Stays with a successfully-geocoded address each get their own individual
+// marker at the exact position. Stays sharing area-level coordinates
+// (repeat visits to the same city, or no/failed address) still render as
+// one circle marker listing every visit, rather than stacked duplicates.
 function _groupStaysByCoord(accommodations) {
+  const exact = [];
   const groups = {};
   for (const a of accommodations) {
+    if (a.geocode_status === 'ok' && a.exact_lat != null && a.exact_lon != null) {
+      exact.push({ lat: a.exact_lat, lon: a.exact_lon, color: a.color, stays: [a], isExact: true });
+      continue;
+    }
     if (a.lat == null || a.lon == null) continue;
     const key = `${a.lat},${a.lon}`;
-    if (!groups[key]) groups[key] = { lat: a.lat, lon: a.lon, color: a.color, stays: [] };
+    if (!groups[key]) groups[key] = { lat: a.lat, lon: a.lon, color: a.color, stays: [], isExact: false };
     groups[key].stays.push(a);
   }
-  return Object.values(groups);
+  return [...exact, ...Object.values(groups)];
 }
 
 // ── Filter bar ──────────────────────────────────
@@ -219,6 +232,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
         .addTo(_map)
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
           <div class="map-popup-city">${group.stays[0].city}</div>
+          ${group.isExact ? `<div class="map-popup-sub">${_escHtml(group.stays[0].address)}</div>` : ''}
           <div class="map-popup-sub">${group.stays.map(s => `${s.check_in} → ${s.check_out}`).join('<br>')}</div>
         `));
       allCoords.push([group.lat, group.lon]);
