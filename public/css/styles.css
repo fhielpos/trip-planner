@@ -1821,6 +1821,12 @@ body {
   font-weight: 600;
   color: var(--today-fg-1, var(--text-1));
 }
+.today-suntimes {
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--today-fg-2, var(--text-2));
+}
 .today-lastnight {
   display: inline-block;
   margin-top: 0.5rem;
