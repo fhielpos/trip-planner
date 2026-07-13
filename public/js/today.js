@@ -98,6 +98,9 @@ function renderToday(data) {
   const weatherLine = w
     ? `${w.source === 'historical' ? '~' : ''}${weatherIcon(w.code)} ${w.tempMax}°/${w.tempMin}°`
     : null;
+  const sunTimes = (w && w.sunrise && w.sunset)
+    ? `<span class="today-suntimes">🌅 ${w.sunrise} · 🌇 ${w.sunset}</span>`
+    : '';
 
   const events = collectTodayEvents(data, today);
   const acts = collectTodayActivities(data.calendar, today);
@@ -141,7 +144,7 @@ function renderToday(data) {
       <div class="today-hero">
         <h2 class="today-city">${heroCity}</h2>
         <div class="today-sub">${t('budget.stats.dayOf', { day: dayNum, total: totalDays })} · ${dateLabel}</div>
-        ${weatherLine ? `<div class="today-weather"${w.source === 'historical' ? ` title="${t('weather.historicalTooltip')}"` : ''}>${weatherLine}</div>` : ''}
+        ${weatherLine ? `<div class="today-weather"${w.source === 'historical' ? ` title="${t('weather.historicalTooltip')}"` : ''}>${weatherLine}${sunTimes}</div>` : ''}
         ${lastNight ? `<div class="today-lastnight">${t('today.lastNight')}</div>` : ''}
       </div>
       ${events.length ? `
