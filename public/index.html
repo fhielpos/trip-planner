@@ -26,6 +26,7 @@
         <h1 id="trip-name">Trip Planner</h1>
       </div>
       <div class="header-right">
+        <span class="passport-stamp" id="passport-stamp" hidden></span>
         <span class="offline-indicator" id="offline-indicator" data-i18n="offline.indicator" hidden></span>
         <span class="header-destination" id="trip-destination"></span>
         <button class="lang-toggle" id="lang-toggle" title="Switch language" aria-label="Switch language">EN</button>
@@ -131,7 +132,13 @@
   <!-- Route map -->
   <section class="map-section">
     <div class="map-section-inner">
-      <h2 class="map-section-title" data-i18n="map.title">Route</h2>
+      <div class="stays-section-header">
+        <h2 class="map-section-title" data-i18n="map.title">Route</h2>
+        <div class="map-section-links">
+          <a class="btn-secondary stays-details-link" href="/itinerary.html" data-i18n="itinerary.title">Itinerary</a>
+          <a class="btn-secondary stays-details-link" href="/journey.html" data-i18n="map.viewJourney">View journey</a>
+        </div>
+      </div>
       <div id="trip-map"></div>
       <div class="map-filters" id="map-filters"></div>
     </div>

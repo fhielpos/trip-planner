@@ -170,5 +170,22 @@
   "accom.edit.addressPlaceholder": "Opcional",
   "accom.edit.totalPrice": "Precio total",
   "stays.viewDetails": "Ver detalles",
-  "accom.geocodeFailed": "Dirección no encontrada"
+  "accom.geocodeFailed": "Dirección no encontrada",
+  "map.viewJourney": "Ver recorrido",
+  "journey.title": "Recorrido",
+  "journey.stats.countries": "Países",
+  "journey.stats.distance": "Distancia recorrida",
+  "journey.stats.flights": "Vuelos",
+  "journey.stats.trains": "Trenes",
+  "journey.col.date": "Fecha",
+  "journey.col.distance": "Distancia",
+  "itinerary.title": "Itinerario",
+  "itinerary.print": "Imprimir",
+  "itinerary.hint": "Un pasaje por cada vuelo y tren — imprimí o guardá como PDF antes de viajar.",
+  "itinerary.boardingPass": "Tarjeta de embarque",
+  "itinerary.trainTicket": "Pasaje de tren",
+  "itinerary.flight": "Vuelo",
+  "itinerary.notes": "Notas",
+  "itinerary.departs": "Sale",
+  "itinerary.arrives": "Llega"
 }
