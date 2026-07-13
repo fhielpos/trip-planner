@@ -152,7 +152,7 @@
   "wishlist.fetchFailed": "No se pudo obtener la información de la página",
   "wishlist.fetchBlocked": "El sitio bloquea el acceso automático — ingresá los datos manualmente",
   "accom.title": "Alojamientos",
-  "accom.back": "← Volver",
+  "accom.back": "Volver",
   "accom.col.city": "Ciudad",
   "accom.col.country": "País",
   "accom.col.address": "Dirección",
