@@ -819,6 +819,17 @@ body {
 
 @media (max-width: 640px) {
   .header-destination { display: none; }
+  /* A long custom trip name has nowhere to wrap to on a phone-width sticky
+     header — clip to one line instead of pushing the page down. */
+  .header-title { min-width: 0; }
+  .header-title h1 {
+    min-width: 0;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .route-strip { padding: 0.2rem 0.75rem; }
   .app-main { padding: 0.5rem; }
   .cd-num  { font-size: 1.5rem; }
