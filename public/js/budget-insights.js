@@ -250,7 +250,7 @@ function _renderCityList() {
           <div class="bi-city-figure">
             <span class="accom-row-figure-label">${t('budgetInsights.perDay')}</span>
             ${perDay !== null
-              ? `<span class="accom-row-figure-val accom-mono">${_biFmtMoney(perDay)}</span>`
+              ? `<span class="accom-row-figure-val accom-row-figure-val--accent accom-mono">${_biFmtMoney(perDay)}</span>`
               : `<span class="accom-row-figure-val accom-no-price">—</span>`}
           </div>
         </div>

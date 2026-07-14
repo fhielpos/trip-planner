@@ -458,7 +458,18 @@ body {
   color: var(--text-1);
   line-height: 1;
 }
-.day-card.is-today .day-num { color: var(--accent); }
+.day-card.is-today .day-card-head { align-items: center; }
+.day-card.is-today .day-num {
+  color: var(--bg);
+  background: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 50%;
+  line-height: 1;
+}
 .day-mon {
   font-family: var(--font-display);
   font-size: 0.78rem;
@@ -1792,11 +1803,23 @@ body {
    Today View
    ============================================= */
 .today-section {
-  border-bottom: 1px solid var(--border);
+  position: relative;
   background:
     linear-gradient(180deg, var(--today-bg, var(--accent-dim)) 0%, transparent 85%),
     var(--today-image, none) center / cover no-repeat,
     var(--bg);
+}
+/* Replaces a flat border with a horizon line keyed to the active stay's
+   own color — a quiet callback to the hero image above it. */
+.today-section::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--today-accent, var(--accent)) 50%, transparent);
+  opacity: 0.75;
 }
 /* Photos are vivid/bright edge-to-edge, not just at the bottom, so the
    scrim has to darken the whole frame (not fade out at the top like a
@@ -2478,7 +2501,7 @@ body {
   color: var(--text-1);
 }
 .bi-city-count { font-size: 0.72rem; color: var(--text-3); }
-.bi-city-track { min-width: 4rem; height: 4px; }
+.bi-city-track { min-width: 4rem; height: 3px; opacity: 0.85; }
 .bi-city-figure { display: flex; flex-direction: column; gap: 0.15rem; }
 
 .bi-city-breakdown {
