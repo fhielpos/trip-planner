@@ -1420,6 +1420,8 @@ body {
   .budget-cat-row    { grid-template-columns: 1rem 5.5rem 1fr 4.5rem; }
   .budget-cat-pct    { display: none; }
   .budget-section    { padding: 1rem 0.75rem; }
+  .budget-header         { flex-wrap: wrap; }
+  .budget-header-actions { width: 100%; flex-wrap: wrap; }
 }
 
 /* =============================================
