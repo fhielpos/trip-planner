@@ -800,7 +800,9 @@ async function init() {
     renderInfoBar();
     renderPlanner();
     if (typeof renderMap  === 'function') renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports, tripData.calendar);
-    if (typeof initBudget    === 'function') initBudget(tripData);
+    // initWishlist renders prices via budget.js's formatCurrency, which reads
+    // module-level state that initBudget sets up — must await, not fire concurrently.
+    if (typeof initBudget    === 'function') await initBudget(tripData);
     if (typeof initWishlist  === 'function') initWishlist();
 
     // Fetched separately, off the critical path: a cache-miss day can take
