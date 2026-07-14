@@ -71,8 +71,13 @@ function formatShort(str) {
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 // Dev override: open the app with ?today=2026-10-06 to preview any trip day.
+// Param name matched case-insensitively — browsers/mobile keyboards often
+// auto-capitalize the first letter of a manually-typed query string.
 const DEV_DATE = (() => {
-  const v = new URLSearchParams(location.search).get('today');
+  let v = null;
+  for (const [k, val] of new URLSearchParams(location.search)) {
+    if (k.toLowerCase() === 'today') { v = val; break; }
+  }
   return v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 })();
 

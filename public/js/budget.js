@@ -16,6 +16,11 @@ const BUDGET_CAT_COLORS = {
 let _budget = null;
 let _budgetTrip = null;
 let _catRowSeq = 0;
+let _entriesSort = 'date';
+// Collapsed-group keys, shared across sort modes — keys from one mode
+// (date strings, city names, category ids) never collide with another's,
+// so a stale key from a previous mode is just inert, not worth clearing.
+const _collapsedGroups = new Set();
 
 const PENDING_ENTRIES_KEY = 'pendingBudgetEntries';
 
@@ -351,6 +356,46 @@ function _renderCategories() {
     </div>`;
 }
 
+// Groups entries by the active sort key (date/city/category), each group
+// carrying its own total — city/category groups sort by total descending
+// ("where did the money go" is the point of those views); date groups keep
+// the original newest-first order. Entries with no city fall into an
+// "Unassigned" bucket that's always sorted last regardless of its total.
+function _groupEntries(entries) {
+  const groups = {};
+  const order = [];
+  for (const e of entries) {
+    let key, label, color = null, isUnassigned = false;
+    if (_entriesSort === 'city') {
+      key = e.city || '__unassigned__';
+      label = e.city || t('budget.entries.unassigned');
+      isUnassigned = !e.city;
+    } else if (_entriesSort === 'category') {
+      key = e.category;
+      label = _catName(e.category);
+      color = _catColor(e.category);
+    } else {
+      key = e.date;
+      const dow = parseLocal(e.date).toLocaleDateString(getDateLocale(), { weekday: 'short' });
+      label = `${dow}, ${fmtDate(e.date)}`;
+    }
+    if (!groups[key]) { groups[key] = { key, label, color, isUnassigned, entries: [], total: 0 }; order.push(key); }
+    groups[key].entries.push(e);
+    groups[key].total += e.amount;
+  }
+
+  const list = order.map(k => groups[k]);
+  if (_entriesSort === 'date') {
+    list.sort((a, b) => b.key.localeCompare(a.key));
+  } else {
+    list.sort((a, b) => (a.isUnassigned ? 1 : b.isUnassigned ? -1 : b.total - a.total));
+  }
+  for (const g of list) {
+    g.entries.sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  }
+  return list;
+}
+
 function _renderEntries() {
   const el = document.getElementById('budget-entries-list');
   if (!el) return;
@@ -361,19 +406,27 @@ function _renderEntries() {
     return;
   }
 
-  const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const sortDefs = [
+    ['date',     t('budget.entries.sortDate')],
+    ['city',     t('budget.entries.sortCity')],
+    ['category', t('budget.entries.sortCategory')],
+  ];
+  const groups = _groupEntries(entries);
+  const allCollapsed = groups.every(g => _collapsedGroups.has(g.key));
+  const sortHtml = `
+    <div class="wishlist-sort-bar">
+      <span class="wishlist-sort-label">${t('budget.entries.sortBy')}</span>
+      ${sortDefs.map(([key, label]) =>
+        `<button class="wishlist-sort-btn${_entriesSort === key ? ' active' : ''}" data-sort="${key}">${label}</button>`
+      ).join('')}
+      <button type="button" class="wishlist-sort-btn budget-collapse-all-btn" id="budget-collapse-all">
+        ${allCollapsed ? t('budget.entries.expandAll') : t('budget.entries.collapseAll')}
+      </button>
+    </div>`;
 
-  const grouped = {};
-  for (const e of sorted) {
-    if (!grouped[e.date]) grouped[e.date] = [];
-    grouped[e.date].push(e);
-  }
-
-  const rows = Object.entries(grouped).map(([date, dayEntries]) => {
-    const dayTotal = dayEntries.reduce((s, e) => s + e.amount, 0);
-    const dow = parseLocal(date).toLocaleDateString(getDateLocale(), { weekday: 'short' });
-    const dateLabel = `${dow}, ${fmtDate(date)}`;
-    const eRows = dayEntries.map(e => `
+  const rows = groups.map(g => {
+    const collapsed = _collapsedGroups.has(g.key);
+    const eRows = g.entries.map(e => `
       <div class="budget-entry${e.pending ? ' is-pending' : ''}" data-id="${e.id}">
         <span class="budget-entry-dot" style="background:${_catColor(e.category)}"></span>
         <div class="budget-entry-info">
@@ -386,16 +439,20 @@ function _renderEntries() {
     return `
       <div class="budget-day-group">
         <div class="budget-day-header">
-          <span class="budget-day-label">${dateLabel}</span>
-          <span class="budget-day-total">${_fmt(dayTotal)}</span>
+          <button type="button" class="budget-group-toggle${collapsed ? '' : ' is-expanded'}" data-key="${g.key.replace(/"/g, '&quot;')}" aria-label="${t('budget.entries.toggleGroup')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
+          </button>
+          <span class="budget-day-label">${g.color ? `<span class="budget-group-dot" style="background:${g.color}"></span>` : ''}${g.label}</span>
+          <span class="budget-day-total">${_fmt(g.total)}</span>
         </div>
-        ${eRows}
+        <div class="budget-group-entries"${collapsed ? ' hidden' : ''}>${eRows}</div>
       </div>`;
   }).join('');
 
   el.innerHTML = `
     <div class="budget-block">
       <h3 class="budget-sub-title">${t('budget.entries.title')}</h3>
+      ${sortHtml}
       ${rows}
     </div>`;
 
@@ -403,6 +460,27 @@ function _renderEntries() {
     row.addEventListener('click', () => {
       if (row.classList.contains('is-pending')) { alert(t('offline.pendingEntry')); return; }
       _openExpenseModal(row.dataset.id);
+    });
+  });
+
+  el.querySelectorAll('.wishlist-sort-btn[data-sort]').forEach(btn => {
+    btn.addEventListener('click', () => { _entriesSort = btn.dataset.sort; _renderEntries(); });
+  });
+
+  document.getElementById('budget-collapse-all')?.addEventListener('click', () => {
+    if (allCollapsed) groups.forEach(g => _collapsedGroups.delete(g.key));
+    else groups.forEach(g => _collapsedGroups.add(g.key));
+    _renderEntries();
+  });
+
+  el.querySelectorAll('.budget-group-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const panel = btn.closest('.budget-day-group').querySelector('.budget-group-entries');
+      const nowExpanded = panel.hidden;
+      panel.hidden = !nowExpanded;
+      btn.classList.toggle('is-expanded', nowExpanded);
+      if (nowExpanded) _collapsedGroups.delete(key); else _collapsedGroups.add(key);
     });
   });
 }
