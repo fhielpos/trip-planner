@@ -103,7 +103,8 @@ function _renderWishlist() {
       <div class="wishlist-item" data-id="${item.id}">
         ${affordDotHtml}
         <div class="wishlist-item-main">
-          <span class="wishlist-item-name">${_escHtml(item.name)}${linkHtml}</span>
+          <span class="wishlist-item-name">${_escHtml(item.name)}</span>
+          ${linkHtml}
           ${impactHtml}
         </div>
         <div class="wishlist-item-actions">

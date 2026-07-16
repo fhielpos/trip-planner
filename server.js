@@ -36,6 +36,9 @@ const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
 const WEATHER_FILE   = path.join(__dirname, 'data', 'weather.json');
 const AIRPORTS_FILE  = path.join(__dirname, 'data', 'airports.json');
 const RECOMMENDATIONS_FILE = path.join(__dirname, 'data', 'recommendations.json');
+const DOCUMENTS_FILE = path.join(__dirname, 'data', 'documents.json');
+const DOCUMENTS_DIR  = path.join(__dirname, 'data', 'documents-files');
+const FLIGHTS_FILE = path.join(__dirname, 'data', 'flights.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -562,11 +565,59 @@ app.get('/api/weather', async (req, res) => {
   res.json(cache.byStay);
 });
 
-// Flights parsed from the flighty.txt export — the file is static at
-// runtime (nothing ever writes to it), so parse it once instead of per request.
-const FLIGHTS = parseFlightyText(fs.readFileSync(FLIGHTY_FILE, 'utf8'));
+// Flights are persisted in data/flights.json (stable ids, editable fields
+// like document_ids), synced against flighty.txt on every boot by natural
+// key (flightNumber + departureDate) — flighty.txt itself is still static
+// at runtime otherwise. A flight already in the persisted store keeps its
+// id and any custom fields; only its live/tracked fields are refreshed. A
+// persisted flight missing from a fresh parse is never auto-removed.
+function syncFlights(parsed, persisted) {
+  const byKey = new Map(persisted.map(f => [`${f.flightNumber}|${f.departureDate}`, f]));
+  let nextNum = persisted.reduce((max, f) => {
+    const m = /^f(\d+)$/.exec(f.id);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+
+  const LIVE_FIELDS = [
+    'airline', 'from', 'fromCity', 'to', 'toCity', 'departureDate',
+    'departureTime', 'arrivalDate', 'arrivalTime', 'terminal', 'gate',
+    'status', 'direction', 'flightyUrl',
+  ];
+
+  for (const flight of parsed) {
+    const key = `${flight.flightNumber}|${flight.departureDate}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      for (const field of LIVE_FIELDS) existing[field] = flight[field];
+    } else {
+      nextNum += 1;
+      const created = { ...flight, id: `f${nextNum}`, document_ids: [] };
+      persisted.push(created);
+      byKey.set(key, created);
+    }
+  }
+  return persisted;
+}
+
+const flightsStore = jsonStore(FLIGHTS_FILE, () => []);
+flightsStore.write(syncFlights(parseFlightyText(fs.readFileSync(FLIGHTY_FILE, 'utf8')), flightsStore.read()));
+
+function readFlights()      { return flightsStore.read(); }
+function writeFlights(list) { flightsStore.write(list); }
+
+// One-time cleanup: trip.json's old `flights` array predates flights.json,
+// is never read by anything (GET /api/flights always served the separately
+// parsed constant, not this), and is actively misleading to leave in place.
+(() => {
+  const data = tripStore.read();
+  if (data.flights !== undefined) {
+    delete data.flights;
+    tripStore.write(data);
+  }
+})();
+
 app.get('/api/flights', (req, res) => {
-  res.json(FLIGHTS);
+  res.json(readFlights());
 });
 
 // ── Airports ────────────────────────────────────
@@ -592,7 +643,7 @@ async function fetchAirport(code) {
 }
 
 app.get('/api/airports', async (req, res) => {
-  const codes = [...new Set(FLIGHTS.flatMap(f => [f.from, f.to]))];
+  const codes = [...new Set(readFlights().flatMap(f => [f.from, f.to]))];
   const cache = airportsStore.read();
   const missing = codes.filter(c => !cache[c]);
   if (missing.length) {
@@ -806,10 +857,10 @@ app.delete('/api/calendar/:id', (req, res) => {
 
 // Update a flight
 app.put('/api/flights/:id', (req, res) => {
-  const data = readData();
-  const updated = mergeById(data.flights, req.params.id, req.body);
+  const list = readFlights();
+  const updated = mergeById(list, req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Flight not found' });
-  writeData(data);
+  writeFlights(list);
   res.json(updated);
 });
 
@@ -938,6 +989,104 @@ app.delete('/api/wishlist/:id', (req, res) => {
   res.sendStatus(204);
 });
 
+// ── Travel documents ───────────────────────────
+// Generic store for any URL-sourced document (rail passes, insurance,
+// visas, ...) that needs to be opened from the app, including offline.
+// The server downloads the source once at add-time and keeps its own
+// copy — see docs/superpowers/specs/2026-07-10-travel-documents-design.md
+// for why (the source PDFs force a download and block iframing).
+
+if (!fs.existsSync(DOCUMENTS_DIR)) fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+
+const documentsStore = jsonStore(DOCUMENTS_FILE, () => []);
+function readDocuments()      { return documentsStore.read(); }
+function writeDocuments(list) { documentsStore.write(list); }
+
+function validDocumentDates(valid_from, valid_to) {
+  const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
+  return ok(valid_from) && ok(valid_to) && valid_from <= valid_to;
+}
+
+app.get('/api/documents', (req, res) => res.json(readDocuments()));
+
+app.post('/api/documents', async (req, res) => {
+  const { title, source_url, valid_from, valid_to } = req.body;
+  if (!title || !String(title).trim()) return res.status(400).json({ error: 'Title required' });
+  if (!source_url || !/^https?:\/\//.test(source_url)) return res.status(400).json({ error: 'Invalid URL' });
+  if (!validDocumentDates(valid_from, valid_to)) return res.status(400).json({ error: 'Invalid dates' });
+
+  try {
+    const { hostname } = new URL(source_url);
+    const addresses = await dns.promises.lookup(hostname, { all: true });
+    if (addresses.some(a => isPrivateAddress(a.address))) {
+      return res.status(400).json({ error: 'Invalid URL' });
+    }
+    const resp = await fetch(source_url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      },
+      signal: AbortSignal.timeout(15000),
+      redirect: 'follow',
+    });
+    if (!resp.ok) return res.status(502).json({ error: `HTTP ${resp.status}` });
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (buf.slice(0, 4).toString('ascii') !== '%PDF') {
+      return res.status(502).json({ error: 'Not a PDF' });
+    }
+
+    const id = 'd' + Date.now();
+    const filename = `${id}.pdf`;
+    fs.writeFileSync(path.join(DOCUMENTS_DIR, filename), buf);
+
+    const entry = {
+      id, title: String(title).trim(), source_url, valid_from, valid_to,
+      filename, added_at: new Date().toISOString(),
+    };
+    const list = readDocuments();
+    list.push(entry);
+    writeDocuments(list);
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message || 'Download failed' });
+  }
+});
+
+app.put('/api/documents/:id', (req, res) => {
+  const list = readDocuments();
+  const existing = list.find(d => d.id === req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Document not found' });
+
+  const { title, valid_from, valid_to } = req.body;
+  if (title !== undefined && !String(title).trim()) return res.status(400).json({ error: 'Title required' });
+  const nextFrom = valid_from !== undefined ? valid_from : existing.valid_from;
+  const nextTo   = valid_to   !== undefined ? valid_to   : existing.valid_to;
+  if (!validDocumentDates(nextFrom, nextTo)) return res.status(400).json({ error: 'Invalid dates' });
+
+  const patch = { valid_from: nextFrom, valid_to: nextTo };
+  if (title !== undefined) patch.title = String(title).trim();
+  const updated = mergeById(list, req.params.id, patch);
+  writeDocuments(list);
+  res.json(updated);
+});
+
+app.delete('/api/documents/:id', (req, res) => {
+  const list = readDocuments();
+  const doc = list.find(d => d.id === req.params.id);
+  if (!doc || !removeById(list, req.params.id)) return res.status(404).json({ error: 'Document not found' });
+  writeDocuments(list);
+  try { fs.unlinkSync(path.join(DOCUMENTS_DIR, doc.filename)); } catch {}
+  res.sendStatus(204);
+});
+
+app.get('/api/documents/:id/file', (req, res) => {
+  const doc = readDocuments().find(d => d.id === req.params.id);
+  if (!doc) return res.sendStatus(404);
+  const filePath = path.join(DOCUMENTS_DIR, doc.filename);
+  if (!fs.existsSync(filePath)) return res.sendStatus(404);
+  res.set('Content-Type', 'application/pdf');
+  fs.createReadStream(filePath).pipe(res);
+});
+
 // Read a <meta property="X" content="Y"> value, tolerating either attribute order.
 function metaContent(html, property) {
   return html.match(new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"'<>]+)["']`, 'i'))?.[1]
@@ -1034,6 +1183,8 @@ app.get('/api/export', (req, res) => {
     budget:         readBudget(),
     wishlist:       readWishlist(),
     accommodations: readAccommodations(),
+    flights:        readFlights(),
+    documents:      readDocuments(),
     flighty:        fs.readFileSync(FLIGHTY_FILE, 'utf8'),
   };
   res.setHeader('Content-Disposition', `attachment; filename="trip-export-${date}.json"`);

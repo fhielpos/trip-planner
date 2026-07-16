@@ -47,7 +47,61 @@
   <main class="app-main itinerary-main">
     <p class="itinerary-hint no-print" data-i18n="itinerary.hint">One boarding pass per flight and train — print or save as PDF before you go.</p>
     <div id="itinerary-list"></div>
+
+    <div class="itinerary-docs-header">
+      <h2 class="itinerary-docs-title" data-i18n="documents.title">Documents</h2>
+      <button class="btn-add no-print" id="btn-add-document">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span data-i18n="documents.add">Add document</span>
+      </button>
+    </div>
+    <div id="documents-list"></div>
   </main>
+
+  <div class="modal-overlay no-print" id="doc-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="doc-modal-title" data-i18n="documents.add">Add document</h3>
+        <button class="modal-close" id="doc-modal-close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form class="modal-form" id="doc-form">
+        <input type="hidden" id="doc-id" />
+        <div class="form-row">
+          <label for="doc-title" data-i18n="documents.fieldTitle">Title</label>
+          <input type="text" id="doc-title" required />
+        </div>
+        <div class="form-row" id="doc-url-row">
+          <label for="doc-url" data-i18n="documents.fieldUrl">Source URL</label>
+          <input type="url" id="doc-url" placeholder="https://..." />
+        </div>
+        <div class="form-row">
+          <label for="doc-valid-from" data-i18n="documents.fieldValidFrom">Valid from</label>
+          <input type="date" id="doc-valid-from" required />
+        </div>
+        <div class="form-row">
+          <label for="doc-valid-to" data-i18n="documents.fieldValidTo">Valid to</label>
+          <input type="date" id="doc-valid-to" required />
+        </div>
+        <div class="form-row">
+          <label data-i18n="documents.legsLabel">Applies to</label>
+          <div class="doc-legs-picker" id="doc-legs-picker"></div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary btn-danger" id="doc-delete-btn" hidden data-i18n="modal.delete">Delete</button>
+          <div class="form-actions-right">
+            <button type="button" class="btn-secondary" id="doc-cancel-btn" data-i18n="modal.cancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="doc-save-btn" data-i18n="modal.save">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <footer class="app-footer no-print">
     <span id="app-version" class="app-version"></span>

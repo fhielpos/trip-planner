@@ -35,6 +35,7 @@ const DATA_PATHS = [
   '/api/config',
   '/api/budget',
   '/api/wishlist',
+  '/api/documents',
 ];
 
 const DATA_CACHE = 'data-v1';
@@ -96,7 +97,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (DATA_PATHS.includes(url.pathname)) {
+  if (DATA_PATHS.includes(url.pathname) || url.pathname.startsWith('/api/documents/')) {
     event.respondWith(networkFirst(request));
     return;
   }
