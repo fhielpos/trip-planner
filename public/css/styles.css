@@ -1565,6 +1565,14 @@ body {
   min-width: 4rem;
   text-align: right;
 }
+.wishlist-item-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+  min-width: 4rem;
+}
+.wishlist-item-price-col .wishlist-item-price { min-width: 0; }
 .wishlist-buy-btn, .wishlist-delete-btn {
   width: 28px; height: 28px;
   border-radius: var(--radius-sm);

@@ -5,6 +5,35 @@
 let _wishlist = null;
 let _wishlistSort = 'default';
 
+function _getSelectedWishlistCurrency() {
+  const active = document.querySelector('#wishlist-currency-selector .type-btn.active[data-currency]');
+  if (active) return active.dataset.currency;
+  const select = document.getElementById('wishlist-currency-select');
+  return select.hidden ? 'EUR' : select.value;
+}
+
+function _setSelectedWishlistCurrency(code) {
+  const buttons = document.querySelectorAll('#wishlist-currency-selector .type-btn[data-currency]');
+  const select = document.getElementById('wishlist-currency-select');
+  const isQuickPick = CURRENCY_QUICK_PICKS.includes(code);
+  buttons.forEach(b => b.classList.toggle('active', isQuickPick && b.dataset.currency === code));
+  document.getElementById('wishlist-currency-more').classList.toggle('active', !isQuickPick);
+  if (isQuickPick) {
+    select.hidden = true;
+  } else {
+    const known = listKnownCurrencies();
+    const codes = known.includes(code) ? known : [...known, code].sort();
+    select.innerHTML = codes.map(c => `<option value="${c}"${c === code ? ' selected' : ''}>${c}</option>`).join('');
+    select.hidden = false;
+  }
+}
+
+// Consumed by budget.js's Advanced rates section to decide which
+// currencies to show override rows for.
+function getWishlistCurrencies() {
+  return (_wishlist?.items || []).map(i => i.currency).filter(Boolean);
+}
+
 async function initWishlist() {
   const res = await fetch('/api/wishlist');
   _wishlist = await res.json();
@@ -38,7 +67,7 @@ function _renderWishlist() {
   }
 
   const remaining  = getBudgetRemaining?.();
-  const total      = items.reduce((s, i) => s + i.price, 0);
+  const total      = items.reduce((s, i) => s + toUSD(i.price, i.currency), 0);
   const allImpact  = remaining !== null ? remaining - total : null;
   const allImpactClass = allImpact === null ? '' : allImpact >= 0 ? 'positive' : 'negative';
   const countLabel = `${items.length} ${t(items.length === 1 ? 'wishlist.item' : 'wishlist.items')}`;
@@ -87,7 +116,8 @@ function _renderWishlist() {
 
   const sorted = _sortedItems(items);
   const itemsHtml = sorted.map(item => {
-    const impact = (remaining !== null && item.price > 0) ? remaining - item.price : null;
+    const priceUSD = toUSD(item.price, item.currency);
+    const impact = (remaining !== null && item.price > 0) ? remaining - priceUSD : null;
     const impactClass = impact === null ? '' : impact >= 0 ? 'positive' : 'negative';
     const impactHtml = impact !== null
       ? `<span class="wishlist-impact wishlist-impact--${impactClass}">${formatCurrency(impact)} ${t('wishlist.ifBought')}</span>`
@@ -96,7 +126,7 @@ function _renderWishlist() {
       ? `<a class="wishlist-link" href="${_escHtml(item.url)}" target="_blank" rel="noopener noreferrer">↗</a>`
       : '';
     const affordDotHtml = (remaining !== null && item.price > 0)
-      ? `<span class="wishlist-afford-dot" style="background:${remaining >= item.price ? 'var(--c-stay)' : '#e87a7a'}"></span>`
+      ? `<span class="wishlist-afford-dot" style="background:${remaining >= priceUSD ? 'var(--c-stay)' : '#e87a7a'}"></span>`
       : '';
 
     return `
@@ -108,7 +138,10 @@ function _renderWishlist() {
           ${impactHtml}
         </div>
         <div class="wishlist-item-actions">
-          <span class="wishlist-item-price">${item.price > 0 ? formatCurrency(item.price) : '—'}</span>
+          <div class="wishlist-item-price-col">
+            <span class="wishlist-item-price">${item.price > 0 ? formatMoney(item.price, item.currency) : '—'}</span>
+            ${item.price > 0 ? conversionLine(item.price, item.currency) : ''}
+          </div>
           <button class="wishlist-buy-btn" data-id="${item.id}" title="${t('wishlist.markBought')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12"/>
@@ -160,6 +193,7 @@ function _openWishlistModal() {
   document.getElementById('wishlist-url-input').value = '';
   document.getElementById('wishlist-fetch-status').textContent = '';
   _setWishlistMode('manual');
+  _setSelectedWishlistCurrency('EUR');
   setTimeout(() => document.getElementById('wishlist-name').focus(), 50);
 }
 
@@ -213,6 +247,19 @@ document.getElementById('wishlist-mode-selector').addEventListener('click', e =>
   const btn = e.target.closest('.type-btn');
   if (btn) _setWishlistMode(btn.dataset.mode);
 });
+document.getElementById('wishlist-currency-selector').addEventListener('click', e => {
+  const btn = e.target.closest('.type-btn');
+  if (!btn) return;
+  if (btn.id === 'wishlist-currency-more') {
+    _setSelectedWishlistCurrency(listKnownCurrencies()[0] || 'GBP');
+    document.getElementById('wishlist-currency-select').focus();
+  } else {
+    _setSelectedWishlistCurrency(btn.dataset.currency);
+  }
+});
+document.getElementById('wishlist-currency-select').addEventListener('change', e => {
+  _setSelectedWishlistCurrency(e.target.value);
+});
 
 document.getElementById('wishlist-fetch-btn').addEventListener('click', _fetchUrl);
 document.getElementById('wishlist-url-input').addEventListener('keydown', e => {
@@ -221,15 +268,16 @@ document.getElementById('wishlist-url-input').addEventListener('keydown', e => {
 
 document.getElementById('wishlist-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const name  = document.getElementById('wishlist-name').value.trim();
-  const price = parseFloat(document.getElementById('wishlist-price').value) || 0;
-  const url   = _wishlistMode === 'url' ? document.getElementById('wishlist-url-input').value.trim() : '';
+  const name     = document.getElementById('wishlist-name').value.trim();
+  const price    = parseFloat(document.getElementById('wishlist-price').value) || 0;
+  const currency = _getSelectedWishlistCurrency();
+  const url      = _wishlistMode === 'url' ? document.getElementById('wishlist-url-input').value.trim() : '';
   if (!name) return;
   try {
     const r = await fetch('/api/wishlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, price, url }),
+      body: JSON.stringify({ name, price, currency, url }),
     });
     _wishlist.items.push(await r.json());
     _closeWishlistModal();

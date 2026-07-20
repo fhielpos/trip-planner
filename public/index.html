@@ -397,6 +397,17 @@
           <label for="wishlist-price" data-i18n="wishlist.price">Price</label>
           <input type="number" id="wishlist-price" min="0" step="0.01" placeholder="0.00" />
         </div>
+        <div class="form-row">
+          <label data-i18n="budget.entry.currency">Currency</label>
+          <div class="type-selector" id="wishlist-currency-selector">
+            <button type="button" class="type-btn active" data-currency="EUR">EUR</button>
+            <button type="button" class="type-btn" data-currency="USD">USD</button>
+            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
+            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
+            <button type="button" class="type-btn" id="wishlist-currency-more" data-i18n="budget.entry.currencyMore">More…</button>
+          </div>
+          <select id="wishlist-currency-select" class="form-select" hidden></select>
+        </div>
         <div class="form-actions">
           <div class="form-actions-right">
             <button type="button" class="btn-secondary" id="wishlist-cancel-btn" data-i18n="modal.cancel">Cancel</button>
