@@ -39,6 +39,7 @@ const RECOMMENDATIONS_FILE = path.join(__dirname, 'data', 'recommendations.json'
 const DOCUMENTS_FILE = path.join(__dirname, 'data', 'documents.json');
 const DOCUMENTS_DIR  = path.join(__dirname, 'data', 'documents-files');
 const FLIGHTS_FILE = path.join(__dirname, 'data', 'flights.json');
+const RATES_FILE = path.join(__dirname, 'data', 'rates.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -987,6 +988,81 @@ app.delete('/api/wishlist/:id', (req, res) => {
   w.items = w.items.filter(i => i.id !== req.params.id);
   writeWishlist(w);
   res.sendStatus(204);
+});
+
+// ── Exchange rates ──────────────────────────────
+
+const RATES_API_URL = 'https://open.er-api.com/v6/latest/USD';
+const RATES_TTL_MS = 24 * 60 * 60 * 1000;
+
+const ratesStore = jsonStore(RATES_FILE, () => ({ base: 'USD', fetchedAt: null, rates: {}, overrides: {} }));
+
+function readRates() {
+  const r = ratesStore.read();
+  if (!r.rates) r.rates = {};
+  if (!r.overrides) r.overrides = {};
+  return r;
+}
+function writeRates(data) { ratesStore.write(data); }
+
+// Fetches fresh USD-base rates, or null on any failure. Callers must never
+// overwrite an existing cache with a null result — a bad fetch (or, in this
+// sandbox, this app's fetch()-doesn't-respect-the-proxy limitation) must
+// never clobber good data, the same lesson already learned the hard way
+// with data/weather.json.
+async function fetchRatesFromApi() {
+  try {
+    const res = await fetch(RATES_API_URL, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json || json.result !== 'success' || typeof json.rates !== 'object') return null;
+    return json.rates;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshRatesIfStale(force) {
+  const r = readRates();
+  const stale = force || !r.fetchedAt || (Date.now() - new Date(r.fetchedAt).getTime()) > RATES_TTL_MS;
+  if (!stale) return r;
+  const fetched = await fetchRatesFromApi();
+  if (!fetched) return r;
+  r.rates = fetched;
+  r.fetchedAt = new Date().toISOString();
+  writeRates(r);
+  return r;
+}
+
+function effectiveRatesPayload(r) {
+  const out = { base: 'USD', fetchedAt: r.fetchedAt, rates: {} };
+  const codes = new Set([...Object.keys(r.rates), ...Object.keys(r.overrides)]);
+  for (const code of codes) {
+    const fetched = r.rates[code] ?? null;
+    const override = r.overrides[code] ?? null;
+    out.rates[code] = { fetched, override, effective: override ?? fetched };
+  }
+  return out;
+}
+
+app.get('/api/rates', async (req, res) => {
+  const r = await refreshRatesIfStale(false);
+  res.json(effectiveRatesPayload(r));
+});
+
+app.put('/api/rates/overrides', (req, res) => {
+  const { currency, value } = req.body;
+  if (!currency) return res.status(400).json({ error: 'currency is required' });
+  const r = readRates();
+  if (value === null || value === undefined || value === '') delete r.overrides[currency];
+  else r.overrides[currency] = Number(value);
+  writeRates(r);
+  res.json(effectiveRatesPayload(r));
+});
+
+app.post('/api/rates/refresh', async (req, res) => {
+  const r = await refreshRatesIfStale(true);
+  res.json(effectiveRatesPayload(r));
 });
 
 // ── Travel documents ───────────────────────────
