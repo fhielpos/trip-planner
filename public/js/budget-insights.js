@@ -29,17 +29,6 @@ function _escHtml(str) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-function _biFmtMoney(amount) {
-  const currency = _biBudget?.currency || 'EUR';
-  try {
-    return new Intl.NumberFormat(getDateLocale(), {
-      style: 'currency', currency, maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return currency + ' ' + Math.round(amount).toLocaleString();
-  }
-}
-
 function _parseLocal(str) {
   const [y, m, d] = str.split('-').map(Number);
   return new Date(y, m - 1, d);
@@ -55,7 +44,7 @@ function _getActiveStay(dayStr) {
 }
 
 function _biTotalSpent() {
-  return (_biBudget.entries || []).reduce((s, e) => s + e.amount, 0);
+  return (_biBudget.entries || []).reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
 }
 
 // Duplicated from app.js's DEV_DATE/appToday — this page doesn't load app.js.
@@ -84,7 +73,7 @@ function _biToday() {
 // card fighting for attention.
 function _renderHero() {
   const el = document.getElementById('bi-hero');
-  const initialBudget = _biBudget.initialBudget;
+  const initialBudget = toUSD(_biBudget.initialBudget, _biBudget.initialBudgetCurrency);
   if (!initialBudget) {
     el.innerHTML = `<p class="budget-empty">${t('budgetInsights.noBudget')}</p>`;
     return;
@@ -117,7 +106,7 @@ function _renderHero() {
         <div class="bi-hero-allowance">
           <span class="bi-hero-city-dot" style="background:${_escHtml(stay.color || 'var(--accent)')}"></span>
           <span class="bi-hero-allowance-text${allowance < 0 ? ' budget-val--negative' : ''}">${t('budgetInsights.cityAllowance', {
-            amount: `<span class="accom-mono bi-hero-allowance-amt">${_biFmtMoney(allowance)}</span>`,
+            amount: `<span class="accom-mono bi-hero-allowance-amt">${formatCurrency(allowance)}</span>`,
             city: _escHtml(stay.city),
           })}</span>
         </div>`;
@@ -127,18 +116,18 @@ function _renderHero() {
   el.innerHTML = `
     <div class="bi-hero-card">
       <span class="bi-hero-label">${t('budget.stats.remaining')}</span>
-      <span class="bi-hero-remaining accom-mono${remaining < 0 ? ' budget-val--negative' : ''}">${_biFmtMoney(remaining)}</span>
+      <span class="bi-hero-remaining accom-mono${remaining < 0 ? ' budget-val--negative' : ''}">${formatCurrency(remaining)}</span>
       <div class="budget-progress-track bi-hero-progress">
         <div class="budget-progress-fill" style="width:${pctSpent.toFixed(1)}%; background:${barColor}"></div>
       </div>
       <div class="bi-hero-sub">
         <div class="bi-hero-sub-item">
           <span class="bi-hero-sub-label">${t('budget.stats.budget')}</span>
-          <span class="bi-hero-sub-val accom-mono">${_biFmtMoney(initialBudget)}</span>
+          <span class="bi-hero-sub-val accom-mono">${formatCurrency(initialBudget)}</span>
         </div>
         <div class="bi-hero-sub-item">
           <span class="bi-hero-sub-label">${t('budget.stats.spent')}</span>
-          <span class="bi-hero-sub-val accom-mono">${_biFmtMoney(totalSpent)}</span>
+          <span class="bi-hero-sub-val accom-mono">${formatCurrency(totalSpent)}</span>
         </div>
       </div>
       ${allowanceHtml}
@@ -150,12 +139,13 @@ function _renderHero() {
 function _cityTotals(entries) {
   const totals = {};
   for (const e of entries) {
+    const usd = toUSD(e.amount, e.currency);
     const city = (e.city || '').trim();
     const key = city || '\0unassigned';
     if (!totals[key]) totals[key] = { city, amount: 0, count: 0, catTotals: {} };
-    totals[key].amount += e.amount;
+    totals[key].amount += usd;
     totals[key].count += 1;
-    totals[key].catTotals[e.category] = (totals[key].catTotals[e.category] || 0) + e.amount;
+    totals[key].catTotals[e.category] = (totals[key].catTotals[e.category] || 0) + usd;
   }
   return Object.values(totals);
 }
@@ -207,7 +197,7 @@ function _renderCityList() {
   }
 
   const nightsByCity = _nightsByCity();
-  const grandTotal = entries.reduce((s, e) => s + e.amount, 0);
+  const grandTotal = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
   const rows = _cityTotals(entries).sort((a, b) => b.amount - a.amount);
 
   el.innerHTML = rows.map(row => {
@@ -227,7 +217,7 @@ function _renderCityList() {
         <div class="bi-cat-row">
           <span class="bi-cat-dot" style="background:${_biCatColor(cat)}"></span>
           <span class="bi-cat-name">${_escHtml(_biCatName(cat))}</span>
-          <span class="bi-cat-amt accom-mono">${_biFmtMoney(amt)}</span>
+          <span class="bi-cat-amt accom-mono">${formatCurrency(amt)}</span>
         </div>`).join('');
 
     return `
@@ -245,12 +235,12 @@ function _renderCityList() {
           </div>
           <div class="bi-city-figure">
             <span class="accom-row-figure-label">${t('budgetInsights.total')}</span>
-            <span class="accom-row-figure-val accom-mono">${_biFmtMoney(row.amount)}</span>
+            <span class="accom-row-figure-val accom-mono">${formatCurrency(row.amount)}</span>
           </div>
           <div class="bi-city-figure">
             <span class="accom-row-figure-label">${t('budgetInsights.perDay')}</span>
             ${perDay !== null
-              ? `<span class="accom-row-figure-val accom-row-figure-val--accent accom-mono">${_biFmtMoney(perDay)}</span>`
+              ? `<span class="accom-row-figure-val accom-row-figure-val--accent accom-mono">${formatCurrency(perDay)}</span>`
               : `<span class="accom-row-figure-val accom-no-price">—</span>`}
           </div>
         </div>
@@ -284,7 +274,7 @@ function _dayIndexForDate(dateStr) {
 
 function _renderTrend() {
   const el = document.getElementById('bi-trend');
-  const initialBudget = _biBudget.initialBudget;
+  const initialBudget = toUSD(_biBudget.initialBudget, _biBudget.initialBudgetCurrency);
   if (!initialBudget) {
     el.innerHTML = `<p class="budget-empty">${t('budgetInsights.noBudget')}</p>`;
     return;
@@ -299,7 +289,7 @@ function _renderTrend() {
   let running = 0;
   for (const e of sorted) {
     const day = Math.min(totalDays, Math.max(1, _dayIndexForDate(e.date)));
-    running += e.amount;
+    running += toUSD(e.amount, e.currency);
     actualPoints.push({ day, amt: running });
   }
   if (actualPoints[actualPoints.length - 1].day < todayIdx) {
@@ -353,7 +343,7 @@ function _renderTrend() {
   const axisY = H - PAD_BOTTOM + 16;
   const startLabel = fmtDate(_biTrip.trip.startDate, { year: false });
   const endLabel = fmtDate(_biTrip.trip.endDate, { year: false });
-  const capLabel = `${t('budget.stats.budget')}: ${_biFmtMoney(initialBudget)}`;
+  const capLabel = `${t('budget.stats.budget')}: ${formatCurrency(initialBudget)}`;
 
   // Danger zone: the region above the budget cap, shaded faintly — turns
   // what would otherwise be dead empty space (the chart's scale has to
@@ -367,7 +357,7 @@ function _renderTrend() {
       <path d="${capPath}" class="bi-trend-cap" fill="none" />
       <path d="${pacePath}" class="bi-trend-pace" fill="none" />
       ${showProjection ? `<path d="${projectionPath}" class="bi-trend-projection" fill="none" />` : ''}
-      ${showProjection && projectionCapped ? `<text x="${projectionEndX.toFixed(1)}" y="${(projectionEndY - 5).toFixed(1)}" class="bi-trend-projection-capped" text-anchor="middle">▲<title>${_escHtml(_biFmtMoney(projectedTotal))}</title></text>` : ''}
+      ${showProjection && projectionCapped ? `<text x="${projectionEndX.toFixed(1)}" y="${(projectionEndY - 5).toFixed(1)}" class="bi-trend-projection-capped" text-anchor="middle">▲<title>${_escHtml(formatCurrency(projectedTotal))}</title></text>` : ''}
       <path d="${actualPath}" class="bi-trend-actual" fill="none" />
       <text x="${xFor(1)}" y="${(capY - 6).toFixed(1)}" class="bi-trend-cap-label" text-anchor="start">${_escHtml(capLabel)}</text>
       <text x="${pinX}" y="${(pinY - 10).toFixed(1)}" class="bi-trend-pin" text-anchor="middle">📍</text>
@@ -396,10 +386,15 @@ document.addEventListener('langchange', () => {
 
 async function _init() {
   await initI18n();
+  // initCurrency must resolve before rendering any amounts — toUSD() falls
+  // back to a no-op conversion (returns the raw amount) until _rates is
+  // populated, same reasoning as app.js's initCurrency-before-initBudget
+  // sequencing (this page doesn't load app.js, so nothing else does it).
   const [budgetRes, tripRes, accomRes] = await Promise.all([
     fetch('/api/budget'),
     fetch('/api/trip'),
     fetch('/api/accommodations'),
+    initCurrency(),
   ]);
   _biBudget = await budgetRes.json();
   _biTrip = await tripRes.json();
