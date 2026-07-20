@@ -642,7 +642,8 @@ function _addSubBudgetRow(category, amount) {
 
 function _openSettingsModal() {
   document.getElementById('settings-initial-budget').value = _budget.initialBudget || '';
-  document.getElementById('settings-currency').value = _budget.currency || 'EUR';
+  document.getElementById('settings-currency').value = _budget.initialBudgetCurrency || 'EUR';
+  _renderRatesAdvanced();
   const catContainer = document.getElementById('settings-categories');
   catContainer.innerHTML = '';
   (_budget.categories || []).forEach(c => _addCategoryRow(c.id, c.name, c.color));
@@ -791,8 +792,8 @@ document.getElementById('budget-settings-form').addEventListener('submit', async
   }
   const subBudgets = Object.values(byCat);
   const payload = {
-    initialBudget: parseFloat(document.getElementById('settings-initial-budget').value),
-    currency:      document.getElementById('settings-currency').value,
+    initialBudget:         parseFloat(document.getElementById('settings-initial-budget').value),
+    initialBudgetCurrency: document.getElementById('settings-currency').value,
     subBudgets,
     categories,
   };
@@ -805,6 +806,78 @@ document.getElementById('budget-settings-form').addEventListener('submit', async
     _closeSettingsModal();
     _renderBudget();
   } catch { alert(t('modal.saveFailed')); }
+});
+
+function _currenciesInUse() {
+  const set = new Set(['USD', 'EUR', 'CHF', 'ARS']);
+  set.add(_budget.initialBudgetCurrency || 'EUR');
+  for (const e of _budget.entries) if (e.currency) set.add(e.currency);
+  if (typeof getWishlistCurrencies === 'function') {
+    for (const c of getWishlistCurrencies()) if (c) set.add(c);
+  }
+  return [...set].sort();
+}
+
+function _renderRatesAdvanced() {
+  const fetchedAt = getRatesFetchedAt();
+  document.getElementById('budget-rates-fetched').textContent = t('budget.advanced.lastFetched', {
+    when: fetchedAt ? new Date(fetchedAt).toLocaleString(getDateLocale()) : t('budget.advanced.never'),
+  });
+
+  const el = document.getElementById('budget-rates-list');
+  el.innerHTML = _currenciesInUse().map(code => {
+    if (code === 'USD') return '';
+    const info = getRateInfo(code);
+    return `
+      <div class="rate-edit-row" data-currency="${code}">
+        <span class="rate-edit-code">${code}</span>
+        <span class="rate-edit-fetched">${info.fetched !== null ? info.fetched.toFixed(4) : '—'} (${t('budget.advanced.fetchedLabel')})</span>
+        <input type="number" step="0.0001" class="rate-edit-override" placeholder="${t('budget.advanced.fetchedLabel')}" value="${info.override !== null ? info.override : ''}" />
+        <button type="button" class="subbudget-remove rate-edit-clear" aria-label="${t('budget.advanced.clear')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('budget-rates-list').addEventListener('change', async e => {
+  const input = e.target.closest('.rate-edit-override');
+  if (!input) return;
+  const currency = input.closest('.rate-edit-row').dataset.currency;
+  await fetch('/api/rates/overrides', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency, value: input.value === '' ? null : parseFloat(input.value) }),
+  });
+  await refreshCurrency();
+  _renderRatesAdvanced();
+  _renderBudget();
+});
+
+document.getElementById('budget-rates-list').addEventListener('click', async e => {
+  const btn = e.target.closest('.rate-edit-clear');
+  if (!btn) return;
+  const currency = btn.closest('.rate-edit-row').dataset.currency;
+  await fetch('/api/rates/overrides', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency, value: null }),
+  });
+  await refreshCurrency();
+  _renderRatesAdvanced();
+  _renderBudget();
+});
+
+document.getElementById('budget-rates-refresh').addEventListener('click', async () => {
+  const btn = document.getElementById('budget-rates-refresh');
+  btn.disabled = true;
+  btn.textContent = t('budget.advanced.refreshing');
+  await fetch('/api/rates/refresh', { method: 'POST' });
+  await refreshCurrency();
+  _renderRatesAdvanced();
+  _renderBudget();
+  btn.disabled = false;
+  btn.textContent = t('budget.advanced.refresh');
 });
 
 document.addEventListener('langchange', () => {

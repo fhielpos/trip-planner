@@ -1359,6 +1359,12 @@ body {
   align-items: center;
   margin-bottom: 0.5rem;
 }
+.budget-advanced { margin-top: 1.25rem; border-top: 1px solid var(--border-soft); padding-top: 0.75rem; }
+.budget-advanced summary { cursor: pointer; font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; color: var(--text-2); }
+.rate-edit-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.rate-edit-code { font-family: var(--font-display); font-weight: 600; width: 3.2rem; flex-shrink: 0; }
+.rate-edit-fetched { font-size: 0.72rem; color: var(--text-3); flex-shrink: 0; white-space: nowrap; }
+.rate-edit-override { width: 6rem; }
 .subbudget-amt {
   width: 100%;
   padding: 0.5rem 0.6rem;

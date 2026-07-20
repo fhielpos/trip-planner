@@ -239,7 +239,7 @@
           <input type="number" id="settings-initial-budget" min="0" step="100" required />
         </div>
         <div class="form-row">
-          <label for="settings-currency" data-i18n="budget.currency">Currency</label>
+          <label for="settings-currency" data-i18n="budget.currency">Initial budget currency</label>
           <select id="settings-currency" class="form-select">
             <option value="EUR">EUR (€)</option>
             <option value="USD">USD ($)</option>
@@ -267,6 +267,12 @@
           </div>
         </div>
       </form>
+      <details class="budget-advanced">
+        <summary data-i18n="budget.advanced.title">Advanced: Exchange Rates</summary>
+        <p class="form-hint" id="budget-rates-fetched"></p>
+        <div id="budget-rates-list"></div>
+        <button type="button" class="btn-secondary" id="budget-rates-refresh" data-i18n="budget.advanced.refresh">Refresh now</button>
+      </details>
     </div>
   </div>
 
