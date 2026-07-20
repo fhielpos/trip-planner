@@ -982,7 +982,19 @@ app.delete('/api/budget/entries/:id', (req, res) => {
 // ── Wishlist ────────────────────────────────────
 
 const wishlistStore = jsonStore(WISHLIST_FILE, () => ({ items: [] }));
-function readWishlist()      { return wishlistStore.read(); }
+
+// Backfills the per-item `currency` field (new), once, on first read of a
+// pre-existing wishlist.json. Persists the backfill so it only runs once.
+function readWishlist() {
+  const w = wishlistStore.read();
+  let dirty = false;
+  if (!Array.isArray(w.items)) w.items = [];
+  for (const i of w.items) {
+    if (!i.currency) { i.currency = 'EUR'; dirty = true; }
+  }
+  if (dirty) writeWishlist(w);
+  return w;
+}
 function writeWishlist(data) { wishlistStore.write(data); }
 
 app.get('/api/wishlist', (req, res) => res.json(readWishlist()));
@@ -990,10 +1002,11 @@ app.get('/api/wishlist', (req, res) => res.json(readWishlist()));
 app.post('/api/wishlist', (req, res) => {
   const w = readWishlist();
   const item = {
-    id:    'w' + Date.now(),
-    name:  req.body.name || '',
-    price: Number(req.body.price) || 0,
-    url:   req.body.url || '',
+    id:       'w' + Date.now(),
+    name:     req.body.name || '',
+    price:    Number(req.body.price) || 0,
+    currency: req.body.currency || 'EUR',
+    url:      req.body.url || '',
   };
   w.items.push(item);
   writeWishlist(w);
