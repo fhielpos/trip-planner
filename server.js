@@ -896,8 +896,33 @@ app.delete('/api/trains/:id', (req, res) => {
 
 // ── Budget ─────────────────────────────────────
 
-const budgetStore = jsonStore(BUDGET_FILE, () => ({ initialBudget: 0, currency: 'EUR', entries: [] }));
-function readBudget()       { return budgetStore.read(); }
+const budgetStore = jsonStore(BUDGET_FILE, () => ({ initialBudget: 0, initialBudgetCurrency: 'EUR', entries: [] }));
+
+// Backfills the per-entry `currency` field and the `initialBudgetCurrency`
+// field (both new) from the old single global `currency` field, once, on
+// first read of a pre-existing budget.json. Persists the backfill so it
+// only ever runs once.
+function readBudget() {
+  const b = budgetStore.read();
+  let dirty = false;
+  if (!b.initialBudgetCurrency) {
+    b.initialBudgetCurrency = b.currency || 'EUR';
+    dirty = true;
+  }
+  if (b.currency !== undefined) {
+    delete b.currency;
+    dirty = true;
+  }
+  if (!Array.isArray(b.entries)) b.entries = [];
+  for (const e of b.entries) {
+    if (!e.currency) {
+      e.currency = b.initialBudgetCurrency;
+      dirty = true;
+    }
+  }
+  if (dirty) writeBudget(b);
+  return b;
+}
 function writeBudget(data)  { budgetStore.write(data); }
 
 app.get('/api/budget', (req, res) => {
@@ -907,7 +932,7 @@ app.get('/api/budget', (req, res) => {
 app.put('/api/budget/settings', (req, res) => {
   const b = readBudget();
   if (req.body.initialBudget !== undefined) b.initialBudget = Number(req.body.initialBudget);
-  if (req.body.currency)                    b.currency = req.body.currency;
+  if (req.body.initialBudgetCurrency)       b.initialBudgetCurrency = req.body.initialBudgetCurrency;
   if (Array.isArray(req.body.subBudgets)) {
     b.subBudgets = req.body.subBudgets
       .filter(s => s && s.category && Number(s.amount) > 0)
@@ -928,6 +953,7 @@ app.post('/api/budget/entries', (req, res) => {
     id:          'b' + Date.now(),
     date:        req.body.date,
     amount:      Number(req.body.amount),
+    currency:    req.body.currency || b.initialBudgetCurrency,
     category:    req.body.category || 'other',
     description: req.body.description || '',
     city:        req.body.city || '',
