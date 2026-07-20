@@ -119,6 +119,8 @@
   "budget.entry.date": "Fecha",
   "budget.entry.amount": "Monto",
   "budget.entry.category": "Categoría",
+  "budget.entry.currency": "Moneda",
+  "budget.entry.currencyMore": "Más…",
   "budget.entry.description": "Descripción",
   "budget.entry.descPlaceholder": "¿En qué fue?",
   "budget.entry.city": "Ciudad",

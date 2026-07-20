@@ -193,6 +193,17 @@
           <div class="type-selector" id="budget-cat-selector"></div>
         </div>
         <div class="form-row">
+          <label data-i18n="budget.entry.currency">Currency</label>
+          <div class="type-selector" id="budget-currency-selector">
+            <button type="button" class="type-btn" data-currency="USD">USD</button>
+            <button type="button" class="type-btn" data-currency="EUR">EUR</button>
+            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
+            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
+            <button type="button" class="type-btn" id="budget-currency-more" data-i18n="budget.entry.currencyMore">More…</button>
+          </div>
+          <select id="budget-currency-select" class="form-select" hidden></select>
+        </div>
+        <div class="form-row">
           <label for="budget-description" data-i18n="budget.entry.description">Description</label>
           <input type="text" id="budget-description" data-i18n-placeholder="budget.entry.descPlaceholder" />
         </div>

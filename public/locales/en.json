@@ -119,6 +119,8 @@
   "budget.entry.date": "Date",
   "budget.entry.amount": "Amount",
   "budget.entry.category": "Category",
+  "budget.entry.currency": "Currency",
+  "budget.entry.currencyMore": "More…",
   "budget.entry.description": "Description",
   "budget.entry.descPlaceholder": "What was it for?",
   "budget.entry.city": "City",

@@ -13,6 +13,20 @@ const BUDGET_CAT_COLORS = {
   other:         '#b0a898',
 };
 
+// Trip countries → currency, used to auto-suggest an expense's currency
+// from the city active on its date (same idea as the existing date→city
+// autofill). Falls back to the budget's own currency for anything unlisted.
+const COUNTRY_CURRENCY = {
+  Argentina: 'ARS',
+  France: 'EUR',
+  Greece: 'EUR',
+  Austria: 'EUR',
+  Germany: 'EUR',
+  Switzerland: 'CHF',
+  Netherlands: 'EUR',
+  Belgium: 'EUR',
+};
+
 let _budget = null;
 let _budgetTrip = null;
 let _catRowSeq = 0;
@@ -159,6 +173,11 @@ function _cityForDate(dateStr) {
   return getActiveStay(_budgetTrip?.accommodations || [], dateStr)?.city || '';
 }
 
+function _currencyForDate(dateStr) {
+  const country = getActiveStay(_budgetTrip?.accommodations || [], dateStr)?.country;
+  return COUNTRY_CURRENCY[country] || _budget.initialBudgetCurrency || 'EUR';
+}
+
 // Unique trip cities, in itinerary order (accommodations.json is sorted by check_in).
 function _tripCities() {
   const seen = new Set();
@@ -178,6 +197,29 @@ function _renderCitySelect(selected) {
     ...cities.map(c => `<option value="${c}"${c === selected ? ' selected' : ''}>${c}</option>`)];
   el.innerHTML = options.join('');
   el.value = selected || '';
+}
+
+function _getSelectedCurrency() {
+  const active = document.querySelector('#budget-currency-selector .type-btn.active[data-currency]');
+  if (active) return active.dataset.currency;
+  const select = document.getElementById('budget-currency-select');
+  return select.hidden ? 'USD' : select.value;
+}
+
+function _setSelectedCurrency(code) {
+  const buttons = document.querySelectorAll('#budget-currency-selector .type-btn[data-currency]');
+  const select = document.getElementById('budget-currency-select');
+  const isQuickPick = CURRENCY_QUICK_PICKS.includes(code);
+  buttons.forEach(b => b.classList.toggle('active', isQuickPick && b.dataset.currency === code));
+  document.getElementById('budget-currency-more').classList.toggle('active', !isQuickPick);
+  if (isQuickPick) {
+    select.hidden = true;
+  } else {
+    const known = listKnownCurrencies();
+    const codes = known.includes(code) ? known : [...known, code].sort();
+    select.innerHTML = codes.map(c => `<option value="${c}"${c === code ? ' selected' : ''}>${c}</option>`).join('');
+    select.hidden = false;
+  }
 }
 
 // ── Render ─────────────────────────────────────
@@ -528,6 +570,7 @@ function _openExpenseModal(id) {
     document.getElementById('budget-description').value = entry.description || '';
     _renderCitySelect(entry.city || '');
     _setSelectedCat(entry.category);
+    _setSelectedCurrency(entry.currency || 'USD');
     deleteBtn.hidden = false;
   } else {
     titleEl.textContent = t('budget.entry.add');
@@ -535,6 +578,7 @@ function _openExpenseModal(id) {
     document.getElementById('budget-date').value = today;
     _renderCitySelect(_cityForDate(today));
     _setSelectedCat('food');
+    _setSelectedCurrency(_currencyForDate(today));
     deleteBtn.hidden = true;
   }
 
@@ -627,9 +671,24 @@ document.getElementById('budget-cat-selector').addEventListener('click', e => {
   if (btn) _setSelectedCat(btn.dataset.cat);
 });
 
+document.getElementById('budget-currency-selector').addEventListener('click', e => {
+  const btn = e.target.closest('.type-btn');
+  if (!btn) return;
+  if (btn.id === 'budget-currency-more') {
+    _setSelectedCurrency(listKnownCurrencies()[0] || 'GBP');
+    document.getElementById('budget-currency-select').focus();
+  } else {
+    _setSelectedCurrency(btn.dataset.currency);
+  }
+});
+document.getElementById('budget-currency-select').addEventListener('change', e => {
+  _setSelectedCurrency(e.target.value);
+});
+
 document.getElementById('budget-date').addEventListener('change', e => {
   const city = _cityForDate(e.target.value);
   if (city) document.getElementById('budget-city').value = city;
+  _setSelectedCurrency(_currencyForDate(e.target.value));
 });
 
 document.getElementById('budget-form').addEventListener('submit', async e => {
@@ -638,6 +697,7 @@ document.getElementById('budget-form').addEventListener('submit', async e => {
   const payload = {
     date:        document.getElementById('budget-date').value,
     amount:      parseFloat(document.getElementById('budget-amount').value),
+    currency:    _getSelectedCurrency(),
     category:    _getSelectedCat(),
     description: document.getElementById('budget-description').value.trim(),
     city:        document.getElementById('budget-city').value.trim(),
