@@ -119,23 +119,13 @@ async function initBudget(tripData) {
 
 // ── Helpers ────────────────────────────────────
 
-function _fmt(amount) {
-  const currency = _budget.currency || 'EUR';
-  try {
-    return new Intl.NumberFormat(getDateLocale(), {
-      style: 'currency', currency, maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return currency + ' ' + Math.round(amount).toLocaleString();
-  }
-}
-
 function _computeStats() {
-  const { initialBudget, entries } = _budget;
   const trip = _budgetTrip.trip;
   const today = appToday();
 
-  const totalSpent = entries.reduce((s, e) => s + e.amount, 0);
+  const initialBudget = toUSD(_budget.initialBudget, _budget.initialBudgetCurrency);
+  const { entries } = _budget;
+  const totalSpent = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
   const remaining  = initialBudget - totalSpent;
 
   const tripStart = parseLocal(trip.startDate);
@@ -219,19 +209,19 @@ function _renderStats() {
     <div class="budget-stats-main">
       <div class="budget-stat-card budget-stat-card--accent">
         <span class="budget-stat-label">${t('budget.stats.budget')}</span>
-        <span class="budget-stat-val">${_fmt(s.initialBudget)}</span>
+        <span class="budget-stat-val">${formatCurrency(s.initialBudget)}</span>
       </div>
       <div class="budget-stat-card">
         <span class="budget-stat-label">${t('budget.stats.spent')}</span>
-        <span class="budget-stat-val">${_fmt(s.totalSpent)}</span>
+        <span class="budget-stat-val">${formatCurrency(s.totalSpent)}</span>
       </div>
       <div class="budget-stat-card budget-stat-card--${remClass}">
         <span class="budget-stat-label">${t('budget.stats.remaining')}</span>
-        <span class="budget-stat-val budget-val--${remClass}">${_fmt(s.remaining)}</span>
+        <span class="budget-stat-val budget-val--${remClass}">${formatCurrency(s.remaining)}</span>
       </div>
       <div class="budget-stat-card${projClass ? ' budget-stat-card--' + projClass : ''}">
         <span class="budget-stat-label">${t('budget.stats.projected')}</span>
-        <span class="budget-stat-val${projClass ? ' budget-val--' + projClass : ''}">${s.projectedTotal > 0 ? _fmt(s.projectedTotal) : '—'}</span>
+        <span class="budget-stat-val${projClass ? ' budget-val--' + projClass : ''}">${s.projectedTotal > 0 ? formatCurrency(s.projectedTotal) : '—'}</span>
       </div>
     </div>
 
@@ -242,15 +232,15 @@ function _renderStats() {
     <div class="budget-stats-secondary">
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.dailyAvg')}</span>
-        <span class="budget-sec-val">${s.dailyAvg > 0 ? _fmt(s.dailyAvg) : '—'}</span>
+        <span class="budget-sec-val">${s.dailyAvg > 0 ? formatCurrency(s.dailyAvg) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.weeklyAvg')}</span>
-        <span class="budget-sec-val">${s.weeklyAvg > 0 ? _fmt(s.weeklyAvg) : '—'}</span>
+        <span class="budget-sec-val">${s.weeklyAvg > 0 ? formatCurrency(s.weeklyAvg) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.dailyLeft')}</span>
-        <span class="budget-sec-val${s.dailyBudgetLeft !== null && s.dailyBudgetLeft < 0 ? ' budget-val--negative' : ''}">${s.dailyBudgetLeft !== null ? _fmt(s.dailyBudgetLeft) : '—'}</span>
+        <span class="budget-sec-val${s.dailyBudgetLeft !== null && s.dailyBudgetLeft < 0 ? ' budget-val--negative' : ''}">${s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.progress')}</span>
@@ -263,7 +253,7 @@ function _renderStats() {
       ${s.projectedRemaining !== null ? `
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.projectedLeft')}</span>
-        <span class="budget-sec-val budget-val--${projClass}">${_fmt(s.projectedRemaining)}</span>
+        <span class="budget-sec-val budget-val--${projClass}">${formatCurrency(s.projectedRemaining)}</span>
       </div>` : ''}
     </div>
   `;
@@ -278,7 +268,7 @@ function _renderSubBudgets() {
 
   const spentByCat = {};
   for (const e of _budget.entries) {
-    spentByCat[e.category] = (spentByCat[e.category] || 0) + e.amount;
+    spentByCat[e.category] = (spentByCat[e.category] || 0) + toUSD(e.amount, e.currency);
   }
 
   const order = _allCatIds();
@@ -287,9 +277,10 @@ function _renderSubBudgets() {
   );
 
   const rows = sorted.map(sub => {
+    const capUSD = toUSD(sub.amount, _budget.initialBudgetCurrency);
     const spent = spentByCat[sub.category] || 0;
-    const pct   = sub.amount > 0 ? (spent / sub.amount) * 100 : 0;
-    const over  = spent > sub.amount;
+    const pct   = capUSD > 0 ? (spent / capUSD) * 100 : 0;
+    const over  = spent > capUSD;
     const color = pct < 75 ? 'var(--c-stay)' : pct < 100 ? 'var(--accent)' : 'var(--c-flight--neg, #e87a7a)';
     return `
       <div class="budget-cat-row">
@@ -298,7 +289,7 @@ function _renderSubBudgets() {
         <div class="budget-cat-track">
           <div class="budget-cat-fill" style="width:${Math.min(100, pct).toFixed(1)}%; background:${color}"></div>
         </div>
-        <span class="budget-cat-amt${over ? ' budget-val--negative' : ''}">${_fmt(spent)} / ${_fmt(sub.amount)}</span>
+        <span class="budget-cat-amt${over ? ' budget-val--negative' : ''}">${formatCurrency(spent)} / ${formatCurrency(capUSD)}</span>
         <span class="budget-cat-pct${over ? ' budget-val--negative' : ''}">${pct.toFixed(0)}%</span>
       </div>`;
   }).join('');
@@ -320,8 +311,9 @@ function _renderCategories() {
   const totals = {};
   let grandTotal = 0;
   for (const e of entries) {
-    totals[e.category] = (totals[e.category] || 0) + e.amount;
-    grandTotal += e.amount;
+    const usd = toUSD(e.amount, e.currency);
+    totals[e.category] = (totals[e.category] || 0) + usd;
+    grandTotal += usd;
   }
 
   const sorted = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
@@ -331,7 +323,7 @@ function _renderCategories() {
     const pct = ((totals[cat] / grandTotal) * 100).toFixed(1);
     return `<div class="budget-stacked-segment"
       style="width:${pct}%;background:${_catColor(cat)}"
-      title="${_catName(cat)}: ${_fmt(totals[cat])} (${pct}%)"></div>`;
+      title="${_catName(cat)}: ${formatCurrency(totals[cat])} (${pct}%)"></div>`;
   }).join('');
 
   const rows = sorted.map(cat => {
@@ -343,7 +335,7 @@ function _renderCategories() {
         <div class="budget-cat-track">
           <div class="budget-cat-fill" style="width:${pct}%; background:${_catColor(cat)}"></div>
         </div>
-        <span class="budget-cat-amt">${_fmt(totals[cat])}</span>
+        <span class="budget-cat-amt">${formatCurrency(totals[cat])}</span>
         <span class="budget-cat-pct">${pct}%</span>
       </div>`;
   }).join('');
@@ -381,7 +373,7 @@ function _groupEntries(entries) {
     }
     if (!groups[key]) { groups[key] = { key, label, color, isUnassigned, entries: [], total: 0 }; order.push(key); }
     groups[key].entries.push(e);
-    groups[key].total += e.amount;
+    groups[key].total += toUSD(e.amount, e.currency);
   }
 
   const list = order.map(k => groups[k]);
@@ -433,7 +425,10 @@ function _renderEntries() {
           <span class="budget-entry-desc">${e.description || _catName(e.category)}</span>
           ${e.city ? `<span class="budget-entry-city">${e.city}</span>` : ''}
         </div>
-        <span class="budget-entry-amount">${_fmt(e.amount)}</span>
+        <div class="budget-entry-amount-col">
+          <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}</span>
+          ${conversionLine(e.amount, e.currency)}
+        </div>
       </div>`).join('');
 
     return `
@@ -443,7 +438,7 @@ function _renderEntries() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
           </button>
           <span class="budget-day-label">${g.color ? `<span class="budget-group-dot" style="background:${g.color}"></span>` : ''}${g.label}</span>
-          <span class="budget-day-total">${_fmt(g.total)}</span>
+          <span class="budget-day-total">${formatCurrency(g.total)}</span>
         </div>
         <div class="budget-group-entries"${collapsed ? ' hidden' : ''}>${eRows}</div>
       </div>`;
@@ -762,12 +757,7 @@ function getBudgetRemaining() {
 }
 
 function getBudgetCurrency() {
-  return _budget?.currency || 'EUR';
-}
-
-// Shared with wishlist.js, which has no currency of its own.
-function formatCurrency(amount) {
-  return _fmt(amount);
+  return _budget?.initialBudgetCurrency || 'EUR';
 }
 
 // Data for the Today view's budget line (null until budget is loaded/configured)
@@ -777,9 +767,9 @@ function getTodayBudget() {
   const today = appToday();
   const spentToday = _budget.entries
     .filter(e => e.date === today)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .reduce((sum, e) => sum + toUSD(e.amount, e.currency), 0);
   return {
-    spent: _fmt(spentToday),
-    dailyLeft: s.dailyBudgetLeft !== null ? _fmt(s.dailyBudgetLeft) : null,
+    spent: formatCurrency(spentToday),
+    dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,
   };
 }
