@@ -50,8 +50,8 @@ function _sortedItems(items) {
   const copy = [...items];
   switch (_wishlistSort) {
     case 'name':       return copy.sort((a, b) => a.name.localeCompare(b.name));
-    case 'price-asc':  return copy.sort((a, b) => a.price - b.price);
-    case 'price-desc': return copy.sort((a, b) => b.price - a.price);
+    case 'price-asc':  return copy.sort((a, b) => toUSD(a.price, a.currency) - toUSD(b.price, b.currency));
+    case 'price-desc': return copy.sort((a, b) => toUSD(b.price, b.currency) - toUSD(a.price, a.currency));
     default:           return copy;
   }
 }
