@@ -202,6 +202,11 @@
             <button type="button" class="type-btn" id="budget-currency-more" data-i18n="budget.entry.currencyMore">More…</button>
           </div>
           <select id="budget-currency-select" class="form-select" hidden></select>
+          <details class="custom-rate-toggle" id="budget-rate-details">
+            <summary data-i18n="budget.entry.customRate">Set custom rate</summary>
+            <input type="number" id="budget-rate-input" step="0.0001" min="0" />
+            <p class="form-hint" data-i18n="budget.entry.customRateHint">Overrides the currency rate for just this expense.</p>
+          </details>
         </div>
         <div class="form-row">
           <label for="budget-description" data-i18n="budget.entry.description">Description</label>

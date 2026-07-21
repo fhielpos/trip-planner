@@ -220,6 +220,29 @@ function _setSelectedCurrency(code) {
     select.innerHTML = codes.map(c => `<option value="${c}"${c === code ? ' selected' : ''}>${c}</option>`).join('');
     select.hidden = false;
   }
+  // Reference-only placeholder (never a submitted default) showing today's
+  // effective rate for whichever currency is now selected.
+  const info = getRateInfo(code);
+  document.getElementById('budget-rate-input').placeholder = info.effective !== null ? info.effective.toFixed(4) : '';
+}
+
+function _setCustomRate(rate) {
+  const details = document.getElementById('budget-rate-details');
+  const input = document.getElementById('budget-rate-input');
+  if (rate) {
+    details.open = true;
+    input.value = rate;
+  } else {
+    details.open = false;
+    input.value = '';
+  }
+}
+
+function _getCustomRate() {
+  const details = document.getElementById('budget-rate-details');
+  if (!details.open) return null;
+  const val = parseFloat(document.getElementById('budget-rate-input').value);
+  return Number.isFinite(val) && val > 0 ? val : null;
 }
 
 // ── Render ─────────────────────────────────────
@@ -571,6 +594,7 @@ function _openExpenseModal(id) {
     _renderCitySelect(entry.city || '');
     _setSelectedCat(entry.category);
     _setSelectedCurrency(entry.currency || 'USD');
+    _setCustomRate(entry.rate || null);
     deleteBtn.hidden = false;
   } else {
     titleEl.textContent = t('budget.entry.add');
@@ -579,6 +603,7 @@ function _openExpenseModal(id) {
     _renderCitySelect(_cityForDate(today));
     _setSelectedCat('food');
     _setSelectedCurrency(_currencyForDate(today));
+    _setCustomRate(null);
     deleteBtn.hidden = true;
   }
 
@@ -681,15 +706,18 @@ document.getElementById('budget-currency-selector').addEventListener('click', e 
   } else {
     _setSelectedCurrency(btn.dataset.currency);
   }
+  _setCustomRate(null);
 });
 document.getElementById('budget-currency-select').addEventListener('change', e => {
   _setSelectedCurrency(e.target.value);
+  _setCustomRate(null);
 });
 
 document.getElementById('budget-date').addEventListener('change', e => {
   const city = _cityForDate(e.target.value);
   if (city) document.getElementById('budget-city').value = city;
   _setSelectedCurrency(_currencyForDate(e.target.value));
+  _setCustomRate(null);
 });
 
 document.getElementById('budget-form').addEventListener('submit', async e => {
@@ -699,6 +727,7 @@ document.getElementById('budget-form').addEventListener('submit', async e => {
     date:        document.getElementById('budget-date').value,
     amount:      parseFloat(document.getElementById('budget-amount').value),
     currency:    _getSelectedCurrency(),
+    rate:        _getCustomRate(),
     category:    _getSelectedCat(),
     description: document.getElementById('budget-description').value.trim(),
     city:        document.getElementById('budget-city').value.trim(),

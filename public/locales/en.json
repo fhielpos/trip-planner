@@ -134,6 +134,8 @@
   "budget.entry.cityNone": "No city",
   "budget.entry.confirmDelete": "Delete this expense?",
   "budget.entry.customRateTooltip": "Custom rate: {rate}",
+  "budget.entry.customRate": "Set custom rate",
+  "budget.entry.customRateHint": "Overrides the currency rate for just this expense.",
   "wishlist.title": "Wishlist",
   "wishlist.addItem": "Add item",
   "wishlist.empty": "Your wishlist is empty",

@@ -1372,6 +1372,25 @@ body {
 .rate-edit-code { font-family: var(--font-display); font-weight: 600; width: 3.2rem; flex-shrink: 0; }
 .rate-edit-fetched { font-size: 0.72rem; color: var(--text-3); flex-shrink: 0; white-space: nowrap; }
 .rate-edit-override { width: 6rem; }
+.custom-rate-toggle { margin-top: 0.5rem; }
+.custom-rate-toggle summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.custom-rate-toggle[open] summary { color: var(--accent); }
+.custom-rate-toggle input {
+  margin-top: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+}
 .subbudget-amt {
   width: 100%;
   padding: 0.5rem 0.6rem;
