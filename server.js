@@ -286,6 +286,12 @@ function validTotalPrice(v) {
   return v === undefined || v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0);
 }
 
+// A per-entry rate override must be strictly positive (it's a divisor in
+// toUSD) — unlike validTotalPrice, 0 is not a valid value here.
+function validRate(v) {
+  return v === undefined || v === null || (typeof v === 'number' && Number.isFinite(v) && v > 0);
+}
+
 const NOMINATIM_USER_AGENT = 'trip-planner/1.0 (personal trip-planning app, non-commercial)';
 let _lastNominatimCall = 0;
 const geocodeLimiter = createLimiter(1);
@@ -948,12 +954,16 @@ app.put('/api/budget/settings', (req, res) => {
 });
 
 app.post('/api/budget/entries', (req, res) => {
+  if (!validRate(req.body.rate)) {
+    return res.status(400).json({ error: 'rate must be a positive number or null' });
+  }
   const b = readBudget();
   const entry = {
     id:          'b' + Date.now(),
     date:        req.body.date,
     amount:      Number(req.body.amount),
     currency:    req.body.currency || b.initialBudgetCurrency,
+    rate:        req.body.rate != null ? Number(req.body.rate) : null,
     category:    req.body.category || 'other',
     description: req.body.description || '',
     city:        req.body.city || '',
@@ -964,6 +974,9 @@ app.post('/api/budget/entries', (req, res) => {
 });
 
 app.put('/api/budget/entries/:id', (req, res) => {
+  if (!validRate(req.body.rate)) {
+    return res.status(400).json({ error: 'rate must be a positive number or null' });
+  }
   const b = readBudget();
   const updated = mergeById(b.entries, req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'not found' });
