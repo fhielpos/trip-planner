@@ -133,6 +133,7 @@
   "budget.entry.city": "Ciudad",
   "budget.entry.cityNone": "Sin ciudad",
   "budget.entry.confirmDelete": "¿Eliminar este gasto?",
+  "budget.entry.customRateTooltip": "Tipo de cambio personalizado: {rate}",
   "wishlist.title": "Lista de deseos",
   "wishlist.addItem": "Agregar ítem",
   "wishlist.empty": "Tu lista de deseos está vacía",

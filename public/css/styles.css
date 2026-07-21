@@ -1322,6 +1322,13 @@ body {
   color: var(--text-3);
   white-space: nowrap;
 }
+.rate-marker {
+  font-size: 0.65rem;
+  color: var(--accent);
+  margin-left: 0.25rem;
+  cursor: help;
+  border-bottom: 1px dotted var(--accent);
+}
 .budget-entry.is-pending { border: 1px dashed var(--accent); opacity: 0.8; }
 
 /* Empty / no-budget states */

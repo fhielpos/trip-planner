@@ -139,7 +139,7 @@ function _computeStats() {
 
   const initialBudget = toUSD(_budget.initialBudget, _budget.initialBudgetCurrency);
   const { entries } = _budget;
-  const totalSpent = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  const totalSpent = entries.reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
   const remaining  = initialBudget - totalSpent;
 
   const tripStart = parseLocal(trip.startDate);
@@ -310,7 +310,7 @@ function _renderSubBudgets() {
 
   const spentByCat = {};
   for (const e of _budget.entries) {
-    spentByCat[e.category] = (spentByCat[e.category] || 0) + toUSD(e.amount, e.currency);
+    spentByCat[e.category] = (spentByCat[e.category] || 0) + toUSD(e.amount, e.currency, e.rate);
   }
 
   const order = _allCatIds();
@@ -353,7 +353,7 @@ function _renderCategories() {
   const totals = {};
   let grandTotal = 0;
   for (const e of entries) {
-    const usd = toUSD(e.amount, e.currency);
+    const usd = toUSD(e.amount, e.currency, e.rate);
     totals[e.category] = (totals[e.category] || 0) + usd;
     grandTotal += usd;
   }
@@ -415,7 +415,7 @@ function _groupEntries(entries) {
     }
     if (!groups[key]) { groups[key] = { key, label, color, isUnassigned, entries: [], total: 0 }; order.push(key); }
     groups[key].entries.push(e);
-    groups[key].total += toUSD(e.amount, e.currency);
+    groups[key].total += toUSD(e.amount, e.currency, e.rate);
   }
 
   const list = order.map(k => groups[k]);
@@ -468,8 +468,8 @@ function _renderEntries() {
           ${e.city ? `<span class="budget-entry-city">${e.city}</span>` : ''}
         </div>
         <div class="budget-entry-amount-col">
-          <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}</span>
-          ${conversionLine(e.amount, e.currency)}
+          <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}${e.rate ? `<span class="rate-marker" title="${t('budget.entry.customRateTooltip', { rate: e.rate })}">±</span>` : ''}</span>
+          ${conversionLine(e.amount, e.currency, e.rate)}
         </div>
       </div>`).join('');
 
@@ -900,7 +900,7 @@ function getTodayBudget() {
   const today = appToday();
   const spentToday = _budget.entries
     .filter(e => e.date === today)
-    .reduce((sum, e) => sum + toUSD(e.amount, e.currency), 0);
+    .reduce((sum, e) => sum + toUSD(e.amount, e.currency, e.rate), 0);
   return {
     spent: formatCurrency(spentToday),
     dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,

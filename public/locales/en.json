@@ -133,6 +133,7 @@
   "budget.entry.city": "City",
   "budget.entry.cityNone": "No city",
   "budget.entry.confirmDelete": "Delete this expense?",
+  "budget.entry.customRateTooltip": "Custom rate: {rate}",
   "wishlist.title": "Wishlist",
   "wishlist.addItem": "Add item",
   "wishlist.empty": "Your wishlist is empty",
