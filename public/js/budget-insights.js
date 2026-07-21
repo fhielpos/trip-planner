@@ -44,7 +44,7 @@ function _getActiveStay(dayStr) {
 }
 
 function _biTotalSpent() {
-  return (_biBudget.entries || []).reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  return (_biBudget.entries || []).reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
 }
 
 // Duplicated from app.js's DEV_DATE/appToday — this page doesn't load app.js.
@@ -139,7 +139,7 @@ function _renderHero() {
 function _cityTotals(entries) {
   const totals = {};
   for (const e of entries) {
-    const usd = toUSD(e.amount, e.currency);
+    const usd = toUSD(e.amount, e.currency, e.rate);
     const city = (e.city || '').trim();
     const key = city || '\0unassigned';
     if (!totals[key]) totals[key] = { city, amount: 0, count: 0, catTotals: {} };
@@ -197,7 +197,7 @@ function _renderCityList() {
   }
 
   const nightsByCity = _nightsByCity();
-  const grandTotal = entries.reduce((s, e) => s + toUSD(e.amount, e.currency), 0);
+  const grandTotal = entries.reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
   const rows = _cityTotals(entries).sort((a, b) => b.amount - a.amount);
 
   el.innerHTML = rows.map(row => {
@@ -289,7 +289,7 @@ function _renderTrend() {
   let running = 0;
   for (const e of sorted) {
     const day = Math.min(totalDays, Math.max(1, _dayIndexForDate(e.date)));
-    running += toUSD(e.amount, e.currency);
+    running += toUSD(e.amount, e.currency, e.rate);
     actualPoints.push({ day, amt: running });
   }
   if (actualPoints[actualPoints.length - 1].day < todayIdx) {
