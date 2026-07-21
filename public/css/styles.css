@@ -1302,7 +1302,8 @@ body {
   flex-shrink: 0;
 }
 .budget-entry-amount {
-  font-family: var(--font-display);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-1);
@@ -1317,17 +1318,25 @@ body {
   flex-shrink: 0;
 }
 .currency-conversion {
-  font-family: var(--font-display);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 0.65rem;
   color: var(--text-3);
   white-space: nowrap;
 }
-.rate-marker {
-  font-size: 0.65rem;
+.rate-chip {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6rem;
+  font-weight: 500;
   color: var(--accent);
-  margin-left: 0.25rem;
-  cursor: help;
-  border-bottom: 1px dotted var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  vertical-align: middle;
+  line-height: 1.4;
 }
 .budget-entry.is-pending { border: 1px dashed var(--accent); opacity: 0.8; }
 
@@ -1388,9 +1397,11 @@ body {
   border-radius: var(--radius-sm);
   background: var(--bg);
   color: var(--text-1);
-  font-family: var(--font-display);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
 }
+.custom-rate-toggle input:focus { outline: none; border-color: var(--accent); }
 .subbudget-amt {
   width: 100%;
   padding: 0.5rem 0.6rem;

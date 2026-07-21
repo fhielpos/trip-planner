@@ -491,7 +491,7 @@ function _renderEntries() {
           ${e.city ? `<span class="budget-entry-city">${e.city}</span>` : ''}
         </div>
         <div class="budget-entry-amount-col">
-          <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}${e.rate ? `<span class="rate-marker" title="${t('budget.entry.customRateTooltip', { rate: e.rate })}">±</span>` : ''}</span>
+          <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}${e.rate ? `<span class="rate-chip" title="${t('budget.entry.customRateTooltip', { rate: e.rate })}">@${e.rate}</span>` : ''}</span>
           ${conversionLine(e.amount, e.currency, e.rate)}
         </div>
       </div>`).join('');
