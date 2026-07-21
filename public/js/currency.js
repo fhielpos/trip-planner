@@ -37,10 +37,12 @@ function _effectiveRate(currency) {
 
 // Falls back to treating an unknown currency as already-USD rather than
 // throwing — better to show a slightly-wrong number than crash a render.
-function toUSD(amount, currency) {
+// `rate`, if a valid positive number, overrides the currency-level rate —
+// used for a single entry's own locked exchange rate (see budget.js).
+function toUSD(amount, currency, rate) {
   if (!currency || currency === 'USD') return amount;
-  const rate = _effectiveRate(currency);
-  return rate ? amount / rate : amount;
+  const r = (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) ? rate : _effectiveRate(currency);
+  return r ? amount / r : amount;
 }
 
 function toARS(amountUSD) {
@@ -67,10 +69,12 @@ function formatCurrency(amount) {
 // Small secondary conversion line for an individual row, e.g.
 // "≈ $32.50 · ARS 32.500" — omits any leg that would just restate the
 // entry's own currency (a USD entry shows only ARS, an ARS entry shows
-// only USD, anything else shows both).
-function conversionLine(amount, currency) {
+// only USD, anything else shows both). `rate`, if set, locks the USD leg
+// to that entry's own rate — the ARS leg is still derived from today's
+// live ARS rate, never locked (only the USD conversion is ever locked).
+function conversionLine(amount, currency, rate) {
   const parts = [];
-  const usd = currency === 'USD' ? amount : toUSD(amount, currency);
+  const usd = currency === 'USD' ? amount : toUSD(amount, currency, rate);
   if (currency !== 'USD') parts.push('≈ ' + formatMoney(usd, 'USD'));
   if (currency !== 'ARS') {
     const ars = toARS(usd);
