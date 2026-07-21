@@ -39,6 +39,7 @@ const RECOMMENDATIONS_FILE = path.join(__dirname, 'data', 'recommendations.json'
 const DOCUMENTS_FILE = path.join(__dirname, 'data', 'documents.json');
 const DOCUMENTS_DIR  = path.join(__dirname, 'data', 'documents-files');
 const FLIGHTS_FILE = path.join(__dirname, 'data', 'flights.json');
+const RATES_FILE = path.join(__dirname, 'data', 'rates.json');
 
 // Airports that mark the home end of the trip (used to classify outbound vs return).
 const HOME_AIRPORTS = new Set(['NQN', 'AEP', 'EZE']);
@@ -283,6 +284,12 @@ function validStayDates(check_in, check_out) {
 
 function validTotalPrice(v) {
   return v === undefined || v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0);
+}
+
+// A per-entry rate override must be strictly positive (it's a divisor in
+// toUSD) — unlike validTotalPrice, 0 is not a valid value here.
+function validRate(v) {
+  return v === undefined || v === null || (typeof v === 'number' && Number.isFinite(v) && v > 0);
 }
 
 const NOMINATIM_USER_AGENT = 'trip-planner/1.0 (personal trip-planning app, non-commercial)';
@@ -895,8 +902,33 @@ app.delete('/api/trains/:id', (req, res) => {
 
 // ── Budget ─────────────────────────────────────
 
-const budgetStore = jsonStore(BUDGET_FILE, () => ({ initialBudget: 0, currency: 'EUR', entries: [] }));
-function readBudget()       { return budgetStore.read(); }
+const budgetStore = jsonStore(BUDGET_FILE, () => ({ initialBudget: 0, initialBudgetCurrency: 'EUR', entries: [] }));
+
+// Backfills the per-entry `currency` field and the `initialBudgetCurrency`
+// field (both new) from the old single global `currency` field, once, on
+// first read of a pre-existing budget.json. Persists the backfill so it
+// only ever runs once.
+function readBudget() {
+  const b = budgetStore.read();
+  let dirty = false;
+  if (!b.initialBudgetCurrency) {
+    b.initialBudgetCurrency = b.currency || 'EUR';
+    dirty = true;
+  }
+  if (b.currency !== undefined) {
+    delete b.currency;
+    dirty = true;
+  }
+  if (!Array.isArray(b.entries)) b.entries = [];
+  for (const e of b.entries) {
+    if (!e.currency) {
+      e.currency = b.initialBudgetCurrency;
+      dirty = true;
+    }
+  }
+  if (dirty) writeBudget(b);
+  return b;
+}
 function writeBudget(data)  { budgetStore.write(data); }
 
 app.get('/api/budget', (req, res) => {
@@ -906,7 +938,7 @@ app.get('/api/budget', (req, res) => {
 app.put('/api/budget/settings', (req, res) => {
   const b = readBudget();
   if (req.body.initialBudget !== undefined) b.initialBudget = Number(req.body.initialBudget);
-  if (req.body.currency)                    b.currency = req.body.currency;
+  if (req.body.initialBudgetCurrency)       b.initialBudgetCurrency = req.body.initialBudgetCurrency;
   if (Array.isArray(req.body.subBudgets)) {
     b.subBudgets = req.body.subBudgets
       .filter(s => s && s.category && Number(s.amount) > 0)
@@ -922,11 +954,16 @@ app.put('/api/budget/settings', (req, res) => {
 });
 
 app.post('/api/budget/entries', (req, res) => {
+  if (!validRate(req.body.rate)) {
+    return res.status(400).json({ error: 'rate must be a positive number or null' });
+  }
   const b = readBudget();
   const entry = {
     id:          'b' + Date.now(),
     date:        req.body.date,
     amount:      Number(req.body.amount),
+    currency:    req.body.currency || b.initialBudgetCurrency,
+    rate:        req.body.rate != null ? Number(req.body.rate) : null,
     category:    req.body.category || 'other',
     description: req.body.description || '',
     city:        req.body.city || '',
@@ -937,6 +974,9 @@ app.post('/api/budget/entries', (req, res) => {
 });
 
 app.put('/api/budget/entries/:id', (req, res) => {
+  if (!validRate(req.body.rate)) {
+    return res.status(400).json({ error: 'rate must be a positive number or null' });
+  }
   const b = readBudget();
   const updated = mergeById(b.entries, req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'not found' });
@@ -955,7 +995,19 @@ app.delete('/api/budget/entries/:id', (req, res) => {
 // ── Wishlist ────────────────────────────────────
 
 const wishlistStore = jsonStore(WISHLIST_FILE, () => ({ items: [] }));
-function readWishlist()      { return wishlistStore.read(); }
+
+// Backfills the per-item `currency` field (new), once, on first read of a
+// pre-existing wishlist.json. Persists the backfill so it only runs once.
+function readWishlist() {
+  const w = wishlistStore.read();
+  let dirty = false;
+  if (!Array.isArray(w.items)) w.items = [];
+  for (const i of w.items) {
+    if (!i.currency) { i.currency = 'EUR'; dirty = true; }
+  }
+  if (dirty) writeWishlist(w);
+  return w;
+}
 function writeWishlist(data) { wishlistStore.write(data); }
 
 app.get('/api/wishlist', (req, res) => res.json(readWishlist()));
@@ -963,10 +1015,11 @@ app.get('/api/wishlist', (req, res) => res.json(readWishlist()));
 app.post('/api/wishlist', (req, res) => {
   const w = readWishlist();
   const item = {
-    id:    'w' + Date.now(),
-    name:  req.body.name || '',
-    price: Number(req.body.price) || 0,
-    url:   req.body.url || '',
+    id:       'w' + Date.now(),
+    name:     req.body.name || '',
+    price:    Number(req.body.price) || 0,
+    currency: req.body.currency || 'EUR',
+    url:      req.body.url || '',
   };
   w.items.push(item);
   writeWishlist(w);
@@ -987,6 +1040,81 @@ app.delete('/api/wishlist/:id', (req, res) => {
   w.items = w.items.filter(i => i.id !== req.params.id);
   writeWishlist(w);
   res.sendStatus(204);
+});
+
+// ── Exchange rates ──────────────────────────────
+
+const RATES_API_URL = 'https://open.er-api.com/v6/latest/USD';
+const RATES_TTL_MS = 24 * 60 * 60 * 1000;
+
+const ratesStore = jsonStore(RATES_FILE, () => ({ base: 'USD', fetchedAt: null, rates: {}, overrides: {} }));
+
+function readRates() {
+  const r = ratesStore.read();
+  if (!r.rates) r.rates = {};
+  if (!r.overrides) r.overrides = {};
+  return r;
+}
+function writeRates(data) { ratesStore.write(data); }
+
+// Fetches fresh USD-base rates, or null on any failure. Callers must never
+// overwrite an existing cache with a null result — a bad fetch (or, in this
+// sandbox, this app's fetch()-doesn't-respect-the-proxy limitation) must
+// never clobber good data, the same lesson already learned the hard way
+// with data/weather.json.
+async function fetchRatesFromApi() {
+  try {
+    const res = await fetch(RATES_API_URL, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!json || json.result !== 'success' || typeof json.rates !== 'object') return null;
+    return json.rates;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshRatesIfStale(force) {
+  const r = readRates();
+  const stale = force || !r.fetchedAt || (Date.now() - new Date(r.fetchedAt).getTime()) > RATES_TTL_MS;
+  if (!stale) return r;
+  const fetched = await fetchRatesFromApi();
+  if (!fetched) return r;
+  r.rates = fetched;
+  r.fetchedAt = new Date().toISOString();
+  writeRates(r);
+  return r;
+}
+
+function effectiveRatesPayload(r) {
+  const out = { base: 'USD', fetchedAt: r.fetchedAt, rates: {} };
+  const codes = new Set([...Object.keys(r.rates), ...Object.keys(r.overrides)]);
+  for (const code of codes) {
+    const fetched = r.rates[code] ?? null;
+    const override = r.overrides[code] ?? null;
+    out.rates[code] = { fetched, override, effective: override ?? fetched };
+  }
+  return out;
+}
+
+app.get('/api/rates', async (req, res) => {
+  const r = await refreshRatesIfStale(false);
+  res.json(effectiveRatesPayload(r));
+});
+
+app.put('/api/rates/overrides', (req, res) => {
+  const { currency, value } = req.body;
+  if (!currency) return res.status(400).json({ error: 'currency is required' });
+  const r = readRates();
+  if (value === null || value === undefined || value === '') delete r.overrides[currency];
+  else r.overrides[currency] = Number(value);
+  writeRates(r);
+  res.json(effectiveRatesPayload(r));
+});
+
+app.post('/api/rates/refresh', async (req, res) => {
+  const r = await refreshRatesIfStale(true);
+  res.json(effectiveRatesPayload(r));
 });
 
 // ── Travel documents ───────────────────────────

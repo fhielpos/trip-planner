@@ -13,6 +13,20 @@ const BUDGET_CAT_COLORS = {
   other:         '#b0a898',
 };
 
+// Trip countries → currency, used to auto-suggest an expense's currency
+// from the city active on its date (same idea as the existing date→city
+// autofill). Falls back to the budget's own currency for anything unlisted.
+const COUNTRY_CURRENCY = {
+  Argentina: 'ARS',
+  France: 'EUR',
+  Greece: 'EUR',
+  Austria: 'EUR',
+  Germany: 'EUR',
+  Switzerland: 'CHF',
+  Netherlands: 'EUR',
+  Belgium: 'EUR',
+};
+
 let _budget = null;
 let _budgetTrip = null;
 let _catRowSeq = 0;
@@ -119,23 +133,13 @@ async function initBudget(tripData) {
 
 // ── Helpers ────────────────────────────────────
 
-function _fmt(amount) {
-  const currency = _budget.currency || 'EUR';
-  try {
-    return new Intl.NumberFormat(getDateLocale(), {
-      style: 'currency', currency, maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return currency + ' ' + Math.round(amount).toLocaleString();
-  }
-}
-
 function _computeStats() {
-  const { initialBudget, entries } = _budget;
   const trip = _budgetTrip.trip;
   const today = appToday();
 
-  const totalSpent = entries.reduce((s, e) => s + e.amount, 0);
+  const initialBudget = toUSD(_budget.initialBudget, _budget.initialBudgetCurrency);
+  const { entries } = _budget;
+  const totalSpent = entries.reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
   const remaining  = initialBudget - totalSpent;
 
   const tripStart = parseLocal(trip.startDate);
@@ -169,6 +173,11 @@ function _cityForDate(dateStr) {
   return getActiveStay(_budgetTrip?.accommodations || [], dateStr)?.city || '';
 }
 
+function _currencyForDate(dateStr) {
+  const country = getActiveStay(_budgetTrip?.accommodations || [], dateStr)?.country;
+  return COUNTRY_CURRENCY[country] || _budget.initialBudgetCurrency || 'EUR';
+}
+
 // Unique trip cities, in itinerary order (accommodations.json is sorted by check_in).
 function _tripCities() {
   const seen = new Set();
@@ -188,6 +197,52 @@ function _renderCitySelect(selected) {
     ...cities.map(c => `<option value="${c}"${c === selected ? ' selected' : ''}>${c}</option>`)];
   el.innerHTML = options.join('');
   el.value = selected || '';
+}
+
+function _getSelectedCurrency() {
+  const active = document.querySelector('#budget-currency-selector .type-btn.active[data-currency]');
+  if (active) return active.dataset.currency;
+  const select = document.getElementById('budget-currency-select');
+  return select.hidden ? 'USD' : select.value;
+}
+
+function _setSelectedCurrency(code) {
+  const buttons = document.querySelectorAll('#budget-currency-selector .type-btn[data-currency]');
+  const select = document.getElementById('budget-currency-select');
+  const isQuickPick = CURRENCY_QUICK_PICKS.includes(code);
+  buttons.forEach(b => b.classList.toggle('active', isQuickPick && b.dataset.currency === code));
+  document.getElementById('budget-currency-more').classList.toggle('active', !isQuickPick);
+  if (isQuickPick) {
+    select.hidden = true;
+  } else {
+    const known = listKnownCurrencies();
+    const codes = known.includes(code) ? known : [...known, code].sort();
+    select.innerHTML = codes.map(c => `<option value="${c}"${c === code ? ' selected' : ''}>${c}</option>`).join('');
+    select.hidden = false;
+  }
+  // Reference-only placeholder (never a submitted default) showing today's
+  // effective rate for whichever currency is now selected.
+  const info = getRateInfo(code);
+  document.getElementById('budget-rate-input').placeholder = info.effective !== null ? info.effective.toFixed(4) : '';
+}
+
+function _setCustomRate(rate) {
+  const details = document.getElementById('budget-rate-details');
+  const input = document.getElementById('budget-rate-input');
+  if (rate) {
+    details.open = true;
+    input.value = rate;
+  } else {
+    details.open = false;
+    input.value = '';
+  }
+}
+
+function _getCustomRate() {
+  const details = document.getElementById('budget-rate-details');
+  if (!details.open) return null;
+  const val = parseFloat(document.getElementById('budget-rate-input').value);
+  return Number.isFinite(val) && val > 0 ? val : null;
 }
 
 // ── Render ─────────────────────────────────────
@@ -219,19 +274,19 @@ function _renderStats() {
     <div class="budget-stats-main">
       <div class="budget-stat-card budget-stat-card--accent">
         <span class="budget-stat-label">${t('budget.stats.budget')}</span>
-        <span class="budget-stat-val">${_fmt(s.initialBudget)}</span>
+        <span class="budget-stat-val">${formatCurrency(s.initialBudget)}</span>
       </div>
       <div class="budget-stat-card">
         <span class="budget-stat-label">${t('budget.stats.spent')}</span>
-        <span class="budget-stat-val">${_fmt(s.totalSpent)}</span>
+        <span class="budget-stat-val">${formatCurrency(s.totalSpent)}</span>
       </div>
       <div class="budget-stat-card budget-stat-card--${remClass}">
         <span class="budget-stat-label">${t('budget.stats.remaining')}</span>
-        <span class="budget-stat-val budget-val--${remClass}">${_fmt(s.remaining)}</span>
+        <span class="budget-stat-val budget-val--${remClass}">${formatCurrency(s.remaining)}</span>
       </div>
       <div class="budget-stat-card${projClass ? ' budget-stat-card--' + projClass : ''}">
         <span class="budget-stat-label">${t('budget.stats.projected')}</span>
-        <span class="budget-stat-val${projClass ? ' budget-val--' + projClass : ''}">${s.projectedTotal > 0 ? _fmt(s.projectedTotal) : '—'}</span>
+        <span class="budget-stat-val${projClass ? ' budget-val--' + projClass : ''}">${s.projectedTotal > 0 ? formatCurrency(s.projectedTotal) : '—'}</span>
       </div>
     </div>
 
@@ -242,15 +297,15 @@ function _renderStats() {
     <div class="budget-stats-secondary">
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.dailyAvg')}</span>
-        <span class="budget-sec-val">${s.dailyAvg > 0 ? _fmt(s.dailyAvg) : '—'}</span>
+        <span class="budget-sec-val">${s.dailyAvg > 0 ? formatCurrency(s.dailyAvg) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.weeklyAvg')}</span>
-        <span class="budget-sec-val">${s.weeklyAvg > 0 ? _fmt(s.weeklyAvg) : '—'}</span>
+        <span class="budget-sec-val">${s.weeklyAvg > 0 ? formatCurrency(s.weeklyAvg) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.dailyLeft')}</span>
-        <span class="budget-sec-val${s.dailyBudgetLeft !== null && s.dailyBudgetLeft < 0 ? ' budget-val--negative' : ''}">${s.dailyBudgetLeft !== null ? _fmt(s.dailyBudgetLeft) : '—'}</span>
+        <span class="budget-sec-val${s.dailyBudgetLeft !== null && s.dailyBudgetLeft < 0 ? ' budget-val--negative' : ''}">${s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : '—'}</span>
       </div>
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.progress')}</span>
@@ -263,7 +318,7 @@ function _renderStats() {
       ${s.projectedRemaining !== null ? `
       <div class="budget-sec-item">
         <span class="budget-sec-label">${t('budget.stats.projectedLeft')}</span>
-        <span class="budget-sec-val budget-val--${projClass}">${_fmt(s.projectedRemaining)}</span>
+        <span class="budget-sec-val budget-val--${projClass}">${formatCurrency(s.projectedRemaining)}</span>
       </div>` : ''}
     </div>
   `;
@@ -278,7 +333,7 @@ function _renderSubBudgets() {
 
   const spentByCat = {};
   for (const e of _budget.entries) {
-    spentByCat[e.category] = (spentByCat[e.category] || 0) + e.amount;
+    spentByCat[e.category] = (spentByCat[e.category] || 0) + toUSD(e.amount, e.currency, e.rate);
   }
 
   const order = _allCatIds();
@@ -287,9 +342,10 @@ function _renderSubBudgets() {
   );
 
   const rows = sorted.map(sub => {
+    const capUSD = toUSD(sub.amount, _budget.initialBudgetCurrency);
     const spent = spentByCat[sub.category] || 0;
-    const pct   = sub.amount > 0 ? (spent / sub.amount) * 100 : 0;
-    const over  = spent > sub.amount;
+    const pct   = capUSD > 0 ? (spent / capUSD) * 100 : 0;
+    const over  = spent > capUSD;
     const color = pct < 75 ? 'var(--c-stay)' : pct < 100 ? 'var(--accent)' : 'var(--c-flight--neg, #e87a7a)';
     return `
       <div class="budget-cat-row">
@@ -298,7 +354,7 @@ function _renderSubBudgets() {
         <div class="budget-cat-track">
           <div class="budget-cat-fill" style="width:${Math.min(100, pct).toFixed(1)}%; background:${color}"></div>
         </div>
-        <span class="budget-cat-amt${over ? ' budget-val--negative' : ''}">${_fmt(spent)} / ${_fmt(sub.amount)}</span>
+        <span class="budget-cat-amt${over ? ' budget-val--negative' : ''}">${formatCurrency(spent)} / ${formatCurrency(capUSD)}</span>
         <span class="budget-cat-pct${over ? ' budget-val--negative' : ''}">${pct.toFixed(0)}%</span>
       </div>`;
   }).join('');
@@ -320,8 +376,9 @@ function _renderCategories() {
   const totals = {};
   let grandTotal = 0;
   for (const e of entries) {
-    totals[e.category] = (totals[e.category] || 0) + e.amount;
-    grandTotal += e.amount;
+    const usd = toUSD(e.amount, e.currency, e.rate);
+    totals[e.category] = (totals[e.category] || 0) + usd;
+    grandTotal += usd;
   }
 
   const sorted = Object.keys(totals).sort((a, b) => totals[b] - totals[a]);
@@ -331,7 +388,7 @@ function _renderCategories() {
     const pct = ((totals[cat] / grandTotal) * 100).toFixed(1);
     return `<div class="budget-stacked-segment"
       style="width:${pct}%;background:${_catColor(cat)}"
-      title="${_catName(cat)}: ${_fmt(totals[cat])} (${pct}%)"></div>`;
+      title="${_catName(cat)}: ${formatCurrency(totals[cat])} (${pct}%)"></div>`;
   }).join('');
 
   const rows = sorted.map(cat => {
@@ -343,7 +400,7 @@ function _renderCategories() {
         <div class="budget-cat-track">
           <div class="budget-cat-fill" style="width:${pct}%; background:${_catColor(cat)}"></div>
         </div>
-        <span class="budget-cat-amt">${_fmt(totals[cat])}</span>
+        <span class="budget-cat-amt">${formatCurrency(totals[cat])}</span>
         <span class="budget-cat-pct">${pct}%</span>
       </div>`;
   }).join('');
@@ -381,7 +438,7 @@ function _groupEntries(entries) {
     }
     if (!groups[key]) { groups[key] = { key, label, color, isUnassigned, entries: [], total: 0 }; order.push(key); }
     groups[key].entries.push(e);
-    groups[key].total += e.amount;
+    groups[key].total += toUSD(e.amount, e.currency, e.rate);
   }
 
   const list = order.map(k => groups[k]);
@@ -433,7 +490,10 @@ function _renderEntries() {
           <span class="budget-entry-desc">${e.description || _catName(e.category)}</span>
           ${e.city ? `<span class="budget-entry-city">${e.city}</span>` : ''}
         </div>
-        <span class="budget-entry-amount">${_fmt(e.amount)}</span>
+        <div class="budget-entry-amount-col">
+          <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}${e.rate ? `<span class="rate-chip" title="${t('budget.entry.customRateTooltip', { rate: e.rate })}">@${e.rate}</span>` : ''}</span>
+          ${conversionLine(e.amount, e.currency, e.rate)}
+        </div>
       </div>`).join('');
 
     return `
@@ -443,7 +503,7 @@ function _renderEntries() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
           </button>
           <span class="budget-day-label">${g.color ? `<span class="budget-group-dot" style="background:${g.color}"></span>` : ''}${g.label}</span>
-          <span class="budget-day-total">${_fmt(g.total)}</span>
+          <span class="budget-day-total">${formatCurrency(g.total)}</span>
         </div>
         <div class="budget-group-entries"${collapsed ? ' hidden' : ''}>${eRows}</div>
       </div>`;
@@ -533,6 +593,8 @@ function _openExpenseModal(id) {
     document.getElementById('budget-description').value = entry.description || '';
     _renderCitySelect(entry.city || '');
     _setSelectedCat(entry.category);
+    _setSelectedCurrency(entry.currency || 'USD');
+    _setCustomRate(entry.rate || null);
     deleteBtn.hidden = false;
   } else {
     titleEl.textContent = t('budget.entry.add');
@@ -540,6 +602,8 @@ function _openExpenseModal(id) {
     document.getElementById('budget-date').value = today;
     _renderCitySelect(_cityForDate(today));
     _setSelectedCat('food');
+    _setSelectedCurrency(_currencyForDate(today));
+    _setCustomRate(null);
     deleteBtn.hidden = true;
   }
 
@@ -603,7 +667,8 @@ function _addSubBudgetRow(category, amount) {
 
 function _openSettingsModal() {
   document.getElementById('settings-initial-budget').value = _budget.initialBudget || '';
-  document.getElementById('settings-currency').value = _budget.currency || 'EUR';
+  document.getElementById('settings-currency').value = _budget.initialBudgetCurrency || 'EUR';
+  _renderRatesAdvanced();
   const catContainer = document.getElementById('settings-categories');
   catContainer.innerHTML = '';
   (_budget.categories || []).forEach(c => _addCategoryRow(c.id, c.name, c.color));
@@ -632,9 +697,27 @@ document.getElementById('budget-cat-selector').addEventListener('click', e => {
   if (btn) _setSelectedCat(btn.dataset.cat);
 });
 
+document.getElementById('budget-currency-selector').addEventListener('click', e => {
+  const btn = e.target.closest('.type-btn');
+  if (!btn) return;
+  if (btn.id === 'budget-currency-more') {
+    _setSelectedCurrency(listKnownCurrencies()[0] || 'GBP');
+    document.getElementById('budget-currency-select').focus();
+  } else {
+    _setSelectedCurrency(btn.dataset.currency);
+  }
+  _setCustomRate(null);
+});
+document.getElementById('budget-currency-select').addEventListener('change', e => {
+  _setSelectedCurrency(e.target.value);
+  _setCustomRate(null);
+});
+
 document.getElementById('budget-date').addEventListener('change', e => {
   const city = _cityForDate(e.target.value);
   if (city) document.getElementById('budget-city').value = city;
+  _setSelectedCurrency(_currencyForDate(e.target.value));
+  _setCustomRate(null);
 });
 
 document.getElementById('budget-form').addEventListener('submit', async e => {
@@ -643,6 +726,8 @@ document.getElementById('budget-form').addEventListener('submit', async e => {
   const payload = {
     date:        document.getElementById('budget-date').value,
     amount:      parseFloat(document.getElementById('budget-amount').value),
+    currency:    _getSelectedCurrency(),
+    rate:        _getCustomRate(),
     category:    _getSelectedCat(),
     description: document.getElementById('budget-description').value.trim(),
     city:        document.getElementById('budget-city').value.trim(),
@@ -736,8 +821,8 @@ document.getElementById('budget-settings-form').addEventListener('submit', async
   }
   const subBudgets = Object.values(byCat);
   const payload = {
-    initialBudget: parseFloat(document.getElementById('settings-initial-budget').value),
-    currency:      document.getElementById('settings-currency').value,
+    initialBudget:         parseFloat(document.getElementById('settings-initial-budget').value),
+    initialBudgetCurrency: document.getElementById('settings-currency').value,
     subBudgets,
     categories,
   };
@@ -752,6 +837,78 @@ document.getElementById('budget-settings-form').addEventListener('submit', async
   } catch { alert(t('modal.saveFailed')); }
 });
 
+function _currenciesInUse() {
+  const set = new Set(['USD', 'EUR', 'CHF', 'ARS']);
+  set.add(_budget.initialBudgetCurrency || 'EUR');
+  for (const e of _budget.entries) if (e.currency) set.add(e.currency);
+  if (typeof getWishlistCurrencies === 'function') {
+    for (const c of getWishlistCurrencies()) if (c) set.add(c);
+  }
+  return [...set].sort();
+}
+
+function _renderRatesAdvanced() {
+  const fetchedAt = getRatesFetchedAt();
+  document.getElementById('budget-rates-fetched').textContent = t('budget.advanced.lastFetched', {
+    when: fetchedAt ? new Date(fetchedAt).toLocaleString(getDateLocale()) : t('budget.advanced.never'),
+  });
+
+  const el = document.getElementById('budget-rates-list');
+  el.innerHTML = _currenciesInUse().map(code => {
+    if (code === 'USD') return '';
+    const info = getRateInfo(code);
+    return `
+      <div class="rate-edit-row" data-currency="${code}">
+        <span class="rate-edit-code">${code}</span>
+        <span class="rate-edit-fetched">${info.fetched !== null ? info.fetched.toFixed(4) : '—'} (${t('budget.advanced.fetchedLabel')})</span>
+        <input type="number" step="0.0001" class="rate-edit-override" placeholder="${t('budget.advanced.fetchedLabel')}" value="${info.override !== null ? info.override : ''}" />
+        <button type="button" class="subbudget-remove rate-edit-clear" aria-label="${t('budget.advanced.clear')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+document.getElementById('budget-rates-list').addEventListener('change', async e => {
+  const input = e.target.closest('.rate-edit-override');
+  if (!input) return;
+  const currency = input.closest('.rate-edit-row').dataset.currency;
+  await fetch('/api/rates/overrides', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency, value: input.value === '' ? null : parseFloat(input.value) }),
+  });
+  await refreshCurrency();
+  _renderRatesAdvanced();
+  _renderBudget();
+});
+
+document.getElementById('budget-rates-list').addEventListener('click', async e => {
+  const btn = e.target.closest('.rate-edit-clear');
+  if (!btn) return;
+  const currency = btn.closest('.rate-edit-row').dataset.currency;
+  await fetch('/api/rates/overrides', {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currency, value: null }),
+  });
+  await refreshCurrency();
+  _renderRatesAdvanced();
+  _renderBudget();
+});
+
+document.getElementById('budget-rates-refresh').addEventListener('click', async () => {
+  const btn = document.getElementById('budget-rates-refresh');
+  btn.disabled = true;
+  btn.textContent = t('budget.advanced.refreshing');
+  await fetch('/api/rates/refresh', { method: 'POST' });
+  await refreshCurrency();
+  _renderRatesAdvanced();
+  _renderBudget();
+  btn.disabled = false;
+  btn.textContent = t('budget.advanced.refresh');
+});
+
 document.addEventListener('langchange', () => {
   if (_budget) _renderBudget();
 });
@@ -762,12 +919,7 @@ function getBudgetRemaining() {
 }
 
 function getBudgetCurrency() {
-  return _budget?.currency || 'EUR';
-}
-
-// Shared with wishlist.js, which has no currency of its own.
-function formatCurrency(amount) {
-  return _fmt(amount);
+  return _budget?.initialBudgetCurrency || 'EUR';
 }
 
 // Data for the Today view's budget line (null until budget is loaded/configured)
@@ -777,9 +929,9 @@ function getTodayBudget() {
   const today = appToday();
   const spentToday = _budget.entries
     .filter(e => e.date === today)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .reduce((sum, e) => sum + toUSD(e.amount, e.currency, e.rate), 0);
   return {
-    spent: _fmt(spentToday),
-    dailyLeft: s.dailyBudgetLeft !== null ? _fmt(s.dailyBudgetLeft) : null,
+    spent: formatCurrency(spentToday),
+    dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,
   };
 }

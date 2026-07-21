@@ -786,6 +786,9 @@ body {
 .type-btn.active[data-cat="shopping"]           { background: rgba(232,160,160,0.22); border-color: #e8a0a0; color: #e8a0a0; }
 .type-btn.active[data-cat="other"]              { background: rgba(176,168,152,0.22); border-color: #b0a898; color: #b0a898; }
 
+.type-btn.active[data-currency] { background: rgba(212,168,124,0.22); border-color: var(--accent); color: var(--accent); }
+#budget-currency-more.active { background: rgba(212,168,124,0.22); border-color: var(--accent); color: var(--accent); }
+
 .date-range, .time-range { display: flex; align-items: center; gap: 0.5rem; }
 .date-range input, .time-range input { flex: 1; }
 .date-range span, .time-range span {
@@ -918,11 +921,11 @@ body {
 }
 .map-section-title {
   font-family: var(--font-display);
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-3);
   margin-bottom: 0.75rem;
 }
 #trip-map {
@@ -1299,12 +1302,41 @@ body {
   flex-shrink: 0;
 }
 .budget-entry-amount {
-  font-family: var(--font-display);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-1);
   white-space: nowrap;
   flex-shrink: 0;
+}
+.budget-entry-amount-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+  flex-shrink: 0;
+}
+.currency-conversion {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.65rem;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.rate-chip {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.3rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  vertical-align: middle;
+  line-height: 1.4;
 }
 .budget-entry.is-pending { border: 1px dashed var(--accent); opacity: 0.8; }
 
@@ -1343,6 +1375,33 @@ body {
   align-items: center;
   margin-bottom: 0.5rem;
 }
+.budget-advanced { margin-top: 1.25rem; border-top: 1px solid var(--border-soft); padding-top: 0.75rem; }
+.budget-advanced summary { cursor: pointer; font-family: var(--font-display); font-size: 0.85rem; font-weight: 600; color: var(--text-2); }
+.rate-edit-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.rate-edit-code { font-family: var(--font-display); font-weight: 600; width: 3.2rem; flex-shrink: 0; }
+.rate-edit-fetched { font-size: 0.72rem; color: var(--text-3); flex-shrink: 0; white-space: nowrap; }
+.rate-edit-override { width: 6rem; }
+.custom-rate-toggle { margin-top: 0.5rem; }
+.custom-rate-toggle summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.custom-rate-toggle[open] summary { color: var(--accent); }
+.custom-rate-toggle input {
+  margin-top: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+.custom-rate-toggle input:focus { outline: none; border-color: var(--accent); }
 .subbudget-amt {
   width: 100%;
   padding: 0.5rem 0.6rem;
@@ -1543,6 +1602,14 @@ body {
   min-width: 4rem;
   text-align: right;
 }
+.wishlist-item-price-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+  min-width: 4rem;
+}
+.wishlist-item-price-col .wishlist-item-price { min-width: 0; }
 .wishlist-buy-btn, .wishlist-delete-btn {
   width: 28px; height: 28px;
   border-radius: var(--radius-sm);
@@ -1687,11 +1754,11 @@ body {
 }
 .stays-section-title {
   font-family: var(--font-display);
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-3);
   margin-bottom: 0.75rem;
 }
 

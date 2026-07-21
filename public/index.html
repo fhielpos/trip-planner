@@ -6,7 +6,7 @@
   <title>Trip Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css" />
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -193,6 +193,22 @@
           <div class="type-selector" id="budget-cat-selector"></div>
         </div>
         <div class="form-row">
+          <label data-i18n="budget.entry.currency">Currency</label>
+          <div class="type-selector" id="budget-currency-selector">
+            <button type="button" class="type-btn" data-currency="USD">USD</button>
+            <button type="button" class="type-btn" data-currency="EUR">EUR</button>
+            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
+            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
+            <button type="button" class="type-btn" id="budget-currency-more" data-i18n="budget.entry.currencyMore">More…</button>
+          </div>
+          <select id="budget-currency-select" class="form-select" hidden></select>
+          <details class="custom-rate-toggle" id="budget-rate-details">
+            <summary data-i18n="budget.entry.customRate">Set custom rate</summary>
+            <input type="number" id="budget-rate-input" step="0.0001" min="0" />
+            <p class="form-hint" data-i18n="budget.entry.customRateHint">Overrides the currency rate for just this expense.</p>
+          </details>
+        </div>
+        <div class="form-row">
           <label for="budget-description" data-i18n="budget.entry.description">Description</label>
           <input type="text" id="budget-description" data-i18n-placeholder="budget.entry.descPlaceholder" />
         </div>
@@ -228,7 +244,7 @@
           <input type="number" id="settings-initial-budget" min="0" step="100" required />
         </div>
         <div class="form-row">
-          <label for="settings-currency" data-i18n="budget.currency">Currency</label>
+          <label for="settings-currency" data-i18n="budget.currency">Initial budget currency</label>
           <select id="settings-currency" class="form-select">
             <option value="EUR">EUR (€)</option>
             <option value="USD">USD ($)</option>
@@ -256,6 +272,12 @@
           </div>
         </div>
       </form>
+      <details class="budget-advanced">
+        <summary data-i18n="budget.advanced.title">Advanced: Exchange Rates</summary>
+        <p class="form-hint" id="budget-rates-fetched"></p>
+        <div id="budget-rates-list"></div>
+        <button type="button" class="btn-secondary" id="budget-rates-refresh" data-i18n="budget.advanced.refresh">Refresh now</button>
+      </details>
     </div>
   </div>
 
@@ -380,6 +402,17 @@
           <label for="wishlist-price" data-i18n="wishlist.price">Price</label>
           <input type="number" id="wishlist-price" min="0" step="0.01" placeholder="0.00" />
         </div>
+        <div class="form-row">
+          <label data-i18n="budget.entry.currency">Currency</label>
+          <div class="type-selector" id="wishlist-currency-selector">
+            <button type="button" class="type-btn active" data-currency="EUR">EUR</button>
+            <button type="button" class="type-btn" data-currency="USD">USD</button>
+            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
+            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
+            <button type="button" class="type-btn" id="wishlist-currency-more" data-i18n="budget.entry.currencyMore">More…</button>
+          </div>
+          <select id="wishlist-currency-select" class="form-select" hidden></select>
+        </div>
         <div class="form-actions">
           <div class="form-actions-right">
             <button type="button" class="btn-secondary" id="wishlist-cancel-btn" data-i18n="modal.cancel">Cancel</button>
@@ -395,6 +428,7 @@
   </footer>
 
   <script src="/js/i18n.js"></script>
+  <script src="/js/currency.js"></script>
   <script src="/js/offline.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/app.js"></script>
