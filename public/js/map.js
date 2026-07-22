@@ -231,6 +231,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   if (!container || typeof L === 'undefined') return;
 
   _buildFilterBar();
+  _buildInlineItinerary(flights, trains);
 
   // Filter toggles (and the theme-toggle repaint) rebuild the whole map —
   // preserve whatever the user was already looking at instead of re-fitting
@@ -383,3 +384,34 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
     requestAnimationFrame(() => _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar));
   }
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mmap-header [data-goto-tab]').forEach(btn =>
+    btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+});
+
+// Mobile Mapa tab — inline itinerary leg-card list rendered below the map
+// and its filter chips, reusing the same flight/train shape as itinerary.js
+// (see its leg-list derivation) rather than duplicating that whole page.
+function _buildInlineItinerary(flights, trains) {
+  const el = document.getElementById('mmap-itinerary');
+  if (!el) return;
+  const legs = [
+    ...(flights || []).map(f => ({ date: f.departureDate, from: f.fromCity, to: f.toCity, detail: `${f.flightNumber} · ${formatTime(f.departureTime)}`, icon: '✈', kind: 'flight' })),
+    ...(trains || []).map(tr => ({ date: tr.departureDate, from: tr.fromCity, to: tr.toCity, detail: tr.departureTime ? formatTime(tr.departureTime) : '', icon: '🚆', kind: 'train' })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  el.innerHTML = `
+    <div class="mtoday-block-header" style="padding:6px 0 8px">
+      <h3 class="mtoday-block-title">${t('itinerary.title')}</h3>
+      <a class="mtoday-link" href="/itinerary.html">${t('map.viewAll')} ›</a>
+    </div>
+    ${legs.map((l, i) => `
+      <div class="mmap-leg-card mmap-leg-card--${l.kind}">
+        <div class="mmap-leg-top"><span>${i + 1}/${legs.length}</span><span>${fmtDate(l.date, { year: false })}</span></div>
+        <div class="mmap-leg-route"><span>${l.icon}</span><span class="mmap-leg-route-text">${_escHtml(l.from)} → ${_escHtml(l.to)}</span></div>
+        <div class="mmap-leg-detail">${l.detail}</div>
+      </div>
+    `).join('')}
+  `;
+}
