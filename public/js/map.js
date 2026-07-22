@@ -231,7 +231,12 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   if (!container || typeof L === 'undefined') return;
 
   _buildFilterBar();
-  _buildInlineItinerary(flights, trains);
+  if (isMobileViewport()) {
+    _buildInlineItinerary(flights, trains);
+    registerMobileRerender(() => _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar));
+  } else {
+    document.getElementById('mmap-itinerary').innerHTML = '';
+  }
 
   // Filter toggles (and the theme-toggle repaint) rebuild the whole map —
   // preserve whatever the user was already looking at instead of re-fitting

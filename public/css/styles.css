@@ -2098,6 +2098,12 @@ body {
   body:not(.today-active) #today-section { display: none; }
 }
 
+/* Mobile Mapa tab elements — desktop has no tab bar at all, so these must
+   never show regardless of body[data-mobile-tab] state */
+@media (min-width: 641px) {
+  .mmap-header, #mmap-itinerary { display: none; }
+}
+
 @media (max-width: 640px) {
   /* Full first screen on phones; the rest of the app scrolls in below */
   .today-section {
