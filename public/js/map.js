@@ -395,6 +395,52 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   } else {
     _applyFitView(allCoords);
   }
+
+  renderMobileRoutePreview(accommodations);
+}
+
+// Today tab's "Ruta" preview button was a blank bordered box with no map
+// content — this renders a small, non-interactive Leaflet map (real tiles
+// + stay pins, fit to the route) into it so it's an actual preview, not a
+// placeholder. All interaction handlers are disabled so a tap always falls
+// through to the button's own [data-goto-tab="map"] click handler instead
+// of being consumed by Leaflet. Called from _buildMap (data already in
+// scope there) and safe to call before the Today DOM exists — it's a
+// no-op until #mtoday-map-preview shows up in a later render.
+let _previewMap = null;
+function renderMobileRoutePreview(accommodations) {
+  const el = document.getElementById('mtoday-map-preview');
+  if (!el || typeof L === 'undefined') return;
+
+  const stays = (accommodations || []).filter(a => a.lat != null && a.lon != null);
+  if (!stays.length) return;
+
+  let mount = el.querySelector('.mtoday-map-preview-mount');
+  if (!mount) {
+    mount = document.createElement('div');
+    mount.className = 'mtoday-map-preview-mount';
+    el.insertBefore(mount, el.firstChild);
+  }
+
+  if (_previewMap) { _previewMap.remove(); _previewMap = null; }
+  _previewMap = L.map(mount, {
+    zoomControl: false, attributionControl: false, dragging: false,
+    scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false,
+    boxZoom: false, keyboard: false, tap: false,
+  });
+  L.tileLayer(_tileUrl(), { maxZoom: 19 }).addTo(_previewMap);
+
+  const coords = [];
+  for (const group of _groupStaysByCoord(stays)) {
+    L.circleMarker([group.lat, group.lon], {
+      radius: 5, color: group.color, fillColor: group.color, fillOpacity: 0.9, weight: 2,
+    }).addTo(_previewMap);
+    coords.push([group.lat, group.lon]);
+  }
+  const euCoords = coords.filter(([lat]) => lat > 35);
+  const fitCoords = euCoords.length ? euCoords : coords;
+  if (fitCoords.length >= 2) _previewMap.fitBounds(L.latLngBounds(fitCoords).pad(0.2));
+  else if (fitCoords.length === 1) _previewMap.setView(fitCoords[0], 9);
 }
 
 document.getElementById('theme-toggle').addEventListener('click', () => {

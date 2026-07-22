@@ -342,7 +342,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
         <h3 class="mtoday-block-title">${t('map.title')}</h3>
         <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
       </div>
-      <button type="button" class="mtoday-map-preview" data-goto-tab="map">
+      <button type="button" class="mtoday-map-preview" id="mtoday-map-preview" data-goto-tab="map">
         <span class="mtoday-map-label">${stay ? stay.city : ''}</span>
       </button>
     </div>
@@ -389,6 +389,9 @@ function renderTodayMobileInTrip(section, data, ctx) {
     window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
   }));
   section.querySelector('#mtoday-wishlist-add')?.addEventListener('click', e => { e.stopPropagation(); if (typeof _openWishlistModal === 'function') _openWishlistModal(); });
+  // map.js may have built its data before this DOM existed — (re)populate
+  // the Ruta preview now that #mtoday-map-preview is actually in the page.
+  if (typeof renderMobileRoutePreview === 'function') renderMobileRoutePreview(data.accommodations);
 }
 
 // Builds the full list of trip days with a stay/date/dow/label attached —
@@ -485,7 +488,7 @@ function renderTodayPreTrip(section, data) {
         <h3 class="mtoday-block-title">${t('map.title')}</h3>
         <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
       </div>
-      <button type="button" class="mtoday-map-preview" data-goto-tab="map"></button>
+      <button type="button" class="mtoday-map-preview" id="mtoday-map-preview" data-goto-tab="map"></button>
     </div>
 
     ${budgetRemaining !== null ? `
@@ -518,4 +521,5 @@ function renderTodayPreTrip(section, data) {
     const rows = dayEvents(date, data);
     openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap?.[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
   }));
+  if (typeof renderMobileRoutePreview === 'function') renderMobileRoutePreview(data.accommodations);
 }
