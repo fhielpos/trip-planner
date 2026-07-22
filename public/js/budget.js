@@ -275,6 +275,7 @@ function _renderStats() {
         <div class="mbudget-stat"><div class="mbudget-stat-label">${t('budget.stats.spent')}</div><div class="mbudget-stat-val">${formatCurrency(s.totalSpent)}</div></div>
         <div class="mbudget-stat mbudget-stat--${remClass}"><div class="mbudget-stat-label">${t('budget.stats.remaining')}</div><div class="mbudget-stat-val mbudget-stat-val--${remClass}">${formatCurrency(s.remaining)}</div></div>
       </div>`;
+    registerMobileRerender(() => _renderStats());
     return;
   }
 
