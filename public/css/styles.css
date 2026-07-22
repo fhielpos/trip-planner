@@ -2887,6 +2887,26 @@ body {
   .mobile-tab-icon { width: 18px; height: 18px; }
   .mobile-tab-label { font-family: var(--font-display); font-size: 10px; font-weight: 600; }
 
+  /* Every custom mobile button below resets with all:unset, which also
+     strips the native focus ring — restore a visible one so keyboard
+     users can still tell which tab/row/sheet control is focused. */
+  .mobile-tab:focus-visible,
+  .mtoday-doc-row:focus-visible,
+  .mtoday-strip-card:focus-visible,
+  .mtoday-map-preview:focus-visible,
+  .mtoday-stat-card:focus-visible,
+  .mtoday-link:focus-visible,
+  .mtoday-wishlist-viewall:focus-visible,
+  .mcal-row:focus-visible,
+  .mcal-back:focus-visible,
+  .mcal-jump:focus-visible,
+  .mbudget-add:focus-visible,
+  .sheet-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
   .sheet-backdrop:not([hidden]) {
     display: block;
     position: fixed; inset: 0;
@@ -3076,6 +3096,9 @@ body {
   .mtoday-stat-val { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
   .mtoday-stat-val--positive { color: var(--c-stay); }
 
+  .mtoday-wishlist-viewall {
+    all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; width: 100%;
+  }
   .mtoday-wish-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.03); }
   .mtoday-wish-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-stay); flex-shrink: 0; }
   .mtoday-wish-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3177,6 +3200,11 @@ body {
   .mbudget-stat-val--negative { color: var(--c-danger); }
 
   body[data-mobile-tab="budget"] .budget-header { display: none; }
+  /* Sub-budgets is a desktop-only breakdown, not part of the mobile
+     Presupuesto tab's spec (3 stat cards → category bars → expense list)
+     — left unhidden it pushes the real content down and reads as sparse
+     above the fold before the category breakdown ever appears. */
+  body[data-mobile-tab="budget"] #budget-subbudgets { display: none; }
 
   /* Restyle the existing centered modal as a slide-up sheet */
   #budget-overlay.modal-overlay {

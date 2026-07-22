@@ -365,7 +365,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
         <h3 class="mtoday-block-title">${t('wishlist.title')} <span class="mtoday-block-count">· ${wishlistItems.length} ${t('wishlist.itemsCount')}</span></h3>
         <button type="button" class="mbudget-add" id="mtoday-wishlist-add">+</button>
       </div>
-      <button type="button" class="mtoday-wishlist-viewall" data-goto-tab="wishlist" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px;width:100%">
+      <button type="button" class="mtoday-wishlist-viewall" data-goto-tab="wishlist">
         ${wishlistItems.slice(0, 15).map(w => `
           <div class="mtoday-wish-row">
             <span class="mtoday-wish-dot"></span>
