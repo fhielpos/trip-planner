@@ -2094,6 +2094,10 @@ body {
   text-align: center;
 }
 
+@media (min-width: 641px) {
+  body:not(.today-active) #today-section { display: none; }
+}
+
 @media (max-width: 640px) {
   /* Full first screen on phones; the rest of the app scrolls in below */
   .today-section {
@@ -2922,3 +2926,117 @@ body {
 
 @keyframes sheetSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes sheetFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* =============================================
+   Mobile Today Tab — in-trip layout
+   ============================================= */
+@media (max-width: 640px) {
+  body[data-mobile-tab] #today-section,
+  body[data-mobile-tab] .app-main,
+  body[data-mobile-tab] .stays-section,
+  body[data-mobile-tab] .map-section,
+  body[data-mobile-tab] .budget-section,
+  body[data-mobile-tab] .wishlist-section { display: none; }
+  body[data-mobile-tab="today"] #today-section { display: block; }
+  body[data-mobile-tab="calendar"] .app-main { display: block; }
+  body[data-mobile-tab="map"] .map-section { display: block; }
+  body[data-mobile-tab="budget"] .budget-section { display: block; }
+  body[data-mobile-tab="wishlist"] .wishlist-section { display: block; }
+
+  .mtoday-hero {
+    position: relative;
+    height: 230px;
+    background-size: cover;
+    background-position: center;
+    background-image: var(--today-image, none);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px 18px;
+  }
+  .mtoday-hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(24,22,20,0) 30%, rgba(24,22,20,.92) 100%);
+    pointer-events: none;
+  }
+  .mtoday-hero-top { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-start; }
+  .mtoday-pill {
+    font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    background: rgba(24,22,20,.55); color: var(--text-1);
+    padding: 4px 8px; border-radius: 6px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .mtoday-pill--accent { color: var(--accent); }
+  .mtoday-hero-bottom { position: relative; z-index: 1; }
+  .mtoday-city { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.05; }
+  .mtoday-hero-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .mtoday-weather { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--accent); }
+  .mtoday-lastnight {
+    font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    border: 1.5px dashed var(--accent); color: var(--accent); padding: 2px 8px; border-radius: 999px;
+  }
+
+  .mtoday-block { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+  .mtoday-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .mtoday-block-title {
+    font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3);
+  }
+  .mtoday-block-count { color: var(--c-stay); font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .mtoday-link { all: unset; cursor: pointer; font-size: 11px; color: var(--accent); }
+
+  .mtoday-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; border-radius: 10px; min-height: 44px; }
+  .mtoday-row--activity { background: var(--c-activity-bg); color: var(--c-activity); }
+  .mtoday-row--backup { color: var(--text-2); }
+  .mtoday-row-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; }
+
+  .mtoday-doc-row {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 12px; border-radius: 12px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    min-height: 44px; width: 100%;
+  }
+  .mtoday-doc-badge {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+  }
+  .mtoday-doc-body { flex: 1; min-width: 0; }
+  .mtoday-doc-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--text-1); }
+  .mtoday-doc-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .mtoday-doc-chevron { color: var(--text-3); font-size: 14px; }
+
+  .mtoday-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; justify-content: center; }
+  .mtoday-strip-card {
+    all: unset; cursor: pointer; flex-shrink: 0; width: 64px; min-height: 78px;
+    border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px;
+    text-align: center;
+  }
+  .mtoday-strip-card.is-today { background: var(--accent-dim); border: 2px solid var(--accent); }
+  .mtoday-strip-dow { font-family: var(--font-display); font-size: 10px; color: var(--text-3); }
+  .mtoday-strip-card.is-today .mtoday-strip-dow { color: var(--accent); font-weight: 700; }
+  .mtoday-strip-sub { font-size: 9px; color: var(--text-2); line-height: 1.2; }
+  .mtoday-strip-card.is-today .mtoday-strip-sub { color: var(--c-activity); font-weight: 600; }
+
+  .mtoday-map-preview {
+    all: unset; cursor: pointer; display: block; position: relative; width: 100%; height: 150px;
+    border-radius: 14px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border);
+  }
+  .mtoday-map-label {
+    position: absolute; bottom: 10px; left: 10px;
+    font-family: var(--font-display); font-size: 10px; color: var(--accent); font-weight: 600;
+  }
+
+  .mtoday-stat-card {
+    all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;
+    background: var(--bg-card); border: 1px solid var(--border); border-top: 3px solid var(--accent);
+    border-radius: 12px; padding: 12px 14px; text-align: left;
+  }
+  .mtoday-stat-card > div:first-child, .mtoday-stat-right { display: inline-block; }
+  .mtoday-stat-card { display: flex; justify-content: space-between; }
+  .mtoday-stat-right { text-align: right; }
+  .mtoday-stat-label { font-family: var(--font-display); font-size: 10px; color: var(--text-3); text-transform: uppercase; }
+  .mtoday-stat-val { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+  .mtoday-stat-val--positive { color: var(--c-stay); }
+}

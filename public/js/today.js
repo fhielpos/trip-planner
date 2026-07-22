@@ -67,6 +67,32 @@ function collectTodayActivities(calendar, today) {
   return items;
 }
 
+// All of a day's activity: check-ins/outs, flights/trains, activities+backups
+// (icon-prefixed), in the same order the Day Sheet and mobile Calendar show
+// them. Distinct from collectTodayEvents (which excludes activities) and
+// collectTodayActivities (which excludes checkins/flights/trains) — this is
+// the union, used wherever a single day needs its full agenda in one list.
+function dayEvents(date, data) {
+  const rows = [];
+  for (const a of data.accommodations || []) {
+    if (a.check_out === date) rows.push({ icon: '🧳', title: t('chip.checkout', { city: a.city }) });
+  }
+  for (const f of data.flights || []) {
+    if (f.departureDate === date) rows.push({ icon: '✈', title: `${f.from} → ${f.to} · ${formatTime(f.departureTime)}` });
+  }
+  for (const tr of data.trains || []) {
+    if (tr.departureDate === date) rows.push({ icon: '🚆', title: `${tr.fromCity} → ${tr.toCity}` });
+  }
+  for (const a of data.accommodations || []) {
+    if (a.check_in === date) rows.push({ icon: '🛏', title: t('chip.checkin', { city: a.city }) });
+  }
+  for (const { main, backup } of collectTodayActivities(data.calendar, date)) {
+    rows.push({ icon: '◦', title: main.title });
+    if (backup) rows.push({ icon: '↻', title: backup.title });
+  }
+  return rows;
+}
+
 // Documents whose validity window includes `today` (YYYY-MM-DD).
 function collectActiveDocuments(documents, today) {
   return (documents || []).filter(d => d.valid_from <= today && today <= d.valid_to);
@@ -96,8 +122,13 @@ function renderToday(data) {
   const today = appToday();
   const inTrip = today >= data.trip.startDate && today <= data.trip.endDate;
   document.body.classList.toggle('today-active', inTrip);
-  section.hidden = !inTrip;
-  if (!inTrip) { section.innerHTML = ''; _renderPassportStamp(null); return; }
+  section.hidden = false;
+  if (!inTrip) {
+    _renderPassportStamp(null);
+    if (typeof renderTodayPreTrip === 'function') renderTodayPreTrip(section, data);
+    else section.innerHTML = '';
+    return;
+  }
 
   const stay = getActiveStay(data.accommodations || [], today);
   _renderPassportStamp(stay);
@@ -159,6 +190,12 @@ function renderToday(data) {
         ? t('today.budgetLine', { spent: budget.spent, daily: budget.dailyLeft })
         : t('today.spentToday', { spent: budget.spent }))
     : null;
+
+  if (isMobileViewport()) {
+    renderTodayMobileInTrip(section, data, { stay, today, dayNum, totalDays, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget });
+    registerMobileRerender(() => renderToday(data));
+    return;
+  }
 
   section.innerHTML = `
     <div class="today-inner">
@@ -229,4 +266,127 @@ function renderToday(data) {
       renderRecommendations(recsPanel, imageStay.id, today);
     }
   });
+}
+
+function renderTodayMobileInTrip(section, data, ctx) {
+  const { stay, today, dayNum, totalDays, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget } = ctx;
+  const flag = stay ? countryFlag(stay.country) : '';
+  const countryLabel = stay ? `${flag} ${stay.country}` : t('today.transit');
+
+  const weekDays = _buildTripDays(data).filter(d => d.date >= today).slice(0, 4);
+
+  section.innerHTML = `
+    <div class="mtoday-hero">
+      <div class="mtoday-hero-top">
+        <span class="mtoday-pill">${countryLabel}</span>
+        <span class="mtoday-pill mtoday-pill--accent">${t('budget.stats.dayOf', { day: dayNum, total: totalDays })}</span>
+      </div>
+      <div class="mtoday-hero-bottom">
+        <div class="mtoday-city">${heroCity}</div>
+        <div class="mtoday-hero-meta">
+          ${weatherLine ? `<span class="mtoday-weather">${weatherLine}</span>${sunTimes}` : ''}
+          ${lastNight ? `<span class="mtoday-lastnight">${t('today.lastNight')}</span>` : ''}
+        </div>
+      </div>
+    </div>
+
+    ${acts.length ? `
+    <div class="mtoday-block">
+      <h3 class="mtoday-block-title">${t('today.events')}</h3>
+      ${acts.map(({ main, backup }) => `
+        <div class="mtoday-row mtoday-row--activity" data-id="${main.id}">
+          <span class="mtoday-row-icon">◦</span>
+          <div class="mtoday-row-body"><div class="mtoday-row-title">${main.startTime ? formatTime(main.startTime) + ' · ' : ''}${main.title}</div></div>
+        </div>
+        ${backup ? `
+        <div class="mtoday-row mtoday-row--backup" data-id="${backup.id}">
+          <span class="mtoday-row-icon">↻</span>
+          <div class="mtoday-row-body"><div class="mtoday-row-title">${backup.title}</div></div>
+        </div>` : ''}
+      `).join('')}
+    </div>` : ''}
+
+    ${activeDocs.length ? `
+    <div class="mtoday-block">
+      <h3 class="mtoday-block-title">${t('documents.title')} <span class="mtoday-block-count">· ${activeDocs.length} ${t('documents.active')}</span></h3>
+      ${activeDocs.map(d => `
+        <button type="button" class="mtoday-doc-row" data-doc-id="${d.id}">
+          <span class="mtoday-doc-badge">📄</span>
+          <div class="mtoday-doc-body">
+            <div class="mtoday-doc-title">${d.title}</div>
+            <div class="mtoday-doc-sub">${t('documents.validRange', { from: fmtDate(d.valid_from, { year: false }), to: fmtDate(d.valid_to, { year: false }) })}</div>
+          </div>
+          <span class="mtoday-doc-chevron">›</span>
+        </button>
+      `).join('')}
+    </div>` : ''}
+
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('today.thisWeek')}</h3>
+        <button type="button" class="mtoday-link" data-goto-tab="calendar">${t('today.seeFullMonth')}</button>
+      </div>
+      <div class="mtoday-strip">
+        ${weekDays.map(d => `
+          <button type="button" class="mtoday-strip-card${d.date === today ? ' is-today' : ''}" data-open-day="${d.date}">
+            <span class="mtoday-strip-dow">${d.dow} ${d.num}</span>
+            <span class="mtoday-strip-sub">${_escHtml(d.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('map.title')}</h3>
+        <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
+      </div>
+      <button type="button" class="mtoday-map-preview" data-goto-tab="map">
+        <span class="mtoday-map-label">${stay ? stay.city : ''}</span>
+      </button>
+    </div>
+
+    ${budget ? `
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('budget.title')}</h3>
+        <button type="button" class="mtoday-link" data-goto-tab="budget">${t('budgetInsights.viewInsights')} ›</button>
+      </div>
+      <button type="button" class="mtoday-stat-card" data-goto-tab="budget">
+        <div><div class="mtoday-stat-label">${t('today.spentTodayLabel')}</div><div class="mtoday-stat-val">${budget.spent}</div></div>
+        ${budget.dailyLeft ? `<div class="mtoday-stat-right"><div class="mtoday-stat-label">${t('today.dailyAvailLabel')}</div><div class="mtoday-stat-val mtoday-stat-val--positive">${budget.dailyLeft}</div></div>` : ''}
+      </button>
+    </div>` : ''}
+  `;
+
+  section.querySelectorAll('[data-id]').forEach(row => row.addEventListener('click', () => openEditModal(row.dataset.id)));
+  section.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+  section.querySelectorAll('[data-open-day]').forEach(btn => btn.addEventListener('click', () => {
+    const date = btn.dataset.openDay;
+    const s = getActiveStay(data.accommodations, date);
+    const rows = dayEvents(date, data);
+    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? 'var(--accent)' : null, rows, empty: rows.length === 0 });
+  }));
+  section.querySelectorAll('[data-doc-id]').forEach(btn => btn.addEventListener('click', () => {
+    window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
+  }));
+}
+
+// Builds the full list of trip days with a stay/date/dow/label attached —
+// shared by the "Esta semana"/"Próximos días" strips and the Calendar tab.
+function _buildTripDays(data) {
+  const days = [];
+  let cur = data.trip.startDate;
+  while (cur <= data.trip.endDate) {
+    const stay = getActiveStay(data.accommodations, cur);
+    const isFirstOfStay = Boolean(stay && stay.check_in === cur);
+    const acts = collectTodayActivities(data.calendar, cur);
+    const label = isFirstOfStay
+      ? t('chip.checkin', { city: stay.city })
+      : (acts[0] ? acts[0].main.title : (stay ? stay.city : t('today.transit')));
+    const d = parseLocal(cur);
+    days.push({ date: cur, num: d.getDate(), dow: d.toLocaleDateString(getDateLocale(), { weekday: 'short' }).toUpperCase(), stay, isFirstOfStay, label });
+    cur = addDays(cur, 1);
+  }
+  return days;
 }
