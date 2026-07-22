@@ -2107,7 +2107,7 @@ body {
 /* Mobile Presupuesto tab header — desktop has no tab bar at all, so this
    must never show regardless of body[data-mobile-tab] state */
 @media (min-width: 641px) {
-  .mbudget-header { display: none; }
+  .mbudget-header, .mbudget-stats { display: none; }
 }
 
 @media (max-width: 640px) {
