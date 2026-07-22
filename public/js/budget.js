@@ -772,6 +772,7 @@ document.getElementById('budget-form').addEventListener('submit', async e => {
       body: JSON.stringify(payload),
     });
     _budget.entries.push(await r.json());
+    if (typeof showToast === 'function') showToast(t('budget.expenseAdded'));
   } catch {
     _queuePendingEntry(payload);
   }

@@ -272,6 +272,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
   const { stay, today, dayNum, totalDays, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget } = ctx;
   const flag = stay ? countryFlag(stay.country) : '';
   const countryLabel = stay ? `${flag} ${stay.country}` : t('today.transit');
+  const wishlistItems = typeof getWishlistItems === 'function' ? getWishlistItems() : [];
 
   const weekDays = _buildTripDays(data).filter(d => d.date >= today).slice(0, 4);
 
@@ -357,6 +358,23 @@ function renderTodayMobileInTrip(section, data, ctx) {
         ${budget.dailyLeft ? `<div class="mtoday-stat-right"><div class="mtoday-stat-label">${t('today.dailyAvailLabel')}</div><div class="mtoday-stat-val mtoday-stat-val--positive">${budget.dailyLeft}</div></div>` : ''}
       </button>
     </div>` : ''}
+
+    ${wishlistItems.length ? `
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('wishlist.title')} <span class="mtoday-block-count">· ${wishlistItems.length} ${t('wishlist.itemsCount')}</span></h3>
+        <button type="button" class="mbudget-add" id="mtoday-wishlist-add">+</button>
+      </div>
+      <button type="button" class="mtoday-wishlist-viewall" data-goto-tab="wishlist" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px;width:100%">
+        ${wishlistItems.slice(0, 15).map(w => `
+          <div class="mtoday-wish-row">
+            <span class="mtoday-wish-dot"></span>
+            <span class="mtoday-wish-name">${_escHtml(w.name)}</span>
+            <span class="mtoday-wish-price">${formatMoney(w.price, w.currency)}</span>
+          </div>
+        `).join('')}
+      </button>
+    </div>` : ''}
   `;
 
   section.querySelectorAll('[data-id]').forEach(row => row.addEventListener('click', () => openEditModal(row.dataset.id)));
@@ -370,6 +388,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
   section.querySelectorAll('[data-doc-id]').forEach(btn => btn.addEventListener('click', () => {
     window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
   }));
+  section.querySelector('#mtoday-wishlist-add')?.addEventListener('click', e => { e.stopPropagation(); if (typeof _openWishlistModal === 'function') _openWishlistModal(); });
 }
 
 // Builds the full list of trip days with a stay/date/dow/label attached —
