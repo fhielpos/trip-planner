@@ -390,3 +390,113 @@ function _buildTripDays(data) {
   }
   return days;
 }
+
+// Mobile Today tab, pre-trip state: shown instead of the day-by-day layout
+// whenever `today` (or ?today= override) falls before data.trip.startDate.
+// Reuses the persistent header countdown (#cd-days/#cd-hours, driven by
+// renderInfoBar in app.js) rather than recomputing days/hours a second time.
+function renderTodayPreTrip(section, data) {
+  const days = _buildTripDays(data);
+  const totalNights = (data.accommodations || []).reduce((s, a) =>
+    s + Math.round((parseLocal(a.check_out) - parseLocal(a.check_in)) / 86400000), 0);
+  const countries = new Set((data.accommodations || []).map(a => a.country)).size;
+  const totalStays = (data.accommodations || []).length;
+
+  const cdDays = document.getElementById('cd-days')?.textContent || '--';
+  const cdHours = document.getElementById('cd-hours')?.textContent || '--';
+  const nextFlight = document.getElementById('info-flight-val')?.textContent || '—';
+  const nextStay = document.getElementById('info-stay-val')?.textContent || '—';
+
+  // data/trip.json has no originAirport field — the departure airport is the
+  // `from` of the first outbound flight, same source the header countdown's
+  // "to flight" subtext already reads (see renderInfoBar in app.js).
+  const flights = data.flights || [];
+  const outbound = flights.find(f => f.direction === 'outbound') || flights[0];
+  const originAirport = outbound?.from || '';
+
+  const stayBar = (data.accommodations || []).map(a => {
+    const nights = Math.round((parseLocal(a.check_out) - parseLocal(a.check_in)) / 86400000);
+    const colour = data.colorMap?.[a.check_in];
+    return `<div style="flex-grow:${nights};flex-basis:0;background:${colour?.accent || 'var(--accent)'}"></div>`;
+  }).join('');
+
+  // Budget preview: tripData never carries a `.budget` field (budget.js keeps
+  // its own module-level state) — reuse its existing public accessors
+  // (already used by wishlist.js) instead of reading a non-existent field.
+  const budgetRemaining = typeof getBudgetRemaining === 'function' ? getBudgetRemaining() : null;
+
+  const upcoming = days.slice(0, 4);
+
+  section.innerHTML = `
+    <div class="mtoday-block" style="padding-top:16px">
+      <h3 class="mtoday-block-title" style="margin-bottom:8px">${t('today.departureFrom', { airport: originAirport })}</h3>
+      <div class="mpretrip-countdown">
+        <span class="mpretrip-num">${cdDays}</span><span class="mpretrip-unit">${t('info.days')}</span>
+        <span class="mpretrip-num" style="margin-left:6px">${cdHours}</span><span class="mpretrip-unit">${t('info.hours')}</span>
+      </div>
+      <div class="mpretrip-info-row"><span>${t('info.nextFlight')}</span><span class="mpretrip-info-val" style="color:var(--c-flight)">${nextFlight}</span></div>
+      <div class="mpretrip-info-row"><span>${t('info.accommodation')}</span><span class="mpretrip-info-val" style="color:var(--c-stay)">${nextStay}</span></div>
+    </div>
+
+    <div class="mtoday-block">
+      <h3 class="mtoday-block-title">${t('today.tripSummary')}</h3>
+      <div class="mpretrip-stats">
+        <div class="mpretrip-stat"><div class="mpretrip-stat-num">${totalNights}</div><div class="mpretrip-stat-label">${t('today.nights')}</div></div>
+        <div class="mpretrip-stat"><div class="mpretrip-stat-num">${countries}</div><div class="mpretrip-stat-label">${t('today.countries')}</div></div>
+        <div class="mpretrip-stat"><div class="mpretrip-stat-num">${totalStays}</div><div class="mpretrip-stat-label">${t('today.stays')}</div></div>
+      </div>
+    </div>
+
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('stays.title')}</h3>
+        <button type="button" class="mtoday-link" data-goto-tab="calendar">${t('stays.viewDetails')} ›</button>
+      </div>
+      <div class="mpretrip-staybar-card">
+        <div class="mpretrip-staybar">${stayBar}</div>
+        <div class="mpretrip-staybar-ticks">
+          <span>${fmtDate(data.trip.startDate, { year: false })}</span>
+          <span>${fmtDate(data.trip.endDate, { year: false })}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('map.title')}</h3>
+        <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
+      </div>
+      <button type="button" class="mtoday-map-preview" data-goto-tab="map"></button>
+    </div>
+
+    ${budgetRemaining !== null ? `
+    <div class="mtoday-block">
+      <h3 class="mtoday-block-title">${t('budget.title')}</h3>
+      <button type="button" class="mtoday-stat-card" data-goto-tab="budget">
+        <div><div class="mtoday-stat-label">${t('budget.stats.remaining')}</div><div class="mtoday-stat-val mtoday-stat-val--positive">${formatCurrency(budgetRemaining)}</div></div>
+      </button>
+    </div>` : ''}
+
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('today.upcomingDays')}</h3>
+      </div>
+      <div class="mtoday-strip">
+        ${upcoming.map(d => `
+          <button type="button" class="mtoday-strip-card" data-open-day="${d.date}">
+            <span class="mtoday-strip-dow">${d.dow} ${d.num}</span>
+            <span class="mtoday-strip-sub">${_escHtml(d.label)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  section.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+  section.querySelectorAll('[data-open-day]').forEach(btn => btn.addEventListener('click', () => {
+    const date = btn.dataset.openDay;
+    const s = getActiveStay(data.accommodations, date);
+    const rows = dayEvents(date, data);
+    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap?.[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
+  }));
+}
