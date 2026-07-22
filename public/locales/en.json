@@ -246,5 +246,6 @@
   "tabs.calendar": "Calendar",
   "tabs.budget": "Budget",
   "tabs.map": "Map",
-  "daySheet.empty": "No activities planned."
+  "daySheet.empty": "No activities planned.",
+  "calendar.jumpToday": "Jump to today"
 }

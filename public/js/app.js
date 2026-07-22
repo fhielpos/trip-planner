@@ -353,6 +353,11 @@ function toggleCardExpand(card, expand) {
 
 function renderPlanner() {
   const { trip, flights, calendar, accommodations, colorMap } = tripData;
+  if (isMobileViewport()) {
+    renderPlannerMobile(tripData);
+    registerMobileRerender(() => renderPlanner());
+    return;
+  }
   chipsByDate = {};
 
   // Span full weeks containing trip start and end
@@ -507,6 +512,84 @@ function renderPlanner() {
 
   if (typeof renderStaysTimeline === 'function') renderStaysTimeline(tripData);
   if (typeof renderToday === 'function') renderToday(tripData);
+}
+
+// ── Planner Grid (mobile Calendar tab) ─────────
+
+function renderPlannerMobile(data) {
+  const grid = document.getElementById('planner-grid');
+  const today = appToday();
+  const days = _buildTripDays(data);
+
+  let html = '';
+  let lastStayKey = null;
+  for (const d of days) {
+    const stay = d.stay;
+    const key = stay ? stay.city + stay.check_in : 'transit';
+    if (key !== lastStayKey && stay) {
+      const colour = data.colorMap[stay.check_in];
+      html += `<div class="mcal-group-header" style="color:${colour?.accent || 'var(--accent)'}">
+        ${countryFlag(stay.country)} ${stay.city} · ${fmtDate(stay.check_in, { year: false })}–${fmtDate(stay.check_out, { year: false })}
+      </div>`;
+      lastStayKey = key;
+    }
+
+    // Row content priority, ported from redesign/prototype.html:708-741 (fixed
+    // version — a flight/train must never be silently dropped just because an
+    // activity already took the title slot). `events` excludes only activities
+    // (◦/↻); `travelEvents` further excludes the check-in row (🛏) so the
+    // check-in-day subtitle prefers a same-day flight/train over the check-in
+    // itself, which would otherwise duplicate the title.
+    const acts = collectTodayActivities(data.calendar, d.date).map(a => a.main);
+    const events = dayEvents(d.date, data).filter(r => r.icon !== '◦' && r.icon !== '↻');
+    const travelEvents = events.filter(r => r.icon !== '🛏');
+    let title, sub;
+    if (d.isFirstOfStay) {
+      title = t('chip.checkin', { city: stay.city });
+      sub = travelEvents[0] ? travelEvents[0].title : (acts[0] ? acts[0].title : null);
+    } else if (acts[0]) {
+      title = acts[0].title;
+      sub = events[0] ? events[0].title : (acts[1] ? acts[1].title : null);
+    } else if (events[0]) {
+      title = events[0].title;
+      sub = events[1] ? events[1].title : null;
+    } else {
+      title = stay ? stay.city : t('today.transit');
+      sub = null;
+    }
+
+    const isToday = d.date === today;
+    const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--text-3)';
+    html += `
+      <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${rowColor}">
+        <div class="mcal-date"><span class="mcal-num">${d.num}</span><span class="mcal-dow">${d.dow}</span></div>
+        <div class="mcal-content">
+          <div class="mcal-title" style="color:${rowColor}">${_escHtml(title)}</div>
+          ${sub ? `<div class="mcal-sub">${_escHtml(sub)}</div>` : ''}
+        </div>
+      </button>`;
+  }
+
+  grid.innerHTML = `
+    <div class="mcal-header">
+      <button type="button" class="mcal-back" data-goto-tab="today">‹ ${t('tabs.today')}</button>
+      <span class="mcal-title-bar">${t('tabs.calendar')}</span>
+      <button type="button" class="mcal-jump" id="mcal-jump-today">${t('calendar.jumpToday')}</button>
+    </div>
+    ${html}
+  `;
+
+  grid.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+  grid.querySelectorAll('.mcal-row').forEach(row => row.addEventListener('click', () => {
+    const date = row.dataset.date;
+    const s = getActiveStay(data.accommodations, date);
+    const rows = dayEvents(date, data);
+    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
+  }));
+  document.getElementById('mcal-jump-today')?.addEventListener('click', () => {
+    const row = grid.querySelector('.mcal-row.is-today');
+    row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
 // ── Legend ─────────────────────────────────────

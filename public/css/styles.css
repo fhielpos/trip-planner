@@ -3041,3 +3041,42 @@ body {
   .mtoday-stat-val { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
   .mtoday-stat-val--positive { color: var(--c-stay); }
 }
+
+/* Mobile Calendar tab — full agenda list */
+@media (max-width: 640px) {
+  .mcal-header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mcal-back { all: unset; cursor: pointer; color: var(--text-2); font-size: 14px; }
+  .mcal-title-bar { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .mcal-jump { all: unset; cursor: pointer; font-size: 11px; color: var(--accent); }
+
+  .mcal-group-header {
+    position: sticky; top: 41px; z-index: 4;
+    background: #1c1917;
+    padding: 6px 18px;
+    font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  [data-theme="light"] .mcal-group-header { background: var(--bg-hover); }
+
+  .mcal-row {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: flex; gap: 10px; width: 100%;
+    padding: 11px 18px;
+    border-left: 3px solid var(--text-3);
+    min-height: 44px; align-items: center;
+  }
+  .mcal-row.is-today { background: var(--accent-dim); }
+  .mcal-date { width: 34px; text-align: center; flex-shrink: 0; }
+  .mcal-num { display: block; font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-1); }
+  .mcal-row.is-today .mcal-num { color: var(--accent); }
+  .mcal-dow { display: block; font-size: 9px; color: var(--text-3); text-transform: uppercase; }
+  .mcal-content { flex: 1; min-width: 0; text-align: left; }
+  .mcal-title { font-size: 12px; font-weight: 600; }
+  .mcal-sub { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
