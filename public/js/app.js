@@ -540,19 +540,27 @@ function renderPlannerMobile(data) {
     // (◦/↻); `travelEvents` further excludes the check-in row (🛏) so the
     // check-in-day subtitle prefers a same-day flight/train over the check-in
     // itself, which would otherwise duplicate the title.
+    // A transit/stopover day can carry a checkout AND a flight/train (or two
+    // trains back-to-back) on top of that — a single travelEvents[0]/events[0]
+    // pick silently dropped every event but the first. The subtitle instead
+    // joins every remaining item with " · "; CSS ellipsis handles overflow,
+    // and the full list is always one tap away via the Day Sheet.
     const acts = collectTodayActivities(data.calendar, d.date).map(a => a.main);
     const events = dayEvents(d.date, data).filter(r => r.icon !== '◦' && r.icon !== '↻');
     const travelEvents = events.filter(r => r.icon !== '🛏');
     let title, sub;
     if (d.isFirstOfStay) {
       title = t('chip.checkin', { city: stay.city });
-      sub = travelEvents[0] ? travelEvents[0].title : (acts[0] ? acts[0].title : null);
+      const subParts = travelEvents.length ? travelEvents.map(e => e.title) : (acts[0] ? [acts[0].title] : []);
+      sub = subParts.length ? subParts.join(' · ') : null;
     } else if (acts[0]) {
       title = acts[0].title;
-      sub = events[0] ? events[0].title : (acts[1] ? acts[1].title : null);
+      const subParts = events.length ? events.map(e => e.title) : (acts[1] ? [acts[1].title] : []);
+      sub = subParts.length ? subParts.join(' · ') : null;
     } else if (events[0]) {
       title = events[0].title;
-      sub = events[1] ? events[1].title : null;
+      const subParts = events.slice(1).map(e => e.title);
+      sub = subParts.length ? subParts.join(' · ') : null;
     } else {
       title = stay ? stay.city : t('today.transit');
       sub = null;
