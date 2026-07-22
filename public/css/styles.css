@@ -2936,7 +2936,8 @@ body {
   body[data-mobile-tab] .stays-section,
   body[data-mobile-tab] .map-section,
   body[data-mobile-tab] .budget-section,
-  body[data-mobile-tab] .wishlist-section { display: none; }
+  body[data-mobile-tab] .wishlist-section,
+  body[data-mobile-tab] .info-bar { display: none; }
   body[data-mobile-tab="today"] #today-section { display: block; }
   body[data-mobile-tab="calendar"] .app-main { display: block; }
   body[data-mobile-tab="map"] .map-section { display: block; }
