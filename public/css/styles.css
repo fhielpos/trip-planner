@@ -2104,6 +2104,12 @@ body {
   .mmap-header, #mmap-itinerary { display: none; }
 }
 
+/* Mobile Presupuesto tab header — desktop has no tab bar at all, so this
+   must never show regardless of body[data-mobile-tab] state */
+@media (min-width: 641px) {
+  .mbudget-header { display: none; }
+}
+
 @media (max-width: 640px) {
   /* Full first screen on phones; the rest of the app scrolls in below */
   .today-section {
@@ -3121,4 +3127,38 @@ body {
   .mmap-leg-card--flight .mmap-leg-route-text { color: var(--c-flight); }
   .mmap-leg-card--train .mmap-leg-route-text { color: var(--c-train); }
   .mmap-leg-detail { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+}
+
+/* Mobile Presupuesto tab — 3-card stats + bottom-sheet expense form */
+@media (max-width: 640px) {
+  .mbudget-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 10px; border-bottom: 1px solid var(--border-soft);
+  }
+  .mbudget-add {
+    width: 28px; height: 28px; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent-dim); color: var(--accent);
+    font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  .mbudget-stats { display: flex; gap: 8px; padding: 14px 18px 0; }
+  .mbudget-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+  .mbudget-stat--accent { border-top: 3px solid var(--accent); }
+  .mbudget-stat-label { font-family: var(--font-display); font-size: 9px; color: var(--text-3); text-transform: uppercase; }
+  .mbudget-stat-val { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+  .mbudget-stat-val--positive { color: var(--c-stay); }
+  .mbudget-stat-val--negative { color: var(--c-danger); }
+
+  body[data-mobile-tab="budget"] .budget-header { display: none; }
+
+  /* Restyle the existing centered modal as a slide-up sheet */
+  #budget-overlay.modal-overlay {
+    align-items: flex-end;
+    background: rgba(0,0,0,.55);
+  }
+  #budget-overlay .modal {
+    width: 100%; max-width: none;
+    border-radius: 18px 18px 0 0;
+    max-height: 85vh;
+    animation: sheetSlideUp .2s ease;
+  }
 }
