@@ -267,6 +267,17 @@ function _renderStats() {
 
   const s = _computeStats();
   const remClass  = s.remaining >= 0 ? 'positive' : 'negative';
+
+  if (isMobileViewport()) {
+    el.innerHTML = `
+      <div class="mbudget-stats">
+        <div class="mbudget-stat mbudget-stat--accent"><div class="mbudget-stat-label">${t('budget.stats.budget')}</div><div class="mbudget-stat-val">${formatCurrency(s.initialBudget)}</div></div>
+        <div class="mbudget-stat"><div class="mbudget-stat-label">${t('budget.stats.spent')}</div><div class="mbudget-stat-val">${formatCurrency(s.totalSpent)}</div></div>
+        <div class="mbudget-stat mbudget-stat--${remClass}"><div class="mbudget-stat-label">${t('budget.stats.remaining')}</div><div class="mbudget-stat-val mbudget-stat-val--${remClass}">${formatCurrency(s.remaining)}</div></div>
+      </div>`;
+    return;
+  }
+
   const projClass = s.projectedRemaining === null ? '' : s.projectedRemaining >= 0 ? 'positive' : 'negative';
   const barColor  = s.pctSpent < 75 ? 'var(--c-stay)' : s.pctSpent < 100 ? 'var(--accent)' : 'var(--c-flight--neg, #e87a7a)';
 
@@ -686,7 +697,13 @@ function _closeSettingsModal() {
 // ── Event wiring ───────────────────────────────
 
 document.getElementById('btn-add-expense').addEventListener('click', () => _openExpenseModal(null));
+document.getElementById('mbudget-add-btn')?.addEventListener('click', () => _openExpenseModal(null));
 document.getElementById('btn-budget-settings').addEventListener('click', _openSettingsModal);
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mbudget-header [data-goto-tab]').forEach(btn =>
+    btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+});
 
 document.getElementById('budget-modal-close').addEventListener('click', _closeExpenseModal);
 document.getElementById('budget-cancel-btn').addEventListener('click', _closeExpenseModal);
