@@ -2943,6 +2943,13 @@ body {
    Mobile Today Tab — in-trip layout
    ============================================= */
 @media (max-width: 640px) {
+  /* The desktop full-bleed hero paints the photo across the ENTIRE
+     #today-section (see "Today View" above); the mobile hero is a
+     self-contained 230px `.mtoday-hero` instead, so the section-wide
+     background must be neutralized or the photo bleeds behind every
+     block below it. */
+  #today-section.has-image { background: var(--bg); }
+
   body[data-mobile-tab] #today-section,
   body[data-mobile-tab] .app-main,
   body[data-mobile-tab] .stays-section,
@@ -2974,20 +2981,32 @@ body {
     pointer-events: none;
   }
   .mtoday-hero-top { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-start; }
+  /* Text sits directly on a photo (dark gradient scrim below only covers
+     the bottom half) — always use a fixed light palette + shadow here,
+     never the theme's --text-1, which is near-black in light mode and
+     unreadable against a bright image. Mirrors the desktop equivalent's
+     --today-fg-1/text-shadow treatment for .has-image. */
   .mtoday-pill {
     font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-    background: rgba(24,22,20,.55); color: var(--text-1);
+    background: rgba(24,22,20,.55); color: #fbf6ef;
     padding: 4px 8px; border-radius: 6px;
     white-space: nowrap; flex-shrink: 0;
   }
   .mtoday-pill--accent { color: var(--accent); }
   .mtoday-hero-bottom { position: relative; z-index: 1; }
-  .mtoday-city { font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.05; }
+  .mtoday-city {
+    font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.05;
+    color: #fbf6ef; text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 1px 10px rgba(0,0,0,.4);
+  }
   .mtoday-hero-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
-  .mtoday-weather { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--accent); }
+  .mtoday-weather {
+    font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--accent);
+    text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 1px 10px rgba(0,0,0,.4);
+  }
   .mtoday-lastnight {
     font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
     border: 1.5px dashed var(--accent); color: var(--accent); padding: 2px 8px; border-radius: 999px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.7);
   }
 
   .mtoday-block { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
