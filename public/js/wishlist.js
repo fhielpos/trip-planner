@@ -34,6 +34,13 @@ function getWishlistCurrencies() {
   return (_wishlist?.items || []).map(i => i.currency).filter(Boolean);
 }
 
+// Consumed by today.js's mobile in-trip teaser (same access pattern as
+// budget.js's getBudgetRemaining/getTodayBudget — a plain global accessor
+// rather than threading wishlist data through tripData).
+function getWishlistItems() {
+  return _wishlist?.items || [];
+}
+
 async function initWishlist() {
   const res = await fetch('/api/wishlist');
   _wishlist = await res.json();
@@ -59,6 +66,10 @@ function _sortedItems(items) {
 function _renderWishlist() {
   const el = document.getElementById('wishlist-list');
   if (!el) return;
+
+  // Keep the mobile Today teaser in sync on every wishlist change, same
+  // reasoning as _renderBudget's trailing renderToday call in budget.js.
+  if (typeof renderToday === 'function' && typeof tripData !== 'undefined' && tripData) renderToday(tripData);
 
   const items = _wishlist?.items || [];
   if (!items.length) {
@@ -239,6 +250,7 @@ async function _fetchUrl() {
 }
 
 document.getElementById('btn-add-wishlist').addEventListener('click', _openWishlistModal);
+document.getElementById('mwishlist-add-btn')?.addEventListener('click', () => _openWishlistModal());
 document.getElementById('wishlist-modal-close').addEventListener('click', _closeWishlistModal);
 document.getElementById('wishlist-cancel-btn').addEventListener('click', _closeWishlistModal);
 wireModal(document.getElementById('wishlist-overlay'), _closeWishlistModal);
@@ -282,6 +294,7 @@ document.getElementById('wishlist-form').addEventListener('submit', async e => {
     _wishlist.items.push(await r.json());
     _closeWishlistModal();
     _renderWishlist();
+    if (typeof showToast === 'function') showToast(t('wishlist.itemAdded'));
   } catch { alert(t('modal.saveFailed')); }
 });
 

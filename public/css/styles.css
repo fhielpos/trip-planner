@@ -3052,6 +3052,11 @@ body {
   .mtoday-stat-label { font-family: var(--font-display); font-size: 10px; color: var(--text-3); text-transform: uppercase; }
   .mtoday-stat-val { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
   .mtoday-stat-val--positive { color: var(--c-stay); }
+
+  .mtoday-wish-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.03); }
+  .mtoday-wish-dot { width: 6px; height: 6px; border-radius: 50%; background: #38a870; flex-shrink: 0; }
+  .mtoday-wish-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mtoday-wish-price { font-family: var(--font-display); font-size: 13px; font-weight: 600; }
 }
 
 /* Mobile Today tab — pre-trip state */
@@ -3156,6 +3161,23 @@ body {
     background: rgba(0,0,0,.55);
   }
   #budget-overlay .modal {
+    width: 100%; max-width: none;
+    border-radius: 18px 18px 0 0;
+    max-height: 85vh;
+    animation: sheetSlideUp .2s ease;
+  }
+}
+
+/* Mobile Wishlist tab — full-screen list + bottom-sheet add-item form */
+@media (max-width: 640px) {
+  body[data-mobile-tab="wishlist"] .wishlist-header { display: none; }
+
+  /* Restyle the existing centered modal as a slide-up sheet */
+  #wishlist-overlay.modal-overlay {
+    align-items: flex-end;
+    background: rgba(0,0,0,.55);
+  }
+  #wishlist-overlay .modal {
     width: 100%; max-width: none;
     border-radius: 18px 18px 0 0;
     max-height: 85vh;
