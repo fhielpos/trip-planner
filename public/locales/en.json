@@ -235,5 +235,10 @@
   "budget.entries.unassigned": "Unassigned",
   "budget.entries.toggleGroup": "Expand or collapse",
   "budget.entries.collapseAll": "Collapse all",
-  "budget.entries.expandAll": "Expand all"
+  "budget.entries.expandAll": "Expand all",
+  "tabs.today": "Today",
+  "tabs.calendar": "Calendar",
+  "tabs.budget": "Budget",
+  "tabs.map": "Map",
+  "daySheet.empty": "No activities planned."
 }

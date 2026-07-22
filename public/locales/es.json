@@ -235,5 +235,10 @@
   "budget.entries.unassigned": "Sin asignar",
   "budget.entries.toggleGroup": "Expandir o contraer",
   "budget.entries.collapseAll": "Contraer todo",
-  "budget.entries.expandAll": "Expandir todo"
+  "budget.entries.expandAll": "Expandir todo",
+  "tabs.today": "Hoy",
+  "tabs.calendar": "Calendario",
+  "tabs.budget": "Presupuesto",
+  "tabs.map": "Mapa",
+  "daySheet.empty": "Sin actividades planeadas."
 }

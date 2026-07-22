@@ -2834,3 +2834,91 @@ body {
   background: repeating-linear-gradient(to right, var(--c-activity) 0 2px, transparent 2px 4.5px);
   opacity: 0.85;
 }
+
+/* =============================================
+   Mobile Tab Shell (≤640px only)
+   ============================================= */
+.mobile-tab-bar { display: none; }
+.sheet-backdrop { display: none; }
+.sheet { display: none; }
+.mobile-toast { display: none; }
+
+@media (max-width: 640px) {
+  /* Reserve room for the fixed tab bar so content isn't covered */
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 15;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-tab {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px;
+    color: var(--text-3);
+  }
+  .mobile-tab.active { color: var(--accent); }
+  .mobile-tab-icon { width: 18px; height: 18px; }
+  .mobile-tab-label { font-family: var(--font-display); font-size: 10px; font-weight: 600; }
+
+  .sheet-backdrop:not([hidden]) {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 20;
+    animation: sheetFadeIn .15s ease;
+  }
+  .sheet:not([hidden]) {
+    display: block;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 21;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 14px 18px 24px;
+    animation: sheetSlideUp .2s ease;
+  }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--text-3); margin: 0 auto 12px; }
+  .sheet-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .sheet-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+  .sheet-close { all: unset; cursor: pointer; color: var(--text-3); padding: 4px; }
+  .sheet-close svg { width: 20px; height: 20px; }
+  .sheet-empty { font-size: 13px; color: var(--text-3); padding: 10px 0; }
+  .sheet-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); min-height: 44px; }
+  .sheet-row:last-child { border-bottom: none; }
+  .sheet-row-icon { font-size: 14px; }
+  .sheet-row-title { flex: 1; font-size: 13px; color: var(--text-1); }
+
+  .mobile-toast:not([hidden]) {
+    display: block;
+    position: fixed;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--bg);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 40;
+    white-space: nowrap;
+  }
+}
+
+@keyframes sheetSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheetFadeIn { from { opacity: 0; } to { opacity: 1; } }
