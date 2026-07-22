@@ -47,6 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Day Sheet ───────────────────────────────────
 
+function _escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function openSheet({ title, color, rows, empty }) {
   const sheet = document.getElementById('day-sheet');
   const backdrop = document.getElementById('day-sheet-backdrop');
@@ -61,7 +67,7 @@ function openSheet({ title, color, rows, empty }) {
     : rows.map(r => `
         <div class="sheet-row">
           <span class="sheet-row-icon">${r.icon}</span>
-          <span class="sheet-row-title">${r.title}</span>
+          <span class="sheet-row-title">${_escHtml(r.title)}</span>
         </div>`).join('');
 
   backdrop.hidden = false;
