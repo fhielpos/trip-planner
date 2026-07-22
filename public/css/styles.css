@@ -3042,6 +3042,24 @@ body {
   .mtoday-stat-val--positive { color: var(--c-stay); }
 }
 
+/* Mobile Today tab — pre-trip state */
+@media (max-width: 640px) {
+  .mpretrip-countdown { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 10px; }
+  .mpretrip-num { font-family: var(--font-display); font-size: 40px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+  .mpretrip-unit { font-size: 11px; color: var(--text-3); text-transform: uppercase; }
+  .mpretrip-info-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; font-family: var(--font-display); font-size: 13px; font-weight: 600; }
+  .mpretrip-info-row > span:first-child { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+
+  .mpretrip-stats { display: flex; gap: 8px; }
+  .mpretrip-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+  .mpretrip-stat-num { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+  .mpretrip-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; }
+
+  .mpretrip-staybar-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .mpretrip-staybar { display: flex; height: 20px; border-radius: 6px; overflow: hidden; gap: 1px; }
+  .mpretrip-staybar-ticks { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--font-display); font-size: 10px; color: var(--text-3); }
+}
+
 /* Mobile Calendar tab — full agenda list */
 @media (max-width: 640px) {
   .mcal-header {
