@@ -3054,7 +3054,7 @@ body {
   .mtoday-stat-val--positive { color: var(--c-stay); }
 
   .mtoday-wish-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.03); }
-  .mtoday-wish-dot { width: 6px; height: 6px; border-radius: 50%; background: #38a870; flex-shrink: 0; }
+  .mtoday-wish-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-stay); flex-shrink: 0; }
   .mtoday-wish-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mtoday-wish-price { font-family: var(--font-display); font-size: 13px; font-weight: 600; }
 }
