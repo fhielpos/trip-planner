@@ -30,6 +30,11 @@ function setMobileTab(tab) {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
   window.scrollTo(0, 0);
+  // #trip-map is built while hidden behind the default Today tab; Leaflet
+  // needs an explicit re-measure + re-fit once it actually becomes visible.
+  if (tab === 'map' && typeof refreshMapView === 'function') {
+    requestAnimationFrame(() => refreshMapView());
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

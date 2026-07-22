@@ -10,6 +10,19 @@ let _lastAirports = null;
 let _lastCalendar = null;
 let _lastAllCoords = [];
 
+// The map is built once at page load, while the Mapa tab (and its
+// #trip-map container) may still be display:none behind the default
+// Today tab — Leaflet computes tile layout and fitBounds() math from the
+// container's size at call time, so a fit done against a zero-size
+// hidden container never corrects itself once the tab becomes visible.
+// mobile-nav.js's setMobileTab() calls this after switching to 'map' so
+// Leaflet re-measures the now-visible container and re-fits the route.
+function refreshMapView() {
+  if (!_map) return;
+  _map.invalidateSize();
+  _applyFitView(_lastAllCoords);
+}
+
 // Fits the map to the full route — same logic used on initial render and by
 // the reset-view control, so a pin click's zoom-in can always be undone.
 function _applyFitView(coords) {
