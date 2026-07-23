@@ -1851,6 +1851,19 @@ body {
 .tl-bar--no-dates .tl-bar-dates { display: none; }
 .tl-bar--no-label .tl-bar-city  { display: none; }
 
+/* Already checked out — grey out and drop the label so the eye lands on
+   what's current/upcoming instead. Position/width stay untouched: they're
+   set from the date-proportional axis, and shrinking a past bar would
+   throw off that scale for every other bar sharing it. Still clickable —
+   just visually quiet by default, same as a collapsed past day-card. */
+.tl-bar.is-past {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  opacity: 0.6;
+}
+.tl-bar.is-past .tl-bar-city,
+.tl-bar.is-past .tl-bar-dates { display: none; }
+
 #stays-issues {
   margin-top: 0.6rem;
   display: flex;

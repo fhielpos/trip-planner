@@ -60,6 +60,7 @@ function renderStaysTimeline(data) {
   const rangeEnd   = data.trip.endDate > lastOut ? data.trip.endDate : lastOut;
   const totalDays  = _nights(rangeStart, rangeEnd);
   const pos = d => (_nights(rangeStart, d) / totalDays) * 100;
+  const today = appToday();
 
   const { overlaps, gaps } = computeStayIssues(stays, rangeStart, rangeEnd);
 
@@ -105,9 +106,10 @@ function renderStaysTimeline(data) {
   lanes.style.setProperty('--tl-lane-count', laneCount);
   placed.forEach(({ stay, lane }, i) => {
     const colour = data.colorMap?.[stay.check_in] ?? PALETTE[i % PALETTE.length];
+    const isPast = stay.check_out <= today;
     const bar = document.createElement('button');
     bar.type = 'button';
-    bar.className = 'tl-bar';
+    bar.className = `tl-bar${isPast ? ' is-past' : ''}`;
     bar.style.left  = pos(stay.check_in) + '%';
     bar.style.width = (pos(stay.check_out) - pos(stay.check_in)) + '%';
     bar.style.top   = (lane * 2.1) + 'rem';
