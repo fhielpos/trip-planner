@@ -449,6 +449,12 @@ body {
 }
 .day-card.is-past .day-chips,
 .day-card.is-past .day-location { display: none; }
+.day-card.is-past.expanded {
+  min-height: 160px;
+  padding: 0.4rem 0.4rem 0.35rem;
+}
+.day-card.is-past.expanded .day-chips,
+.day-card.is-past.expanded .day-location { display: flex; }
 
 .day-card-head {
   display: flex;
