@@ -26,6 +26,7 @@
 
   --radius:    8px;
   --radius-sm: 4px;
+  --radius-lg: 12px;
   --font: 'Barlow', system-ui, sans-serif;
   --font-display: 'Barlow Condensed', system-ui, sans-serif;
   --trans: 0.15s ease;
@@ -930,7 +931,7 @@ body {
 }
 #trip-map {
   height: 440px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   overflow: hidden;
 }
@@ -1075,7 +1076,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid var(--card-top, var(--border));
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
@@ -1633,7 +1634,7 @@ body {
   padding: 0.65rem 0.9rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   margin-bottom: 0.75rem;
   flex-wrap: wrap;
 }
