@@ -294,13 +294,18 @@ function _closeDayRecsPanel(dateStr) {
 }
 
 function toggleCardExpand(card, expand) {
-  const chipsEl = card.querySelector('.day-chips');
+  let chipsEl = card.querySelector('.day-chips');
   const chips = chipsByDate[card.dataset.date] || [];
   let addBtn  = card.querySelector('.day-add-btn');
   let recsBtn = card.querySelector('.day-recs-btn');
 
   if (expand) {
     card.classList.add('expanded');
+    if (!chipsEl) {
+      chipsEl = document.createElement('div');
+      chipsEl.className = 'day-chips';
+      card.appendChild(chipsEl);
+    }
     renderChips(chipsEl, chips, Infinity);
     if (!addBtn) {
       addBtn = document.createElement('button');
@@ -345,7 +350,7 @@ function toggleCardExpand(card, expand) {
     }
   } else {
     card.classList.remove('expanded');
-    renderChips(chipsEl, chips, CHIPS_MAX);
+    if (chipsEl) renderChips(chipsEl, chips, CHIPS_MAX);
     if (addBtn) addBtn.remove();
     _closeDayRecsPanel(card.dataset.date);
     if (recsBtn) recsBtn.remove();
@@ -466,8 +471,8 @@ function renderPlanner() {
     }
     card.appendChild(head);
 
-    // Location label (every day of an active stay)
-    if (stay && colour) {
+    // Location label (every day of an active stay) — skipped for collapsed past days
+    if (stay && colour && !isPast) {
       const loc = document.createElement('div');
       loc.className = 'day-location';
       const cityEl = document.createElement('span');
@@ -485,11 +490,13 @@ function renderPlanner() {
       card.appendChild(loc);
     }
 
-    // Chips (initial collapsed view)
-    const chipsEl = document.createElement('div');
-    chipsEl.className = 'day-chips';
-    renderChips(chipsEl, chips, CHIPS_MAX);
-    card.appendChild(chipsEl);
+    // Chips (initial collapsed view) — skipped for collapsed past days
+    if (!isPast) {
+      const chipsEl = document.createElement('div');
+      chipsEl.className = 'day-chips';
+      renderChips(chipsEl, chips, CHIPS_MAX);
+      card.appendChild(chipsEl);
+    }
 
     // Click: chip with id → edit; chip with url → open link; card body → expand/collapse
     card.addEventListener('click', e => {

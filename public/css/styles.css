@@ -444,7 +444,11 @@ body {
 .day-card.is-past {
   opacity: 0.45;
   filter: grayscale(0.6);
+  min-height: 46px;
+  padding: 0.3rem 0.4rem;
 }
+.day-card.is-past .day-chips,
+.day-card.is-past .day-location { display: none; }
 
 .day-card-head {
   display: flex;
