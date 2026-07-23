@@ -946,8 +946,15 @@ body {
 }
 #trip-map {
   height: 440px;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border: 1px solid var(--border);
+  border-bottom: none;
+  overflow: hidden;
+}
+#stays-timeline {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   overflow: hidden;
 }
 
@@ -1757,30 +1764,10 @@ body {
 }
 
 /* =============================================
-   Stays Timeline
+   Stays Timeline (attached under the map on desktop)
    ============================================= */
-.stays-section {
-  border-top: 1px solid var(--border);
-  margin-top: 0.5rem;
-}
-.stays-section-inner {
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 1.25rem 1.5rem 1.75rem;
-}
-.stays-section-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: 0.75rem;
-}
 
 #stays-timeline {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   background: var(--bg-card);
   padding: 0.75rem 0.9rem 0.9rem;
   overflow: hidden;
@@ -1880,7 +1867,6 @@ body {
 .tl-msg--gap::before     { content: '◇'; }
 
 @media (max-width: 640px) {
-  .stays-section-inner { padding: 0.75rem 0.5rem 1rem; }
   .tl-bar-dates { display: none; }
 }
 
@@ -2332,7 +2318,6 @@ body {
   justify-content: space-between;
   margin-bottom: 0.75rem;
 }
-.stays-section-header .stays-section-title,
 .stays-section-header .map-section-title { margin-bottom: 0; }
 .stays-details-link {
   text-decoration: none;
@@ -2998,6 +2983,12 @@ body {
 @keyframes sheetSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes sheetFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+@media (max-width: 640px) {
+  /* Stays timeline now lives inside .map-section (desktop-only merge);
+     the mobile Mapa tab keeps its own #mmap-itinerary instead. */
+  #stays-timeline, #stays-issues { display: none; }
+}
+
 /* =============================================
    Mobile Today Tab — in-trip layout
    ============================================= */
@@ -3011,7 +3002,6 @@ body {
 
   body[data-mobile-tab] #today-section,
   body[data-mobile-tab] .app-main,
-  body[data-mobile-tab] .stays-section,
   body[data-mobile-tab] .map-section,
   body[data-mobile-tab] .budget-section,
   body[data-mobile-tab] .wishlist-section,
