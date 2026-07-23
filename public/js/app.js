@@ -150,17 +150,20 @@ function getWeather(stayId, dayStr) {
 function renderRouteStrip(flights) {
   const strip = document.getElementById('route-strip');
   if (!strip) return;
+  const today = appToday();
   const sorted = [...flights].sort((a, b) => a.departureDate.localeCompare(b.departureDate));
   const airports = [];
   for (const f of sorted) {
-    if (!airports.length || airports[airports.length - 1] !== f.from) airports.push(f.from);
-    airports.push(f.to);
+    const past = f.departureDate < today;
+    if (!airports.length || airports[airports.length - 1].code !== f.from) {
+      airports.push({ code: f.from, past });
+    }
+    airports.push({ code: f.to, past });
   }
-  strip.innerHTML = airports
-    .map((a, i) => i < airports.length - 1
-      ? `<span class="route-apt">${a}</span><span class="route-arr">→</span>`
-      : `<span class="route-apt">${a}</span>`)
-    .join('');
+  strip.innerHTML = airports.map((a, i) => `
+    <span class="route-apt${a.past ? ' route-apt--past' : ''}">${a.code}</span>
+    ${i < airports.length - 1 ? '<span class="route-arr">→</span>' : ''}
+  `).join('');
 }
 
 // ── Info Bar ───────────────────────────────────
