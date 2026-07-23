@@ -935,15 +935,21 @@ body {
   margin: 0 auto;
   padding: 1.25rem 1.5rem 1.75rem;
 }
-.map-section-title {
+/* Shared "page section" eyebrow heading — Route, Documents, Wishlist,
+   Budget Insights' two block titles. One declaration so the four pages
+   can't quietly drift out of sync with each other again. */
+.page-section-title,
+.map-section-title,
+.wishlist-title,
+.itinerary-docs-title {
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-3);
-  margin-bottom: 0.75rem;
 }
+.map-section-title { margin-bottom: 0.75rem; }
 #trip-map {
   height: 440px;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -1524,14 +1530,6 @@ body {
   justify-content: space-between;
   margin-bottom: 1rem;
   gap: 1rem;
-}
-.wishlist-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
 }
 .wishlist-empty {
   color: var(--text-3);
@@ -2230,9 +2228,11 @@ body {
   color: var(--text-3);
 }
 .accom-manifest-val {
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
   color: var(--text-1);
+  line-height: 1.1;
 }
 
 /* ── Manifest rows ── */
@@ -2555,14 +2555,6 @@ body {
   justify-content: space-between;
   margin: 1.75rem 0 1rem;
 }
-.itinerary-docs-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
 .doc-empty { color: var(--text-3); font-size: 0.85rem; }
 
 .doc-card {
@@ -2678,6 +2670,7 @@ body {
    ============================================= */
 .bi-main { max-width: 900px; }
 .bi-block { margin-bottom: 2rem; }
+.bi-block .page-section-title { margin-bottom: 0.75rem; }
 
 #bi-city-list {
   border: 1px solid var(--border);
@@ -2774,8 +2767,9 @@ body {
 }
 .bi-hero-remaining {
   display: block;
+  font-family: var(--font-display);
   font-size: 2.1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-1);
   line-height: 1.15;
   margin: 0.1rem 0 0.7rem;
