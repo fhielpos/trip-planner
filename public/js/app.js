@@ -373,6 +373,10 @@ function renderPlanner() {
   const gridEnd   = sundayOf(trip.endDate);
   const today     = appToday();
 
+  const dowHeaders = document.querySelectorAll('.dow-headers span');
+  const todayCol = (parseLocal(today).getDay() + 6) % 7; // Mon=0 ... Sun=6
+  dowHeaders.forEach((el, i) => el.classList.toggle('is-today-col', i === todayCol));
+
   // Build array of all days
   const days = [];
   let cur = gridStart;

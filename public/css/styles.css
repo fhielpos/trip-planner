@@ -363,6 +363,7 @@ body {
   color: var(--text-3);
   padding: 0.2rem 0;
 }
+.dow-headers span.is-today-col { color: var(--accent); border-bottom: 2px solid var(--accent); }
 .btn-add {
   display: inline-flex;
   align-items: center;
