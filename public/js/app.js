@@ -251,16 +251,30 @@ function renderInfoBar() {
 const CHIPS_MAX = 4;
 let chipsByDate = {}; // dayStr → chips[], rebuilt each renderPlanner()
 
+const CHIP_ICON_FLIGHT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/></svg>';
+const CHIP_ICON_TRAIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="12" rx="4"/><line x1="5" y1="9" x2="19" y2="9"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>';
+
 function renderChips(container, chips, max) {
   container.innerHTML = '';
   const shown = chips.slice(0, max);
   for (const c of shown) {
     const el = document.createElement('span');
     el.className = `chip chip--${c.type}`;
-    el.textContent = c.label;
     el.title = c.label;
     if (c.id)  el.dataset.id  = c.id;
     if (c.url) el.dataset.url = c.url;
+    if (c.type === 'flight' || c.type === 'train') {
+      el.classList.add('chip--iconed');
+      const icon = document.createElement('span');
+      icon.className = 'chip-icon';
+      icon.innerHTML = c.type === 'flight' ? CHIP_ICON_FLIGHT : CHIP_ICON_TRAIN;
+      const label = document.createElement('span');
+      label.className = 'chip-label';
+      label.textContent = c.label;
+      el.append(icon, label);
+    } else {
+      el.textContent = c.label;
+    }
     container.appendChild(el);
   }
   if (chips.length > shown.length) {

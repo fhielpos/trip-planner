@@ -544,6 +544,10 @@ body {
 .chip--stay       { background: var(--c-stay-bg); color: var(--day-accent, var(--c-stay)); border: 1px solid var(--day-accent, var(--c-stay)); opacity: 0.85; }
 .chip--more       { background: none; color: var(--text-3); font-size: 0.68rem; padding: 0 4px; }
 .chip[data-url]   { text-decoration: underline; text-underline-offset: 2px; }
+.chip--iconed     { display: flex; align-items: center; gap: 3px; }
+.chip-icon        { flex-shrink: 0; width: 10px; height: 10px; display: inline-flex; }
+.chip-icon svg    { display: block; width: 100%; height: 100%; }
+.chip-label       { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .day-add-btn {
   display: flex;
