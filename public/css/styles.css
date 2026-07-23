@@ -204,7 +204,7 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
 }
-.route-apt--past { color: #655a4e; font-weight: 500; }
+.route-apt--past { color: var(--text-3); font-weight: 500; }
 .route-apt:not(.route-apt--past) { color: var(--accent); font-weight: 700; }
 .route-arr {
   font-size: 0.52rem;
