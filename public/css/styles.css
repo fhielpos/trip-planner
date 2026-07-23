@@ -411,7 +411,7 @@ body {
   background: var(--day-bg, var(--bg-card));
   border: 1px solid var(--day-border, var(--border));
   border-top: 3px solid var(--day-accent, var(--border));
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   min-height: 110px;
   min-width: 0;
   padding: 0.4rem 0.4rem 0.35rem;
@@ -2217,8 +2217,8 @@ body {
   margin-bottom: 1.25rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-bottom: 2px solid var(--accent);
-  border-radius: var(--radius);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
 }
 .accom-manifest-item { display: flex; flex-direction: column; gap: 0.2rem; }
 .accom-manifest-label {
@@ -2238,7 +2238,7 @@ body {
 /* ── Manifest rows ── */
 .accom-list {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   overflow: hidden;
 }
@@ -2373,7 +2373,7 @@ body {
 
 .journey-list {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   overflow: hidden;
 }
@@ -2444,7 +2444,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid var(--bp-accent, var(--accent));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   margin-bottom: 1rem;
   overflow: hidden;
   break-inside: avoid;
@@ -2573,7 +2573,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid var(--accent);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   margin-bottom: 0.6rem;
 }
@@ -2759,7 +2759,8 @@ body {
 .bi-hero-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
   padding: 1.1rem 1.25rem 1.25rem;
   margin-bottom: 1.5rem;
 }
