@@ -1061,6 +1061,13 @@ body {
   filter: grayscale(0.6);
 }
 
+/* Route lines crisscross the whole map at the overview zoom on purpose, but
+   once you've flown into a single city they just cut across the streets. */
+.map-lines--hidden.leaflet-overlay-pane path {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+
 /* Popup */
 .map-popup .leaflet-popup-content-wrapper {
   background: var(--bg-card);

@@ -163,6 +163,17 @@ function _applyPinScale() {
   pane.classList.toggle('map-pins--large', zoom > 10);
 }
 
+// Route lines crisscross the whole route at the overview zoom, which is the
+// point — but once you've flown into a single city (same threshold as the
+// pin scale-up above) they just cut across the streets you're looking at,
+// so hide them until you zoom back out.
+function _applyLineVisibility() {
+  if (!_map) return;
+  const pane = _map.getPane('overlayPane');
+  if (!pane) return;
+  pane.classList.toggle('map-lines--hidden', _map.getZoom() > 10);
+}
+
 // ── Leg derivation ──────────────────────────────
 // Flights already carry `direction` (outbound/return/connection), computed
 // server-side from home airports + trip midpoint. From the outbound/return
@@ -294,6 +305,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   }).addTo(_map);
   new _ResetViewControl().addTo(_map);
   _map.on('zoomend', _applyPinScale);
+  _map.on('zoomend', _applyLineVisibility);
 
   const today = appToday();
   const todayStay = getActiveStay(accommodations || [], today);
@@ -500,7 +512,11 @@ function renderMobileRoutePreview(accommodations) {
   else if (fitCoords.length === 1) _previewMap.setView(fitCoords[0], 9);
 =======
   _applyPinScale();
+<<<<<<< HEAD
 >>>>>>> b45a7cd (feat: scale map pins with zoom level)
+=======
+  _applyLineVisibility();
+>>>>>>> 00d9bd1 (feat: hide route lines when zoomed into a city)
 }
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
