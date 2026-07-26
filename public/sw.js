@@ -14,6 +14,8 @@ const SHELL_ASSETS = [
   '/manifest.json',
   '/css/styles.css',
   '/js/i18n.js',
+  '/js/mobile-nav.js',
+  '/js/currency.js',
   '/js/offline.js',
   '/js/app.js',
   '/js/timeline.js',
