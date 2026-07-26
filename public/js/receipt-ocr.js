@@ -61,10 +61,14 @@ function _normalizeNumber(raw) {
   return Number.isFinite(value) ? value : null;
 }
 
+function _stripDiacritics(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
 function extractAmountFromReceiptText(text) {
   if (!text || typeof text !== 'string') return null;
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  const upperLines = lines.map(l => l.toUpperCase());
+  const upperLines = lines.map(l => _stripDiacritics(l.toUpperCase()));
 
   // 1) Keyword-directed search: look for a keyword, then the nearest number
   //    on that same line or the next one.
