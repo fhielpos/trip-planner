@@ -1154,11 +1154,11 @@ body {
 .budget-section {
   background: var(--bg);
   border-top: 1px solid var(--border);
-  padding: 1.5rem;
 }
 .budget-section-inner {
   max-width: 1300px;
   margin: 0 auto;
+  padding: 1.25rem 1.5rem;
 }
 .budget-header {
   display: flex;
@@ -1606,7 +1606,7 @@ body {
   .budget-stats-main { grid-template-columns: repeat(2, 1fr); }
   .budget-cat-row    { grid-template-columns: 1rem 5.5rem 1fr 4.5rem; }
   .budget-cat-pct    { display: none; }
-  .budget-section    { padding: 1rem 0.75rem; }
+  .budget-section-inner { padding: 1rem 0.75rem; }
   .budget-header         { flex-wrap: wrap; }
   .budget-header-actions { width: 100%; flex-wrap: wrap; }
 }
@@ -1617,11 +1617,11 @@ body {
 .wishlist-section {
   background: var(--bg);
   border-top: 1px solid var(--border);
-  padding: 1.5rem;
 }
 .wishlist-section-inner {
   max-width: 1300px;
   margin: 0 auto;
+  padding: 1.25rem 1.5rem;
 }
 .wishlist-header {
   display: flex;
@@ -1834,7 +1834,7 @@ body {
 .wishlist-fetch-status--error { color: var(--c-danger); }
 
 @media (max-width: 640px) {
-  .wishlist-section { padding: 1rem 0.75rem; }
+  .wishlist-section-inner { padding: 1rem 0.75rem; }
   .wishlist-item-name { font-size: 0.85rem; }
 }
 
