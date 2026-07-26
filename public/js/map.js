@@ -312,12 +312,14 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       if (!dep || !arr) continue;
 
       const curveDown = f.to === 'ATH';
-      L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60, curveDown), {
+      const flightLine = L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60, curveDown), {
         color: accentColor,
         weight: 2,
-        opacity: 0.65,
+        opacity: 0.5,
         dashArray: '8, 6',
       }).addTo(_map);
+      flightLine.on('mouseover', () => flightLine.setStyle({ opacity: 0.85, weight: 3 }));
+      flightLine.on('mouseout',  () => flightLine.setStyle({ opacity: 0.5,  weight: 2 }));
 
       allCoords.push([dep.lat, dep.lon], [arr.lat, arr.lon]);
       for (const code of [f.from, f.to]) {
@@ -348,12 +350,14 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       if (tr.fromLat == null || tr.toLat == null) continue;
       if (!_filters.legs[_legFor(tr.departureDate, windows)]) continue;
 
-      L.polyline(_trainPoints(tr.fromLat, tr.fromLon, tr.toLat, tr.toLon, 30), {
+      const trainLine = L.polyline(_trainPoints(tr.fromLat, tr.fromLon, tr.toLat, tr.toLon, 30), {
         color: trainColor,
-        weight: 2.5,
-        opacity: 0.75,
+        weight: 2,
+        opacity: 0.5,
         dashArray: '3, 6',
       }).addTo(_map);
+      trainLine.on('mouseover', () => trainLine.setStyle({ opacity: 0.85, weight: 3 }));
+      trainLine.on('mouseout',  () => trainLine.setStyle({ opacity: 0.5,  weight: 2 }));
 
       allCoords.push([tr.fromLat, tr.fromLon], [tr.toLat, tr.toLon]);
       for (const [city, lat, lon] of [
