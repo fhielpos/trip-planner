@@ -305,7 +305,10 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   }).addTo(_map);
   new _ResetViewControl().addTo(_map);
   _map.on('zoomend', _applyPinScale);
-  _map.on('zoomend', _applyLineVisibility);
+  // 'zoom' (not just 'zoomend') so lines vanish mid-animation, the instant
+  // the threshold is crossed — waiting for 'zoomend' let them stay visible
+  // for the whole flyTo/zoom-button animation and only disappear at the end.
+  _map.on('zoom zoomend', _applyLineVisibility);
 
   const today = appToday();
   const todayStay = getActiveStay(accommodations || [], today);
