@@ -52,6 +52,24 @@ const _ResetViewControl = L.Control.extend({
   },
 });
 
+const _TodayControl = L.Control.extend({
+  options: { position: 'bottomleft' },
+  initialize(target) {
+    this._target = target;
+  },
+  onAdd() {
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-today-control');
+    const link = L.DomUtil.create('a', 'map-today-control-link', container);
+    link.href = '#';
+    link.title = t('map.jumpToday');
+    link.setAttribute('aria-label', t('map.jumpToday'));
+    link.innerHTML = `<span class="map-today-control-icon">📍</span><span>${t('map.jumpToday')}</span>`;
+    L.DomEvent.on(link, 'click', L.DomEvent.stop);
+    L.DomEvent.on(link, 'click', () => this._map.flyTo(this._target, PIN_CLICK_ZOOM));
+    return container;
+  },
+});
+
 function _escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -275,6 +293,16 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   }).addTo(_map);
   new _ResetViewControl().addTo(_map);
   _map.on('zoomend', _applyPinScale);
+
+  const todayStay = getActiveStay(accommodations || [], appToday());
+  if (todayStay) {
+    const useExact = todayStay.geocode_status === 'ok' && todayStay.exact_lat != null && todayStay.exact_lon != null;
+    const lat = useExact ? todayStay.exact_lat : todayStay.lat;
+    const lon = useExact ? todayStay.exact_lon : todayStay.lon;
+    if (lat != null && lon != null) {
+      new _TodayControl([lat, lon]).addTo(_map);
+    }
+  }
 
   const accentColor = _cssVar('--accent', '#d49258');
   const trainColor  = _cssVar('--c-train', '#5fa88e');
