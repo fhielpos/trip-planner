@@ -47,7 +47,14 @@ const DATA_CACHE = 'data-v1';
 // if this file is ever served as a raw static asset instead of through
 // that route.
 const COMMIT = '__COMMIT__';
-const SHELL_CACHE = `shell-${COMMIT === '__COMMIT__' ? 'dev' : COMMIT}`;
+// Deliberately not `COMMIT === '__COMMIT__'` — server.js's /sw.js route
+// does a blind replaceAll('__COMMIT__', ...) over this file's whole text,
+// so a literal '__COMMIT__' anywhere (including in this comparison) gets
+// substituted too, making the comparison always true and SHELL_CACHE
+// always 'shell-dev' regardless of the real commit. startsWith('__')
+// checks for the un-templated placeholder without reproducing the exact
+// string the templating step searches for.
+const SHELL_CACHE = `shell-${COMMIT.startsWith('__') ? 'dev' : COMMIT}`;
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
