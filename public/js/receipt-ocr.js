@@ -25,9 +25,12 @@ function _isWordChar(c) {
 }
 
 function _keywordMatchesLine(line, kw) {
-  const idx = line.indexOf(kw);
-  if (idx === -1) return false;
-  return !_isWordChar(line[idx - 1]) && !_isWordChar(line[idx + kw.length]);
+  let idx = line.indexOf(kw);
+  while (idx !== -1) {
+    if (!_isWordChar(line[idx - 1]) && !_isWordChar(line[idx + kw.length])) return true;
+    idx = line.indexOf(kw, idx + 1);
+  }
+  return false;
 }
 
 function _looksLikeDateOrTimeOrId(token, fullLine) {
