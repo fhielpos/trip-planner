@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Trip Planner — Log in</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#181614" />
+  <style>
+    :root {
+      --bg: #181614; --bg-card: #201c1a; --border: #302824;
+      --text-1: #ddd0c4; --text-2: #9e8e80;
+      --accent: #d4a87c; --accent-dim: rgba(212,168,124,0.14);
+      --radius: 8px; --radius-sm: 4px;
+      --font: 'Barlow', system-ui, sans-serif;
+      --font-display: 'Barlow Condensed', system-ui, sans-serif;
+      --c-danger: #e5675f;
+    }
+    [data-theme="light"] {
+      --bg: #f0ebe4; --bg-card: #f9f6f1; --border: #d8cfc6;
+      --text-1: #261e18; --text-2: #7a6858;
+      --accent: #b87850; --accent-dim: rgba(184,120,80,0.12);
+      --c-danger: #c23f38;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 320px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 1.75rem;
+    }
+    h1 {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-2);
+      margin-bottom: 0.4rem;
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 0.6rem 0.7rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-1);
+      font-family: var(--font);
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    button {
+      width: 100%;
+      padding: 0.65rem;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      color: var(--accent);
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.85; }
+    .error {
+      color: var(--c-danger);
+      font-size: 0.8rem;
+      margin-bottom: 1rem;
+      min-height: 1em;
+    }
+  </style>
+</head>
+<body>
+  <form class="login-card" id="login-form">
+    <h1>Trip Planner</h1>
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" autocomplete="current-password" autofocus required />
+    <p class="error" id="login-error"></p>
+    <button type="submit">Log in</button>
+  </form>
+  <script>
+    (function () {
+      const saved = localStorage.getItem('theme') ||
+        (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    })();
+
+    const form = document.getElementById('login-form');
+    const errorEl = document.getElementById('login-error');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      const password = document.getElementById('password').value;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        errorEl.textContent = 'Incorrect password.';
+        document.getElementById('password').value = '';
+        document.getElementById('password').focus();
+      }
+    });
+  </script>
+</body>
+</html>
