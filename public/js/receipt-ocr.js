@@ -101,7 +101,7 @@ async function scanReceiptForAmount(file) {
   if (typeof Tesseract === 'undefined') return null;
   let worker;
   try {
-    worker = await Tesseract.createWorker('eng', 1, {
+    worker = await Tesseract.createWorker('eng+ell', 1, {
       workerPath: '/vendor/tesseract/worker.min.js',
       corePath: '/vendor/tesseract/tesseract-core-simd-lstm.js',
       langPath: '/vendor/tesseract/lang-data',
