@@ -129,9 +129,9 @@ function _pinIcon(type, colorOverride) {
   return L.divIcon({
     className: '',
     html: `<div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div>`,
-    iconSize:    [24, 24],
-    iconAnchor:  [12, 12],
-    popupAnchor: [0, -16],
+    iconSize:    [30, 30],
+    iconAnchor:  [15, 33],
+    popupAnchor: [0, -34],
   });
 }
 
