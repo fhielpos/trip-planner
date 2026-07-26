@@ -27,6 +27,22 @@ const SHELL_ASSETS = [
   '/locales/es.json',
 ];
 
+// Tesseract.js engine + language data (public/vendor/tesseract/) get their
+// own cache, independent of SHELL_CACHE's per-deploy COMMIT key, so an
+// ordinary app deploy never re-downloads these ~5MB of unchanging vendor
+// assets. Bump VENDOR_CACHE's version suffix only on a deliberate
+// Tesseract upgrade.
+const VENDOR_ASSETS = [
+  '/vendor/tesseract/tesseract.min.js',
+  '/vendor/tesseract/worker.min.js',
+  '/vendor/tesseract/tesseract-core-simd-lstm.js',
+  '/vendor/tesseract/tesseract-core-simd-lstm.wasm',
+  '/vendor/tesseract/lang-data/eng.traineddata.gz',
+  '/vendor/tesseract/lang-data/ell.traineddata.gz',
+];
+
+const VENDOR_CACHE = 'vendor-tesseract-v1';
+
 const DATA_PATHS = [
   '/api/trip',
   '/api/accommodations',
@@ -53,6 +69,13 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL_CACHE);
     await cache.addAll(SHELL_ASSETS);
+
+    const vendorCacheExists = (await caches.keys()).includes(VENDOR_CACHE);
+    if (!vendorCacheExists) {
+      const vendorCache = await caches.open(VENDOR_CACHE);
+      await vendorCache.addAll(VENDOR_ASSETS);
+    }
+
     self.skipWaiting();
   })());
 });
@@ -60,6 +83,8 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
+    // Only clean up old shell-* caches — VENDOR_CACHE is intentionally
+    // long-lived and never matches this prefix.
     await Promise.all(
       keys
         .filter(key => key.startsWith('shell-') && key !== SHELL_CACHE)
@@ -99,6 +124,11 @@ self.addEventListener('fetch', event => {
 
   if (DATA_PATHS.includes(url.pathname) || url.pathname.startsWith('/api/documents/')) {
     event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (url.pathname.startsWith('/vendor/tesseract/')) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 
