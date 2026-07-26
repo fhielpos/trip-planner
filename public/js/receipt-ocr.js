@@ -106,9 +106,13 @@ async function scanReceiptForAmount(file) {
       corePath: '/vendor/tesseract/tesseract-core-simd-lstm.js',
       langPath: '/vendor/tesseract/lang-data',
       cachePath: '/vendor/tesseract/lang-data',
+      workerBlobURL: false,
     });
-    const { data } = await worker.recognize(file);
-    return extractAmountFromReceiptText(data.text);
+    const recognizePromise = worker.recognize(file).catch(() => null);
+    const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 30000));
+    const result = await Promise.race([recognizePromise, timeoutPromise]);
+    if (!result) return null;
+    return extractAmountFromReceiptText(result.data.text);
   } catch (err) {
     console.error('Receipt scan failed:', err);
     return null;
