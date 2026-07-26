@@ -1052,6 +1052,15 @@ body {
 .map-pins--compact .map-pin-zoom { transform: scale(0.85); }
 .map-pins--large   .map-pin-zoom { transform: scale(1.15); }
 
+/* Past items — same dimming already used for past day-cards in the planner */
+.map-pin--past {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+.route-line--past {
+  filter: grayscale(0.6);
+}
+
 /* Popup */
 .map-popup .leaflet-popup-content-wrapper {
   background: var(--bg-card);

@@ -139,14 +139,15 @@ function _trainPoints(lat1, lon1, lat2, lon2, n) {
   return _bezierPoints(lat1, lon1, ctrlLat, ctrlLon, lat2, lon2, n);
 }
 
-function _pinIcon(type, colorOverride) {
+function _pinIcon(type, colorOverride, isPast) {
   const bg = colorOverride || (type === 'flight' ? _cssVar('--accent', '#d49258')
     : type === 'train' ? _cssVar('--c-train', '#5fa88e')
     : _cssVar('--c-activity', '#d8b47a'));
   const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️' : '📍';
+  const pastClass = isPast ? ' map-pin--past' : '';
   return L.divIcon({
     className: '',
-    html: `<div class="map-pin-zoom"><div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div></div>`,
+    html: `<div class="map-pin-zoom"><div class="map-pin map-pin--${type}${pastClass}" style="background:${bg}">${glyph}</div></div>`,
     iconSize:    [30, 30],
     iconAnchor:  [15, 33],
     popupAnchor: [0, -34],
@@ -294,7 +295,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   new _ResetViewControl().addTo(_map);
   _map.on('zoomend', _applyPinScale);
 
-  const todayStay = getActiveStay(accommodations || [], appToday());
+  const today = appToday();
+  const todayStay = getActiveStay(accommodations || [], today);
   if (todayStay) {
     const useExact = todayStay.geocode_status === 'ok' && todayStay.exact_lat != null && todayStay.exact_lon != null;
     const lat = useExact ? todayStay.exact_lat : todayStay.lat;
@@ -318,7 +320,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       if (!_filters.legs[leg]) continue;
 
       const color = group.color || accentColor;
-      L.marker([group.lat, group.lon], { icon: _pinIcon('stay', color) })
+      const isPast = group.stays.every(s => s.check_out <= today);
+      L.marker([group.lat, group.lon], { icon: _pinIcon('stay', color, isPast) })
         .addTo(_map)
         .on('click', () => _map.flyTo([group.lat, group.lon], PIN_CLICK_ZOOM))
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
@@ -340,14 +343,18 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       if (!dep || !arr) continue;
 
       const curveDown = f.to === 'ATH';
+      const isPastFlight = f.departureDate < today;
+      const restOpacity = isPastFlight ? 0.3 : 0.5;
+      const hoverOpacity = isPastFlight ? 0.6 : 0.85;
       const flightLine = L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60, curveDown), {
         color: accentColor,
         weight: 2,
-        opacity: 0.5,
+        opacity: restOpacity,
         dashArray: '8, 6',
+        className: isPastFlight ? 'route-line--past' : '',
       }).addTo(_map);
-      flightLine.on('mouseover', () => flightLine.setStyle({ opacity: 0.85, weight: 3 }));
-      flightLine.on('mouseout',  () => flightLine.setStyle({ opacity: 0.5,  weight: 2 }));
+      flightLine.on('mouseover', () => flightLine.setStyle({ opacity: hoverOpacity, weight: 3 }));
+      flightLine.on('mouseout',  () => flightLine.setStyle({ opacity: restOpacity,  weight: 2 }));
 
       allCoords.push([dep.lat, dep.lon], [arr.lat, arr.lon]);
       for (const code of [f.from, f.to]) {
@@ -362,7 +369,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
     const c = airports?.[code];
     if (!c) continue;
     const lines = flist.map(f => `${f.flightNumber} · ${f.from}→${f.to} · ${f.departureDate}`).join('<br>');
-    L.marker([c.lat, c.lon], { icon: _pinIcon('flight') })
+    const isPast = flist.every(f => f.departureDate < today);
+    L.marker([c.lat, c.lon], { icon: _pinIcon('flight', null, isPast) })
       .addTo(_map)
       .on('click', () => _map.flyTo([c.lat, c.lon], PIN_CLICK_ZOOM))
       .bindPopup(L.popup({ className: 'map-popup', minWidth: 180 }).setContent(`
@@ -378,14 +386,18 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       if (tr.fromLat == null || tr.toLat == null) continue;
       if (!_filters.legs[_legFor(tr.departureDate, windows)]) continue;
 
+      const isPastTrain = tr.departureDate < today;
+      const trainRestOpacity = isPastTrain ? 0.3 : 0.5;
+      const trainHoverOpacity = isPastTrain ? 0.6 : 0.85;
       const trainLine = L.polyline(_trainPoints(tr.fromLat, tr.fromLon, tr.toLat, tr.toLon, 30), {
         color: trainColor,
         weight: 2,
-        opacity: 0.5,
+        opacity: trainRestOpacity,
         dashArray: '3, 6',
+        className: isPastTrain ? 'route-line--past' : '',
       }).addTo(_map);
-      trainLine.on('mouseover', () => trainLine.setStyle({ opacity: 0.85, weight: 3 }));
-      trainLine.on('mouseout',  () => trainLine.setStyle({ opacity: 0.5,  weight: 2 }));
+      trainLine.on('mouseover', () => trainLine.setStyle({ opacity: trainHoverOpacity, weight: 3 }));
+      trainLine.on('mouseout',  () => trainLine.setStyle({ opacity: trainRestOpacity,  weight: 2 }));
 
       allCoords.push([tr.fromLat, tr.fromLon], [tr.toLat, tr.toLon]);
       for (const [city, lat, lon] of [
@@ -405,7 +417,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       .filter((t, i, arr) => arr.findIndex(x => x.id === t.id) === i)
       .map(t => `${t.fromCity} → ${t.toCity} · ${t.departureDate}`)
       .join('<br>');
-    L.marker([lat, lon], { icon: _pinIcon('train') })
+    const isPast = tlist.every(t => t.departureDate < today);
+    L.marker([lat, lon], { icon: _pinIcon('train', null, isPast) })
       .addTo(_map)
       .on('click', () => _map.flyTo([lat, lon], PIN_CLICK_ZOOM))
       .bindPopup(L.popup({ className: 'map-popup', minWidth: 170 }).setContent(`
@@ -420,7 +433,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       if (entry.lat == null || entry.lon == null) continue;
       if (!_filters.legs[_legFor(entry.date, windows)]) continue;
 
-      L.marker([entry.lat, entry.lon], { icon: _pinIcon('place') })
+      const isPast = entry.date < today;
+      L.marker([entry.lat, entry.lon], { icon: _pinIcon('place', null, isPast) })
         .addTo(_map)
         .on('click', () => _map.flyTo([entry.lat, entry.lon], PIN_CLICK_ZOOM))
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 160 }).setContent(`
