@@ -64,11 +64,8 @@
   "map.legEurope": "Europe",
   "map.legReturn": "Return",
   "map.resetView": "Reset view",
-<<<<<<< HEAD
   "map.viewAll": "See all",
-=======
   "map.jumpToday": "Today",
->>>>>>> 04cf9ad (feat: add jump-to-today control on the map)
   "modal.addTitle": "Add Activity",
   "modal.editTitle": "Edit Entry",
   "modal.typeLabel": "Type",

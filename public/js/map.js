@@ -466,8 +466,8 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   } else {
     _applyFitView(allCoords);
   }
-<<<<<<< HEAD
-
+  _applyPinScale();
+  _applyLineVisibility();
   renderMobileRoutePreview(accommodations);
 }
 
@@ -513,13 +513,6 @@ function renderMobileRoutePreview(accommodations) {
   const fitCoords = euCoords.length ? euCoords : coords;
   if (fitCoords.length >= 2) _previewMap.fitBounds(L.latLngBounds(fitCoords).pad(0.2));
   else if (fitCoords.length === 1) _previewMap.setView(fitCoords[0], 9);
-=======
-  _applyPinScale();
-<<<<<<< HEAD
->>>>>>> b45a7cd (feat: scale map pins with zoom level)
-=======
-  _applyLineVisibility();
->>>>>>> 00d9bd1 (feat: hide route lines when zoomed into a city)
 }
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
