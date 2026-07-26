@@ -1,10 +1,16 @@
 const express = require('express');
-const basicAuth = require('express-basic-auth');
 const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
 const net = require('net');
 const { execSync } = require('child_process');
+const {
+  COOKIE_NAME,
+  SESSION_MAX_AGE_MS,
+  createSessionToken,
+  requireAuth,
+  robotsTagMiddleware,
+} = require('./auth');
 
 const COMMIT = process.env.COMMIT || (() => {
   try { return fs.readFileSync(path.join(__dirname, '.build-id'), 'utf8').trim(); } catch {}
@@ -15,19 +21,14 @@ const COMMIT = process.env.COMMIT || (() => {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(robotsTagMiddleware);
+
 // Operator-controlled config, not exposed as a user-facing setting — set
 // RECOMMENDATIONS_ENABLED=true in the environment to turn the whole
 // feature on (endpoint 404s and both "See recommendations" entry points
 // stay hidden otherwise). Defaults off.
 const RECOMMENDATIONS_ENABLED = process.env.RECOMMENDATIONS_ENABLED === 'true';
 
-if (process.env.APP_PASSWORD) {
-  app.use(basicAuth({
-    users: { 'franco': process.env.APP_PASSWORD },
-    challenge: true,
-    realm: 'Trip Planner',
-  }));
-}
 const DATA_FILE    = path.join(__dirname, 'data', 'trip.json');
 const ACCOM_FILE   = path.join(__dirname, 'data', 'accommodations.json');
 const FLIGHTY_FILE = path.join(__dirname, 'data', 'flighty.txt');
@@ -190,6 +191,41 @@ function parseFlightyText(text) {
 }
 
 app.use(express.json());
+
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').sendFile(path.join(__dirname, 'public', 'robots.txt'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.post('/api/login', (req, res) => {
+  const { password } = req.body || {};
+  if (!process.env.APP_PASSWORD || password !== process.env.APP_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid password' });
+  }
+  // Railway terminates TLS at its edge and forwards plain HTTP internally, so req.secure
+  // alone isn't enough — check X-Forwarded-Proto too. Locally (curl/browser over plain
+  // HTTP) both are false, which is required: a hardcoded `secure: true` cookie would never
+  // be resent by the browser over HTTP, breaking every local test.
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+  res.cookie(COOKIE_NAME, createSessionToken(), {
+    httpOnly: true,
+    secure: isHttps,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: SESSION_MAX_AGE_MS,
+  });
+  res.json({ ok: true });
+});
+
+app.post('/api/logout', (req, res) => {
+  res.clearCookie(COOKIE_NAME, { path: '/' });
+  res.json({ ok: true });
+});
+
+app.use(requireAuth);
 
 // Templates the current commit into the service worker's own bytes so a
 // deploy actually changes the file the browser compares against — serving
