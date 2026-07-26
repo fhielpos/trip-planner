@@ -39,7 +39,7 @@ function parseCookies(header) {
     if (idx === -1) return;
     const key = pair.slice(0, idx).trim();
     const val = pair.slice(idx + 1).trim();
-    out[key] = decodeURIComponent(val);
+    try { out[key] = decodeURIComponent(val); } catch { out[key] = val; }
   });
   return out;
 }
