@@ -15,6 +15,11 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   localStorage.setItem('theme', isLight ? 'dark' : 'light');
 });
 
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
 let tripData = null;
 let countdownInterval = null;
 
