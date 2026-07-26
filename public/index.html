@@ -187,6 +187,9 @@
         <div class="form-row">
           <label for="budget-amount" data-i18n="budget.entry.amount">Amount</label>
           <input type="number" id="budget-amount" min="0" step="0.01" placeholder="0.00" required />
+          <input type="file" id="budget-receipt-input" accept="image/*" capture="environment" hidden />
+          <button type="button" class="btn-secondary" id="budget-scan-receipt-btn" data-i18n="budget.entry.scanReceipt">📷 Scan receipt</button>
+          <p class="form-hint" id="budget-scan-status" hidden></p>
         </div>
         <div class="form-row">
           <label data-i18n="budget.entry.category">Category</label>
@@ -498,6 +501,8 @@
   <script src="/js/recommendations.js"></script>
   <script src="/js/today.js"></script>
   <script src="/js/map.js"></script>
+  <script src="/vendor/tesseract/tesseract.min.js"></script>
+  <script src="/js/receipt-ocr.js"></script>
   <script src="/js/budget.js"></script>
   <script src="/js/wishlist.js"></script>
   <script>
