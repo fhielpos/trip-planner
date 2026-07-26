@@ -128,11 +128,20 @@ function _pinIcon(type, colorOverride) {
   const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️' : '📍';
   return L.divIcon({
     className: '',
-    html: `<div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div>`,
+    html: `<div class="map-pin-zoom"><div class="map-pin map-pin--${type}" style="background:${bg}">${glyph}</div></div>`,
     iconSize:    [30, 30],
     iconAnchor:  [15, 33],
     popupAnchor: [0, -34],
   });
+}
+
+function _applyPinScale() {
+  if (!_map) return;
+  const pane = _map.getPane('markerPane');
+  if (!pane) return;
+  const zoom = _map.getZoom();
+  pane.classList.toggle('map-pins--compact', zoom < 6);
+  pane.classList.toggle('map-pins--large', zoom > 10);
 }
 
 // ── Leg derivation ──────────────────────────────
@@ -265,6 +274,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
     maxZoom: 19,
   }).addTo(_map);
   new _ResetViewControl().addTo(_map);
+  _map.on('zoomend', _applyPinScale);
 
   const accentColor = _cssVar('--accent', '#d49258');
   const trainColor  = _cssVar('--c-train', '#5fa88e');
@@ -395,6 +405,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   } else {
     _applyFitView(allCoords);
   }
+<<<<<<< HEAD
 
   renderMobileRoutePreview(accommodations);
 }
@@ -441,6 +452,9 @@ function renderMobileRoutePreview(accommodations) {
   const fitCoords = euCoords.length ? euCoords : coords;
   if (fitCoords.length >= 2) _previewMap.fitBounds(L.latLngBounds(fitCoords).pad(0.2));
   else if (fitCoords.length === 1) _previewMap.setView(fitCoords[0], 9);
+=======
+  _applyPinScale();
+>>>>>>> b45a7cd (feat: scale map pins with zoom level)
 }
 
 document.getElementById('theme-toggle').addEventListener('click', () => {
