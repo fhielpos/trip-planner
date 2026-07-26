@@ -1044,6 +1044,31 @@ body {
 .map-popup-city    { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; padding: 0.55rem 0.75rem 0.05rem; color: var(--text-1); }
 .map-popup-sub     { font-family: var(--font-display); font-size: 0.70rem; color: var(--text-2); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
 
+/* Map redesign — tile tint + control restyle */
+.leaflet-tile-pane {
+  filter: sepia(0.28) saturate(0.85) hue-rotate(-8deg) brightness(1.02);
+}
+
+.leaflet-control-zoom,
+.leaflet-bar {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
+}
+.leaflet-control-zoom a,
+.map-reset-control {
+  background: var(--bg-card) !important;
+  color: var(--text-1) !important;
+  border-color: var(--border) !important;
+  font-family: var(--font-display) !important;
+}
+.leaflet-control-zoom a:hover,
+.map-reset-control:hover {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+}
+
 @media (max-width: 640px) {
   #trip-map { height: 300px; }
   .map-section-inner { padding: 0.75rem 0.5rem 1rem; }
