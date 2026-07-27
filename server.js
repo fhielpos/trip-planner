@@ -1225,6 +1225,7 @@ app.get('/api/admin/status', (req, res) => {
     currency: {
       lastUpdated: rates.fetchedAt,
       currencyCount: Object.keys(rates.rates || {}).length,
+      currencyCodes: Object.keys(rates.rates || {}).sort(),
       overrideCount: Object.keys(rates.overrideRules || {}).length,
       overrideRules: rates.overrideRules || {},
     },

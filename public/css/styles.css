@@ -780,8 +780,7 @@ body {
 .form-row input[type="time"],
 .form-row input[type="number"],
 .form-row input[type="url"],
-.form-row textarea,
-.admin-override-add input {
+.form-row textarea {
   background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--radius-sm); color: var(--text-1);
   font-family: var(--font); font-size: 0.875rem;
@@ -789,14 +788,10 @@ body {
   outline: none; transition: border-color var(--trans);
   box-sizing: border-box;
 }
-.form-row input[type="number"],
-.admin-override-add input[type="number"] { -moz-appearance: textfield; }
+.form-row input[type="number"] { -moz-appearance: textfield; }
 .form-row input[type="number"]::-webkit-outer-spin-button,
-.form-row input[type="number"]::-webkit-inner-spin-button,
-.admin-override-add input[type="number"]::-webkit-outer-spin-button,
-.admin-override-add input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.form-row input:focus, .form-row textarea:focus,
-.admin-override-add input:focus { border-color: var(--accent); }
+.form-row input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.form-row input:focus, .form-row textarea:focus { border-color: var(--accent); }
 .form-row textarea { resize: vertical; line-height: 1.5; }
 
 .type-selector { display: flex; flex-wrap: wrap; gap: 0.4rem; }
@@ -1887,68 +1882,101 @@ body {
 .admin-section {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem 1.25rem;
 }
+/* Same treatment as .modal-header h3 — tracked uppercase display face,
+   the established title style for a card/dialog in this app. */
 .admin-section h2 {
   font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-2);
-  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-1);
+  margin: 0 0 0.9rem;
 }
+/* Same treatment as .form-row label / .accom-manifest-label. */
 .admin-subhead {
   font-family: var(--font-display);
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
   color: var(--text-3);
-  margin: 0.75rem 0 0.25rem;
+  margin: 1rem 0 0.5rem;
 }
-.admin-subhead:first-of-type { margin-top: 0; }
+.admin-subhead:first-of-type { margin-top: 0.25rem; }
 .admin-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   padding: 0.3rem 0;
-  font-size: 0.9rem;
 }
-.admin-label { color: var(--text-2); }
-.admin-value { color: var(--text-1); font-family: var(--font-mono, monospace); }
-.admin-refresh-btn { margin-top: 0.5rem; }
+.admin-label {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+/* Same treatment as .budget-entry-amount — the app's established
+   pattern for a prominent numeric/data value. */
+.admin-value {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.admin-refresh-btn { margin-top: 0.6rem; }
 .admin-note {
   margin: 0.6rem 0 0;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
   color: var(--text-3);
 }
 .admin-override-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.3rem 0;
+  padding: 0.35rem 0;
 }
 .admin-override-toggle {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   font-family: var(--font-display);
-  font-weight: 600;
-  width: 4.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  width: 4rem;
   flex-shrink: 0;
+  color: var(--text-1);
+}
+.admin-override-toggle input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 1rem;
+  height: 1rem;
 }
 .admin-override-rate {
   flex: 1;
-  font-family: var(--font-mono, monospace);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
   color: var(--text-2);
 }
 .admin-override-add {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
 }
-.admin-override-add input[type="text"] { width: 6rem; }
-.admin-override-add input[type="number"] { flex: 1; min-width: 0; }
+.admin-override-add .form-row { margin: 0; }
+.admin-override-add .form-row:first-child { flex: 0 0 6.5rem; }
+.admin-override-add .form-row:last-of-type { flex: 1; }
+.admin-override-add .btn-secondary { flex-shrink: 0; }
 
 /* =============================================
    Stays Timeline (attached under the map on desktop)

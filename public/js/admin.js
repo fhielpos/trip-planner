@@ -34,6 +34,7 @@ async function _loadStatus() {
   document.getElementById('admin-currency-updated').textContent = _formatTimestamp(status.currency.lastUpdated);
   document.getElementById('admin-currency-count').textContent = status.currency.currencyCount;
   document.getElementById('admin-currency-overrides').textContent = status.currency.overrideCount;
+  _populateCurrencyDropdown(status.currency.currencyCodes);
   _renderOverrides(status.currency.overrideRules);
 
   document.getElementById('admin-flights-count').textContent = status.flights.count;
@@ -50,6 +51,13 @@ async function _loadStatus() {
   document.getElementById('admin-geocode-activity-ok').textContent = status.geocoding.activities.ok;
   document.getElementById('admin-geocode-activity-failed').textContent = status.geocoding.activities.failed;
   document.getElementById('admin-geocode-activity-none').textContent = status.geocoding.activities.notAttempted;
+}
+
+function _populateCurrencyDropdown(codes) {
+  const select = document.getElementById('admin-override-currency');
+  const current = select.value;
+  select.innerHTML = `<option value="" disabled${current ? '' : ' selected'}>Choose</option>` +
+    (codes || []).map(c => `<option value="${c}"${c === current ? ' selected' : ''}>${c}</option>`).join('');
 }
 
 function _renderOverrides(rules) {
@@ -94,16 +102,16 @@ document.getElementById('admin-override-list').addEventListener('click', async e
 });
 
 document.getElementById('admin-override-add-btn').addEventListener('click', async () => {
-  const currencyInput = document.getElementById('admin-override-currency');
+  const currencySelect = document.getElementById('admin-override-currency');
   const rateInput = document.getElementById('admin-override-rate');
-  const currency = currencyInput.value.trim().toUpperCase();
+  const currency = currencySelect.value;
   const rate = parseFloat(rateInput.value);
-  if (currency.length !== 3 || !Number.isFinite(rate) || rate <= 0) return;
+  if (!currency || !Number.isFinite(rate) || rate <= 0) return;
   await fetch(`/api/rates/override-rules/${currency}`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rate, enabled: true }),
   });
-  currencyInput.value = '';
+  currencySelect.value = '';
   rateInput.value = '';
   await _loadStatus();
 });
