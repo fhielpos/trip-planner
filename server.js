@@ -1168,13 +1168,16 @@ app.post('/api/rates/refresh', async (req, res) => {
 
 // ── Admin status ────────────────────────────────
 // Read-only rollup for the hidden /admin page — every external data
-// source the app depends on, in one place.
-function geocodingSummary(accommodations) {
+// source the app depends on, in one place. Accommodations (accommodations.json)
+// and calendar activities (trip.json's data.calendar, rendered as "place"
+// pins by map.js) are geocoded independently, each with their own
+// geocode_status, so they're tracked as separate collections here.
+function geocodingSummary(items) {
   return {
-    total: accommodations.length,
-    ok: accommodations.filter(a => a.geocode_status === 'ok').length,
-    failed: accommodations.filter(a => a.geocode_status === 'failed').length,
-    notAttempted: accommodations.filter(a => !a.geocode_status).length,
+    total: items.length,
+    ok: items.filter(i => i.geocode_status === 'ok').length,
+    failed: items.filter(i => i.geocode_status === 'failed').length,
+    notAttempted: items.filter(i => !i.geocode_status).length,
   };
 }
 
@@ -1184,6 +1187,7 @@ app.get('/api/admin/status', (req, res) => {
   const flights = readFlights();
   const airports = airportsStore.read();
   const accommodations = readAccommodations();
+  const activities = readData().calendar || [];
 
   res.json({
     weather: {
@@ -1202,17 +1206,22 @@ app.get('/api/admin/status', (req, res) => {
     airports: {
       cachedCount: Object.keys(airports).length,
     },
-    geocoding: geocodingSummary(accommodations),
+    geocoding: {
+      accommodations: geocodingSummary(accommodations),
+      activities: geocodingSummary(activities),
+    },
   });
 });
 
-// Retries geocoding only for stays that don't already have a successful
+// Retries geocoding only for entries that don't already have a successful
 // geocode — an address that's already 'ok' is left alone (matches the
 // weather/currency refresh pattern of only refetching what's stale).
+// Accommodations and calendar activities are separate collections with
+// separate address fields, so both get retried here.
 app.post('/api/geocode/refresh', async (req, res) => {
-  const list = readAccommodations();
-  const candidates = list.filter(a => a.geocode_status !== 'ok' && (a.address || '').trim());
-  await Promise.all(candidates.map(async stay => {
+  const accommodations = readAccommodations();
+  const accomCandidates = accommodations.filter(a => a.geocode_status !== 'ok' && (a.address || '').trim());
+  await Promise.all(accomCandidates.map(async stay => {
     const geocoded = await geocodeAddress(stay.address.trim());
     if (geocoded) {
       stay.exact_lat = geocoded.lat;
@@ -1224,8 +1233,29 @@ app.post('/api/geocode/refresh', async (req, res) => {
       stay.geocode_status = 'failed';
     }
   }));
-  writeAccommodations(list);
-  res.json(geocodingSummary(list));
+  writeAccommodations(accommodations);
+
+  const data = readData();
+  const activities = data.calendar || [];
+  const activityCandidates = activities.filter(e => e.geocode_status !== 'ok' && (e.address || '').trim());
+  await Promise.all(activityCandidates.map(async entry => {
+    const geocoded = await geocodeAddress(entry.address.trim());
+    if (geocoded) {
+      entry.lat = geocoded.lat;
+      entry.lon = geocoded.lon;
+      entry.geocode_status = 'ok';
+    } else {
+      entry.lat = null;
+      entry.lon = null;
+      entry.geocode_status = 'failed';
+    }
+  }));
+  writeData(data);
+
+  res.json({
+    accommodations: geocodingSummary(accommodations),
+    activities: geocodingSummary(activities),
+  });
 });
 
 // ── Travel documents ───────────────────────────

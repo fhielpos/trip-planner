@@ -40,10 +40,15 @@ async function _loadStatus() {
 
   document.getElementById('admin-airports-count').textContent = status.airports.cachedCount;
 
-  document.getElementById('admin-geocode-total').textContent = status.geocoding.total;
-  document.getElementById('admin-geocode-ok').textContent = status.geocoding.ok;
-  document.getElementById('admin-geocode-failed').textContent = status.geocoding.failed;
-  document.getElementById('admin-geocode-none').textContent = status.geocoding.notAttempted;
+  document.getElementById('admin-geocode-accom-total').textContent = status.geocoding.accommodations.total;
+  document.getElementById('admin-geocode-accom-ok').textContent = status.geocoding.accommodations.ok;
+  document.getElementById('admin-geocode-accom-failed').textContent = status.geocoding.accommodations.failed;
+  document.getElementById('admin-geocode-accom-none').textContent = status.geocoding.accommodations.notAttempted;
+
+  document.getElementById('admin-geocode-activity-total').textContent = status.geocoding.activities.total;
+  document.getElementById('admin-geocode-activity-ok').textContent = status.geocoding.activities.ok;
+  document.getElementById('admin-geocode-activity-failed').textContent = status.geocoding.activities.failed;
+  document.getElementById('admin-geocode-activity-none').textContent = status.geocoding.activities.notAttempted;
 }
 
 async function _refresh(btn, url) {
