@@ -1007,12 +1007,18 @@ app.post('/api/budget/entries', (req, res) => {
     return res.status(400).json({ error: 'rate must be a positive number or null' });
   }
   const b = readBudget();
+  const currency = req.body.currency || b.initialBudgetCurrency;
+  const manualRate = req.body.rate != null ? Number(req.body.rate) : null;
   const entry = {
     id:          'b' + Date.now(),
     date:        req.body.date,
     amount:      Number(req.body.amount),
-    currency:    req.body.currency || b.initialBudgetCurrency,
-    rate:        req.body.rate != null ? Number(req.body.rate) : null,
+    currency,
+    // A manually-set rate always wins; otherwise, pin whatever override
+    // is active right now for this currency (see activeOverrideRate) — this
+    // is what makes an admin-panel override apply only to entries created
+    // while it's enabled, never retroactively to existing entries.
+    rate:        manualRate ?? activeOverrideRate(currency),
     category:    req.body.category || 'other',
     description: req.body.description || '',
     city:        req.body.city || '',
@@ -1096,15 +1102,25 @@ app.delete('/api/wishlist/:id', (req, res) => {
 const RATES_API_URL = 'https://open.er-api.com/v6/latest/USD';
 const RATES_TTL_MS = 24 * 60 * 60 * 1000;
 
-const ratesStore = jsonStore(RATES_FILE, () => ({ base: 'USD', fetchedAt: null, rates: {}, overrides: {} }));
+const ratesStore = jsonStore(RATES_FILE, () => ({ base: 'USD', fetchedAt: null, rates: {}, overrideRules: {} }));
 
 function readRates() {
   const r = ratesStore.read();
   if (!r.rates) r.rates = {};
-  if (!r.overrides) r.overrides = {};
+  if (!r.overrideRules) r.overrideRules = {};
   return r;
 }
 function writeRates(data) { ratesStore.write(data); }
+
+// An override rule only affects entries created (not edited) while it's
+// enabled — see POST /api/budget/entries. It intentionally does NOT feed
+// into effectiveRatesPayload/_effectiveRate, so it never retroactively
+// changes conversion for entries that already exist, and toggling it off
+// doesn't touch anything already pinned.
+function activeOverrideRate(currency) {
+  const rule = readRates().overrideRules[currency];
+  return (rule && rule.enabled) ? rule.rate : null;
+}
 
 // Fetches fresh USD-base rates, or null on any failure. Callers must never
 // overwrite an existing cache with a null result — a bad fetch (or, in this
@@ -1137,11 +1153,8 @@ async function refreshRatesIfStale(force) {
 
 function effectiveRatesPayload(r) {
   const out = { base: 'USD', fetchedAt: r.fetchedAt, rates: {} };
-  const codes = new Set([...Object.keys(r.rates), ...Object.keys(r.overrides)]);
-  for (const code of codes) {
-    const fetched = r.rates[code] ?? null;
-    const override = r.overrides[code] ?? null;
-    out.rates[code] = { fetched, override, effective: override ?? fetched };
+  for (const code of Object.keys(r.rates)) {
+    out.rates[code] = { fetched: r.rates[code], effective: r.rates[code] };
   }
   return out;
 }
@@ -1151,14 +1164,29 @@ app.get('/api/rates', async (req, res) => {
   res.json(effectiveRatesPayload(r));
 });
 
-app.put('/api/rates/overrides', (req, res) => {
-  const { currency, value } = req.body;
-  if (!currency) return res.status(400).json({ error: 'currency is required' });
+app.put('/api/rates/override-rules/:currency', (req, res) => {
+  const currency = req.params.currency.toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return res.status(400).json({ error: 'currency must be a 3-letter code' });
+  }
   const r = readRates();
-  if (value === null || value === undefined || value === '') delete r.overrides[currency];
-  else r.overrides[currency] = Number(value);
+  const existing = r.overrideRules[currency];
+  const rate = req.body.rate !== undefined ? Number(req.body.rate) : existing?.rate;
+  if (!(typeof rate === 'number' && Number.isFinite(rate) && rate > 0)) {
+    return res.status(400).json({ error: 'rate must be a positive number' });
+  }
+  const enabled = req.body.enabled !== undefined ? Boolean(req.body.enabled) : (existing?.enabled ?? true);
+  r.overrideRules[currency] = { rate, enabled };
   writeRates(r);
-  res.json(effectiveRatesPayload(r));
+  res.json(r.overrideRules);
+});
+
+app.delete('/api/rates/override-rules/:currency', (req, res) => {
+  const currency = req.params.currency.toUpperCase();
+  const r = readRates();
+  delete r.overrideRules[currency];
+  writeRates(r);
+  res.json(r.overrideRules);
 });
 
 app.post('/api/rates/refresh', async (req, res) => {
@@ -1197,7 +1225,8 @@ app.get('/api/admin/status', (req, res) => {
     currency: {
       lastUpdated: rates.fetchedAt,
       currencyCount: Object.keys(rates.rates || {}).length,
-      overrideCount: Object.keys(rates.overrides || {}).length,
+      overrideCount: Object.keys(rates.overrideRules || {}).length,
+      overrideRules: rates.overrideRules || {},
     },
     flights: {
       count: flights.length,

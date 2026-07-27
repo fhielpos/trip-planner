@@ -34,6 +34,7 @@ async function _loadStatus() {
   document.getElementById('admin-currency-updated').textContent = _formatTimestamp(status.currency.lastUpdated);
   document.getElementById('admin-currency-count').textContent = status.currency.currencyCount;
   document.getElementById('admin-currency-overrides').textContent = status.currency.overrideCount;
+  _renderOverrides(status.currency.overrideRules);
 
   document.getElementById('admin-flights-count').textContent = status.flights.count;
   document.getElementById('admin-flights-synced').textContent = _formatTimestamp(status.flights.lastSyncedAt);
@@ -50,6 +51,62 @@ async function _loadStatus() {
   document.getElementById('admin-geocode-activity-failed').textContent = status.geocoding.activities.failed;
   document.getElementById('admin-geocode-activity-none').textContent = status.geocoding.activities.notAttempted;
 }
+
+function _renderOverrides(rules) {
+  const el = document.getElementById('admin-override-list');
+  const entries = Object.entries(rules || {}).sort(([a], [b]) => a.localeCompare(b));
+  if (!entries.length) {
+    el.innerHTML = '<p class="admin-note">No overrides configured.</p>';
+    return;
+  }
+  el.innerHTML = entries.map(([currency, rule]) => `
+    <div class="admin-override-row" data-currency="${currency}">
+      <label class="admin-override-toggle">
+        <input type="checkbox" class="admin-override-enabled" ${rule.enabled ? 'checked' : ''} />
+        ${currency}
+      </label>
+      <span class="admin-override-rate">${rule.rate} → USD</span>
+      <button type="button" class="subbudget-remove admin-override-delete" aria-label="Delete override">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>`).join('');
+}
+
+document.getElementById('admin-override-list').addEventListener('change', async e => {
+  const checkbox = e.target.closest('.admin-override-enabled');
+  if (!checkbox) return;
+  const currency = checkbox.closest('.admin-override-row').dataset.currency;
+  await fetch(`/api/rates/override-rules/${currency}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: checkbox.checked }),
+  });
+  await _loadStatus();
+});
+
+document.getElementById('admin-override-list').addEventListener('click', async e => {
+  const btn = e.target.closest('.admin-override-delete');
+  if (!btn) return;
+  const currency = btn.closest('.admin-override-row').dataset.currency;
+  await fetch(`/api/rates/override-rules/${currency}`, { method: 'DELETE' });
+  await _loadStatus();
+});
+
+document.getElementById('admin-override-add-btn').addEventListener('click', async () => {
+  const currencyInput = document.getElementById('admin-override-currency');
+  const rateInput = document.getElementById('admin-override-rate');
+  const currency = currencyInput.value.trim().toUpperCase();
+  const rate = parseFloat(rateInput.value);
+  if (currency.length !== 3 || !Number.isFinite(rate) || rate <= 0) return;
+  await fetch(`/api/rates/override-rules/${currency}`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rate, enabled: true }),
+  });
+  currencyInput.value = '';
+  rateInput.value = '';
+  await _loadStatus();
+});
 
 async function _refresh(btn, url) {
   btn.disabled = true;

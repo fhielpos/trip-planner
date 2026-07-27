@@ -58,9 +58,17 @@
       <h2>Currency</h2>
       <div class="admin-row"><span class="admin-label">Last fetched</span><span class="admin-value" id="admin-currency-updated">—</span></div>
       <div class="admin-row"><span class="admin-label">Currencies tracked</span><span class="admin-value" id="admin-currency-count">—</span></div>
-      <div class="admin-row"><span class="admin-label">Active overrides</span><span class="admin-value" id="admin-currency-overrides">—</span></div>
+      <div class="admin-row"><span class="admin-label">Overrides configured</span><span class="admin-value" id="admin-currency-overrides">—</span></div>
       <button type="button" class="btn-secondary admin-refresh-btn" id="admin-currency-refresh">Refresh now</button>
-      <p class="admin-note">To edit per-currency overrides, go to Budget → Settings → Advanced.</p>
+
+      <h3 class="admin-subhead">Overrides</h3>
+      <p class="admin-note">Applies only to expenses created while enabled — rate is always currency → USD, and existing expenses are never changed.</p>
+      <div id="admin-override-list"></div>
+      <div class="admin-override-add">
+        <input type="text" id="admin-override-currency" placeholder="Currency" maxlength="3" />
+        <input type="number" step="0.0001" min="0" id="admin-override-rate" placeholder="Rate" />
+        <button type="button" class="btn-secondary" id="admin-override-add-btn">Add</button>
+      </div>
     </section>
 
     <section class="admin-section">

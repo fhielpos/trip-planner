@@ -28,12 +28,6 @@ function _setSelectedWishlistCurrency(code) {
   }
 }
 
-// Consumed by budget.js's Advanced rates section to decide which
-// currencies to show override rows for.
-function getWishlistCurrencies() {
-  return (_wishlist?.items || []).map(i => i.currency).filter(Boolean);
-}
-
 // Consumed by today.js's mobile in-trip teaser (same access pattern as
 // budget.js's getBudgetRemaining/getTodayBudget — a plain global accessor
 // rather than threading wishlist data through tripData).
