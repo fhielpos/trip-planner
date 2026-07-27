@@ -919,3 +919,19 @@ function getTodayBudget() {
     dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,
   };
 }
+
+// Pre-formatted recent entries for the Today view's budget preview — keeps
+// today.js from reaching into _catName/_catColor/formatMoney internals
+// (same reasoning as getWishlistItems in wishlist.js).
+function getRecentBudgetEntries(n) {
+  if (!_budget?.entries?.length) return [];
+  return [..._budget.entries]
+    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .slice(0, n)
+    .map(e => ({
+      id: e.id,
+      label: e.description || _catName(e.category),
+      color: _catColor(e.category),
+      amountLabel: formatMoney(e.amount, e.currency),
+    }));
+}
