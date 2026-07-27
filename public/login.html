@@ -126,9 +126,15 @@
       if (res.ok) {
         window.location.href = '/';
       } else {
-        errorEl.textContent = 'Incorrect password.';
+        const data = await res.json().catch(() => ({}));
+        errorEl.textContent = data.error || 'Incorrect password.';
         document.getElementById('password').value = '';
-        document.getElementById('password').focus();
+        if (res.status === 403) {
+          document.getElementById('password').disabled = true;
+          form.querySelector('button').disabled = true;
+        } else {
+          document.getElementById('password').focus();
+        }
       }
     });
   </script>

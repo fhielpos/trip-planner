@@ -31,6 +31,34 @@ function verifySessionToken(token) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// Login attempt limiting — no user accounts exist (a single shared APP_PASSWORD),
+// so "blocking a user" means blocking the source IP. In-memory and permanent:
+// a blocked IP stays blocked until the process restarts, by design (no auto-expiry,
+// no persistence across restarts).
+const MAX_LOGIN_ATTEMPTS = 2;
+const failedLoginAttempts = new Map(); // ip -> consecutive failed attempts
+const blockedIps = new Set();
+
+function getClientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return xff.split(',')[0].trim();
+  return req.socket.remoteAddress;
+}
+
+function isIpBlocked(ip) {
+  return blockedIps.has(ip);
+}
+
+function recordFailedLogin(ip) {
+  const attempts = (failedLoginAttempts.get(ip) || 0) + 1;
+  failedLoginAttempts.set(ip, attempts);
+  if (attempts >= MAX_LOGIN_ATTEMPTS) blockedIps.add(ip);
+}
+
+function recordSuccessfulLogin(ip) {
+  failedLoginAttempts.delete(ip);
+}
+
 function parseCookies(header) {
   const out = {};
   if (!header) return out;
@@ -67,4 +95,8 @@ module.exports = {
   requireAuth,
   robotsTagMiddleware,
   parseCookies,
+  getClientIp,
+  isIpBlocked,
+  recordFailedLogin,
+  recordSuccessfulLogin,
 };

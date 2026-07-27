@@ -10,6 +10,10 @@ const {
   createSessionToken,
   requireAuth,
   robotsTagMiddleware,
+  getClientIp,
+  isIpBlocked,
+  recordFailedLogin,
+  recordSuccessfulLogin,
 } = require('./auth');
 
 const COMMIT = process.env.COMMIT || (() => {
@@ -201,10 +205,19 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/api/login', (req, res) => {
+  const ip = getClientIp(req);
+  if (isIpBlocked(ip)) {
+    return res.status(403).json({ error: 'Too many failed attempts. Access blocked.' });
+  }
+
   const { password } = req.body || {};
   if (!process.env.APP_PASSWORD || password !== process.env.APP_PASSWORD) {
-    return res.status(401).json({ error: 'Invalid password' });
+    recordFailedLogin(ip);
+    const error = isIpBlocked(ip) ? 'Too many failed attempts. Access blocked.' : 'Invalid password';
+    return res.status(401).json({ error });
   }
+  recordSuccessfulLogin(ip);
+
   // Railway terminates TLS at its edge and forwards plain HTTP internally, so req.secure
   // alone isn't enough — check X-Forwarded-Proto too. Locally (curl/browser over plain
   // HTTP) both are false, which is required: a hardcoded `secure: true` cookie would never
