@@ -150,17 +150,20 @@ function getWeather(stayId, dayStr) {
 function renderRouteStrip(flights) {
   const strip = document.getElementById('route-strip');
   if (!strip) return;
+  const today = appToday();
   const sorted = [...flights].sort((a, b) => a.departureDate.localeCompare(b.departureDate));
   const airports = [];
   for (const f of sorted) {
-    if (!airports.length || airports[airports.length - 1] !== f.from) airports.push(f.from);
-    airports.push(f.to);
+    const past = f.departureDate < today;
+    if (!airports.length || airports[airports.length - 1].code !== f.from) {
+      airports.push({ code: f.from, past });
+    }
+    airports.push({ code: f.to, past });
   }
-  strip.innerHTML = airports
-    .map((a, i) => i < airports.length - 1
-      ? `<span class="route-apt">${a}</span><span class="route-arr">→</span>`
-      : `<span class="route-apt">${a}</span>`)
-    .join('');
+  strip.innerHTML = airports.map((a, i) => `
+    <span class="route-apt${a.past ? ' route-apt--past' : ''}">${a.code}</span>
+    ${i < airports.length - 1 ? '<span class="route-arr">→</span>' : ''}
+  `).join('');
 }
 
 // ── Info Bar ───────────────────────────────────
@@ -248,16 +251,30 @@ function renderInfoBar() {
 const CHIPS_MAX = 4;
 let chipsByDate = {}; // dayStr → chips[], rebuilt each renderPlanner()
 
+const CHIP_ICON_FLIGHT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9 22 2z"/></svg>';
+const CHIP_ICON_TRAIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="12" rx="4"/><line x1="5" y1="9" x2="19" y2="9"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/></svg>';
+
 function renderChips(container, chips, max) {
   container.innerHTML = '';
   const shown = chips.slice(0, max);
   for (const c of shown) {
     const el = document.createElement('span');
     el.className = `chip chip--${c.type}`;
-    el.textContent = c.label;
     el.title = c.label;
     if (c.id)  el.dataset.id  = c.id;
     if (c.url) el.dataset.url = c.url;
+    if (c.type === 'flight' || c.type === 'train') {
+      el.classList.add('chip--iconed');
+      const icon = document.createElement('span');
+      icon.className = 'chip-icon';
+      icon.innerHTML = c.type === 'flight' ? CHIP_ICON_FLIGHT : CHIP_ICON_TRAIN;
+      const label = document.createElement('span');
+      label.className = 'chip-label';
+      label.textContent = c.label;
+      el.append(icon, label);
+    } else {
+      el.textContent = c.label;
+    }
     container.appendChild(el);
   }
   if (chips.length > shown.length) {
@@ -291,13 +308,18 @@ function _closeDayRecsPanel(dateStr) {
 }
 
 function toggleCardExpand(card, expand) {
-  const chipsEl = card.querySelector('.day-chips');
+  let chipsEl = card.querySelector('.day-chips');
   const chips = chipsByDate[card.dataset.date] || [];
   let addBtn  = card.querySelector('.day-add-btn');
   let recsBtn = card.querySelector('.day-recs-btn');
 
   if (expand) {
     card.classList.add('expanded');
+    if (!chipsEl) {
+      chipsEl = document.createElement('div');
+      chipsEl.className = 'day-chips';
+      card.appendChild(chipsEl);
+    }
     renderChips(chipsEl, chips, Infinity);
     if (!addBtn) {
       addBtn = document.createElement('button');
@@ -342,7 +364,7 @@ function toggleCardExpand(card, expand) {
     }
   } else {
     card.classList.remove('expanded');
-    renderChips(chipsEl, chips, CHIPS_MAX);
+    if (chipsEl) renderChips(chipsEl, chips, CHIPS_MAX);
     if (addBtn) addBtn.remove();
     _closeDayRecsPanel(card.dataset.date);
     if (recsBtn) recsBtn.remove();
@@ -353,12 +375,21 @@ function toggleCardExpand(card, expand) {
 
 function renderPlanner() {
   const { trip, flights, calendar, accommodations, colorMap } = tripData;
+  if (isMobileViewport()) {
+    renderPlannerMobile(tripData);
+    registerMobileRerender(() => renderPlanner());
+    return;
+  }
   chipsByDate = {};
 
   // Span full weeks containing trip start and end
   const gridStart = mondayOf(trip.startDate);
   const gridEnd   = sundayOf(trip.endDate);
   const today     = appToday();
+
+  const dowHeaders = document.querySelectorAll('.dow-headers span');
+  const todayCol = (parseLocal(today).getDay() + 6) % 7; // Mon=0 ... Sun=6
+  dowHeaders.forEach((el, i) => el.classList.toggle('is-today-col', i === todayCol));
 
   // Build array of all days
   const days = [];
@@ -458,8 +489,8 @@ function renderPlanner() {
     }
     card.appendChild(head);
 
-    // Location label (every day of an active stay)
-    if (stay && colour) {
+    // Location label (every day of an active stay) — skipped for collapsed past days
+    if (stay && colour && !isPast) {
       const loc = document.createElement('div');
       loc.className = 'day-location';
       const cityEl = document.createElement('span');
@@ -477,11 +508,13 @@ function renderPlanner() {
       card.appendChild(loc);
     }
 
-    // Chips (initial collapsed view)
-    const chipsEl = document.createElement('div');
-    chipsEl.className = 'day-chips';
-    renderChips(chipsEl, chips, CHIPS_MAX);
-    card.appendChild(chipsEl);
+    // Chips (initial collapsed view) — skipped for collapsed past days
+    if (!isPast) {
+      const chipsEl = document.createElement('div');
+      chipsEl.className = 'day-chips';
+      renderChips(chipsEl, chips, CHIPS_MAX);
+      card.appendChild(chipsEl);
+    }
 
     // Click: chip with id → edit; chip with url → open link; card body → expand/collapse
     card.addEventListener('click', e => {
@@ -507,6 +540,92 @@ function renderPlanner() {
 
   if (typeof renderStaysTimeline === 'function') renderStaysTimeline(tripData);
   if (typeof renderToday === 'function') renderToday(tripData);
+}
+
+// ── Planner Grid (mobile Calendar tab) ─────────
+
+function renderPlannerMobile(data) {
+  const grid = document.getElementById('planner-grid');
+  const today = appToday();
+  const days = _buildTripDays(data);
+
+  let html = '';
+  let lastStayKey = null;
+  for (const d of days) {
+    const stay = d.stay;
+    const key = stay ? stay.city + stay.check_in : 'transit';
+    if (key !== lastStayKey && stay) {
+      const colour = data.colorMap[stay.check_in];
+      html += `<div class="mcal-group-header" style="color:${colour?.accent || 'var(--accent)'}">
+        ${countryFlag(stay.country)} ${stay.city} · ${fmtDate(stay.check_in, { year: false })}–${fmtDate(stay.check_out, { year: false })}
+      </div>`;
+      lastStayKey = key;
+    }
+
+    // Row content priority, ported from redesign/prototype.html:708-741 (fixed
+    // version — a flight/train must never be silently dropped just because an
+    // activity already took the title slot). `events` excludes only activities
+    // (◦/↻); `travelEvents` further excludes the check-in row (🛏) so the
+    // check-in-day subtitle prefers a same-day flight/train over the check-in
+    // itself, which would otherwise duplicate the title.
+    // A transit/stopover day can carry a checkout AND a flight/train (or two
+    // trains back-to-back) on top of that — a single travelEvents[0]/events[0]
+    // pick silently dropped every event but the first. The subtitle instead
+    // joins every remaining item with " · "; CSS ellipsis handles overflow,
+    // and the full list is always one tap away via the Day Sheet.
+    const acts = collectTodayActivities(data.calendar, d.date).map(a => a.main);
+    const events = dayEvents(d.date, data).filter(r => r.icon !== '◦' && r.icon !== '↻');
+    const travelEvents = events.filter(r => r.icon !== '🛏');
+    let title, sub;
+    if (d.isFirstOfStay) {
+      title = t('chip.checkin', { city: stay.city });
+      const subParts = travelEvents.length ? travelEvents.map(e => e.title) : (acts[0] ? [acts[0].title] : []);
+      sub = subParts.length ? subParts.join(' · ') : null;
+    } else if (acts[0]) {
+      title = acts[0].title;
+      const subParts = events.length ? events.map(e => e.title) : (acts[1] ? [acts[1].title] : []);
+      sub = subParts.length ? subParts.join(' · ') : null;
+    } else if (events[0]) {
+      title = events[0].title;
+      const subParts = events.slice(1).map(e => e.title);
+      sub = subParts.length ? subParts.join(' · ') : null;
+    } else {
+      title = stay ? stay.city : t('today.transit');
+      sub = null;
+    }
+
+    const isToday = d.date === today;
+    const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--text-3)';
+    html += `
+      <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${rowColor}">
+        <div class="mcal-date"><span class="mcal-num">${d.num}</span><span class="mcal-dow">${d.dow}</span></div>
+        <div class="mcal-content">
+          <div class="mcal-title" style="color:${rowColor}">${_escHtml(title)}</div>
+          ${sub ? `<div class="mcal-sub">${_escHtml(sub)}</div>` : ''}
+        </div>
+      </button>`;
+  }
+
+  grid.innerHTML = `
+    <div class="mcal-header">
+      <button type="button" class="mcal-back" data-goto-tab="today">‹ ${t('tabs.today')}</button>
+      <span class="mcal-title-bar">${t('tabs.calendar')}</span>
+      <button type="button" class="mcal-jump" id="mcal-jump-today">${t('calendar.jumpToday')}</button>
+    </div>
+    ${html}
+  `;
+
+  grid.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+  grid.querySelectorAll('.mcal-row').forEach(row => row.addEventListener('click', () => {
+    const date = row.dataset.date;
+    const s = getActiveStay(data.accommodations, date);
+    const rows = dayEvents(date, data);
+    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
+  }));
+  document.getElementById('mcal-jump-today')?.addEventListener('click', () => {
+    const row = grid.querySelector('.mcal-row.is-today');
+    row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 }
 
 // ── Legend ─────────────────────────────────────

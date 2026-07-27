@@ -26,6 +26,7 @@
 
   --radius:    8px;
   --radius-sm: 4px;
+  --radius-lg: 12px;
   --font: 'Barlow', system-ui, sans-serif;
   --font-display: 'Barlow Condensed', system-ui, sans-serif;
   --trans: 0.15s ease;
@@ -199,12 +200,12 @@ body {
 .route-apt {
   font-family: var(--font-display);
   font-size: 0.68rem;
-  font-weight: 600;
   letter-spacing: 0.14em;
-  color: var(--text-2);
   white-space: nowrap;
   flex-shrink: 0;
 }
+.route-apt--past { color: var(--text-3); font-weight: 500; }
+.route-apt:not(.route-apt--past) { color: var(--accent); font-weight: 700; }
 .route-arr {
   font-size: 0.52rem;
   color: var(--text-3);
@@ -362,6 +363,7 @@ body {
   color: var(--text-3);
   padding: 0.2rem 0;
 }
+.dow-headers span.is-today-col { color: var(--accent); border-bottom: 2px solid var(--accent); }
 .btn-add {
   display: inline-flex;
   align-items: center;
@@ -409,7 +411,7 @@ body {
   background: var(--day-bg, var(--bg-card));
   border: 1px solid var(--day-border, var(--border));
   border-top: 3px solid var(--day-accent, var(--border));
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   min-height: 110px;
   min-width: 0;
   padding: 0.4rem 0.4rem 0.35rem;
@@ -443,7 +445,17 @@ body {
 .day-card.is-past {
   opacity: 0.45;
   filter: grayscale(0.6);
+  min-height: 46px;
+  padding: 0.3rem 0.4rem;
 }
+.day-card.is-past .day-chips,
+.day-card.is-past .day-location { display: none; }
+.day-card.is-past.expanded {
+  min-height: 160px;
+  padding: 0.4rem 0.4rem 0.35rem;
+}
+.day-card.is-past.expanded .day-chips,
+.day-card.is-past.expanded .day-location { display: flex; }
 
 .day-card-head {
   display: flex;
@@ -532,6 +544,10 @@ body {
 .chip--stay       { background: var(--c-stay-bg); color: var(--day-accent, var(--c-stay)); border: 1px solid var(--day-accent, var(--c-stay)); opacity: 0.85; }
 .chip--more       { background: none; color: var(--text-3); font-size: 0.68rem; padding: 0 4px; }
 .chip[data-url]   { text-decoration: underline; text-underline-offset: 2px; }
+.chip--iconed     { display: flex; align-items: center; gap: 3px; }
+.chip-icon        { flex-shrink: 0; width: 10px; height: 10px; display: inline-flex; }
+.chip-icon svg    { display: block; width: 100%; height: 100%; }
+.chip-label       { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .day-add-btn {
   display: flex;
@@ -919,19 +935,32 @@ body {
   margin: 0 auto;
   padding: 1.25rem 1.5rem 1.75rem;
 }
-.map-section-title {
+/* Shared "page section" eyebrow heading — Route, Documents, Wishlist,
+   Budget Insights' two block titles. One declaration so the four pages
+   can't quietly drift out of sync with each other again. */
+.page-section-title,
+.map-section-title,
+.wishlist-title,
+.itinerary-docs-title {
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-3);
-  margin-bottom: 0.75rem;
 }
+.map-section-title { margin-bottom: 0.75rem; }
 #trip-map {
   height: 440px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border: 1px solid var(--border);
+  border-bottom: none;
+  overflow: hidden;
+}
+#stays-timeline {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   overflow: hidden;
 }
 
@@ -986,19 +1015,57 @@ body {
 
 /* Marker pin */
 .map-pin {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-family: var(--font-display), system-ui, sans-serif;
-  font-size: 0.7rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.45);
-  border: 2px solid rgba(255,255,255,0.35);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.18);
+  border: 2px solid rgba(255,255,255,0.45);
   cursor: default;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.map-pin::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 0 0 4px 0;
+  box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  z-index: -1;
+}
+.leaflet-marker-icon:hover .map-pin,
+.map-pin:hover {
+  transform: scale(1.12);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.55), 0 0 0 3px var(--accent);
+}
+.map-pins--compact .map-pin-zoom { transform: scale(0.85); }
+.map-pins--large   .map-pin-zoom { transform: scale(1.15); }
+
+/* Past items — same dimming already used for past day-cards in the planner */
+.map-pin--past {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+.route-line--past {
+  filter: grayscale(0.6);
+}
+
+/* Route lines crisscross the whole map at the overview zoom on purpose, but
+   once you've flown into a single city they just cut across the streets. */
+.map-lines--hidden.leaflet-overlay-pane path {
+  opacity: 0 !important;
+  pointer-events: none;
 }
 
 /* Popup */
@@ -1014,6 +1081,67 @@ body {
 .map-popup .leaflet-popup-tip    { background: var(--bg-card); }
 .map-popup-city    { font-family: var(--font-display); font-size: 0.95rem; font-weight: 700; padding: 0.55rem 0.75rem 0.05rem; color: var(--text-1); }
 .map-popup-sub     { font-family: var(--font-display); font-size: 0.70rem; color: var(--text-2); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
+
+/* Map redesign — tile tint + control restyle */
+.leaflet-tile-pane {
+  filter: sepia(0.28) saturate(0.85) hue-rotate(-8deg) brightness(1.02);
+}
+
+.leaflet-control-zoom,
+.leaflet-bar {
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
+}
+.leaflet-control-zoom a,
+.map-reset-control {
+  background: var(--bg-card) !important;
+  color: var(--text-1) !important;
+  border-color: var(--border) !important;
+  font-family: var(--font-display) !important;
+}
+.leaflet-control-zoom a:hover,
+.map-reset-control:hover {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+}
+
+/* Leaflet's bottomleft/bottomright corner containers share the same
+   z-index and stack by DOM order — on narrow viewports the attribution
+   box (bottomright) wraps wide enough to visually cover this control
+   unless it's explicitly raised above it. */
+.leaflet-bottom.leaflet-left {
+  z-index: 1001 !important;
+}
+.map-today-control {
+  margin: 0 0 10px 10px !important;
+}
+.map-today-control-link {
+  display: flex !important;
+  align-items: center;
+  gap: 0.35rem;
+  width: auto !important;
+  height: auto !important;
+  line-height: normal !important;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--radius) !important;
+  background: var(--bg-card) !important;
+  color: var(--text-1) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none !important;
+}
+.map-today-control-link:hover {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+.map-today-control-icon { font-size: 0.85rem; }
 
 @media (max-width: 640px) {
   #trip-map { height: 300px; }
@@ -1075,7 +1203,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid var(--card-top, var(--border));
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: 0.85rem 1rem;
   display: flex;
   flex-direction: column;
@@ -1502,14 +1630,6 @@ body {
   margin-bottom: 1rem;
   gap: 1rem;
 }
-.wishlist-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
 .wishlist-empty {
   color: var(--text-3);
   font-size: 0.85rem;
@@ -1633,7 +1753,7 @@ body {
   padding: 0.65rem 0.9rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   margin-bottom: 0.75rem;
   flex-wrap: wrap;
 }
@@ -1741,30 +1861,10 @@ body {
 }
 
 /* =============================================
-   Stays Timeline
+   Stays Timeline (attached under the map on desktop)
    ============================================= */
-.stays-section {
-  border-top: 1px solid var(--border);
-  margin-top: 0.5rem;
-}
-.stays-section-inner {
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 1.25rem 1.5rem 1.75rem;
-}
-.stays-section-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: 0.75rem;
-}
 
 #stays-timeline {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
   background: var(--bg-card);
   padding: 0.75rem 0.9rem 0.9rem;
   overflow: hidden;
@@ -1848,6 +1948,19 @@ body {
 .tl-bar--no-dates .tl-bar-dates { display: none; }
 .tl-bar--no-label .tl-bar-city  { display: none; }
 
+/* Already checked out — grey out and drop the label so the eye lands on
+   what's current/upcoming instead. Position/width stay untouched: they're
+   set from the date-proportional axis, and shrinking a past bar would
+   throw off that scale for every other bar sharing it. Still clickable —
+   just visually quiet by default, same as a collapsed past day-card. */
+.tl-bar.is-past {
+  background: var(--bg-hover);
+  border-color: var(--border);
+  opacity: 0.6;
+}
+.tl-bar.is-past .tl-bar-city,
+.tl-bar.is-past .tl-bar-dates { display: none; }
+
 #stays-issues {
   margin-top: 0.6rem;
   display: flex;
@@ -1864,7 +1977,6 @@ body {
 .tl-msg--gap::before     { content: '◇'; }
 
 @media (max-width: 640px) {
-  .stays-section-inner { padding: 0.75rem 0.5rem 1rem; }
   .tl-bar-dates { display: none; }
 }
 
@@ -2094,6 +2206,45 @@ body {
   text-align: center;
 }
 
+@media (min-width: 641px) {
+  body:not(.today-active) #today-section { display: none; }
+}
+
+@media (min-width: 641px) {
+  .info-bar {
+    max-width: 1300px;
+    margin: 0.85rem auto 0;
+    padding: 0 1.5rem;
+    gap: 0.75rem;
+    border-bottom: none;
+    background: none;
+  }
+  .info-countdown,
+  .info-details {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--radius-lg);
+  }
+  .info-countdown { padding: 0.75rem 1.5rem; }
+  .info-divider { display: none; }
+  .info-details { flex-direction: row; flex: 1; }
+  .info-item { flex: 1; padding: 0.6rem 1.25rem; }
+  .info-item + .info-item { border-top: none; border-left: 1px solid var(--border-soft); }
+}
+
+/* Mobile Mapa tab elements — desktop has no tab bar at all, so these must
+   never show regardless of body[data-mobile-tab] state */
+@media (min-width: 641px) {
+  .mmap-header, #mmap-itinerary { display: none; }
+}
+
+/* Mobile Presupuesto tab header — desktop has no tab bar at all, so this
+   must never show regardless of body[data-mobile-tab] state */
+@media (min-width: 641px) {
+  .mbudget-header, .mbudget-stats { display: none; }
+}
+
 @media (max-width: 640px) {
   /* Full first screen on phones; the rest of the app scrolls in below */
   .today-section {
@@ -2163,8 +2314,8 @@ body {
   margin-bottom: 1.25rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-bottom: 2px solid var(--accent);
-  border-radius: var(--radius);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
 }
 .accom-manifest-item { display: flex; flex-direction: column; gap: 0.2rem; }
 .accom-manifest-label {
@@ -2176,15 +2327,17 @@ body {
   color: var(--text-3);
 }
 .accom-manifest-val {
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
   color: var(--text-1);
+  line-height: 1.1;
 }
 
 /* ── Manifest rows ── */
 .accom-list {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   overflow: hidden;
 }
@@ -2277,7 +2430,6 @@ body {
   justify-content: space-between;
   margin-bottom: 0.75rem;
 }
-.stays-section-header .stays-section-title,
 .stays-section-header .map-section-title { margin-bottom: 0; }
 .stays-details-link {
   text-decoration: none;
@@ -2320,7 +2472,7 @@ body {
 
 .journey-list {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   overflow: hidden;
 }
@@ -2391,7 +2543,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid var(--bp-accent, var(--accent));
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   margin-bottom: 1rem;
   overflow: hidden;
   break-inside: avoid;
@@ -2502,14 +2654,6 @@ body {
   justify-content: space-between;
   margin: 1.75rem 0 1rem;
 }
-.itinerary-docs-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
 .doc-empty { color: var(--text-3); font-size: 0.85rem; }
 
 .doc-card {
@@ -2520,7 +2664,7 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-top: 3px solid var(--accent);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem 1rem;
   margin-bottom: 0.6rem;
 }
@@ -2625,6 +2769,7 @@ body {
    ============================================= */
 .bi-main { max-width: 900px; }
 .bi-block { margin-bottom: 2rem; }
+.bi-block .page-section-title { margin-bottom: 0.75rem; }
 
 #bi-city-list {
   border: 1px solid var(--border);
@@ -2706,7 +2851,8 @@ body {
 .bi-hero-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
   padding: 1.1rem 1.25rem 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -2720,8 +2866,9 @@ body {
 }
 .bi-hero-remaining {
   display: block;
+  font-family: var(--font-display);
   font-size: 2.1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-1);
   line-height: 1.15;
   margin: 0.1rem 0 0.7rem;
@@ -2833,4 +2980,394 @@ body {
 .bi-legend-swatch--projection {
   background: repeating-linear-gradient(to right, var(--c-activity) 0 2px, transparent 2px 4.5px);
   opacity: 0.85;
+}
+
+/* =============================================
+   Mobile Tab Shell (≤640px only)
+   ============================================= */
+.mobile-tab-bar { display: none; }
+.sheet-backdrop { display: none; }
+.sheet { display: none; }
+.mobile-toast { display: none; }
+
+@media (max-width: 640px) {
+  /* Reserve room for the fixed tab bar so content isn't covered */
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
+  .mobile-tab-bar {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 15;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-tab {
+    all: unset;
+    cursor: pointer;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px;
+    color: var(--text-3);
+  }
+  .mobile-tab.active { color: var(--accent); }
+  .mobile-tab-icon { width: 18px; height: 18px; }
+  .mobile-tab-label { font-family: var(--font-display); font-size: 10px; font-weight: 600; }
+
+  /* Every custom mobile button below resets with all:unset, which also
+     strips the native focus ring — restore a visible one so keyboard
+     users can still tell which tab/row/sheet control is focused. */
+  .mobile-tab:focus-visible,
+  .mtoday-doc-row:focus-visible,
+  .mtoday-strip-card:focus-visible,
+  .mtoday-map-preview:focus-visible,
+  .mtoday-stat-card:focus-visible,
+  .mtoday-link:focus-visible,
+  .mtoday-wishlist-viewall:focus-visible,
+  .mcal-row:focus-visible,
+  .mcal-back:focus-visible,
+  .mcal-jump:focus-visible,
+  .mbudget-add:focus-visible,
+  .sheet-close:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .sheet-backdrop:not([hidden]) {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 20;
+    animation: sheetFadeIn .15s ease;
+  }
+  .sheet:not([hidden]) {
+    display: block;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 21;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    border-radius: 18px 18px 0 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: 14px 18px 24px;
+    animation: sheetSlideUp .2s ease;
+  }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--text-3); margin: 0 auto 12px; }
+  .sheet-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+  .sheet-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; }
+  .sheet-close { all: unset; cursor: pointer; color: var(--text-3); padding: 4px; }
+  .sheet-close svg { width: 20px; height: 20px; }
+  .sheet-empty { font-size: 13px; color: var(--text-3); padding: 10px 0; }
+  .sheet-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); min-height: 44px; }
+  .sheet-row:last-child { border-bottom: none; }
+  .sheet-row-icon { font-size: 14px; }
+  .sheet-row-title { flex: 1; font-size: 13px; color: var(--text-1); }
+
+  .mobile-toast:not([hidden]) {
+    display: block;
+    position: fixed;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: var(--bg);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 40;
+    white-space: nowrap;
+  }
+}
+
+@keyframes sheetSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheetFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 640px) {
+  /* Stays timeline now lives inside .map-section (desktop-only merge);
+     the mobile Mapa tab keeps its own #mmap-itinerary instead. */
+  #stays-timeline, #stays-issues { display: none; }
+}
+
+/* =============================================
+   Mobile Today Tab — in-trip layout
+   ============================================= */
+@media (max-width: 640px) {
+  /* The desktop full-bleed hero paints the photo across the ENTIRE
+     #today-section (see "Today View" above); the mobile hero is a
+     self-contained 230px `.mtoday-hero` instead, so the section-wide
+     background must be neutralized or the photo bleeds behind every
+     block below it. */
+  #today-section.has-image { background: var(--bg); }
+
+  body[data-mobile-tab] #today-section,
+  body[data-mobile-tab] .app-main,
+  body[data-mobile-tab] .map-section,
+  body[data-mobile-tab] .budget-section,
+  body[data-mobile-tab] .wishlist-section,
+  body[data-mobile-tab] .info-bar { display: none; }
+  body[data-mobile-tab="today"] #today-section { display: block; }
+  body[data-mobile-tab="calendar"] .app-main { display: block; }
+  body[data-mobile-tab="map"] .map-section { display: block; }
+  body[data-mobile-tab="budget"] .budget-section { display: block; }
+  body[data-mobile-tab="wishlist"] .wishlist-section { display: block; }
+
+  .mtoday-hero {
+    position: relative;
+    height: 230px;
+    background-size: cover;
+    background-position: center;
+    background-image: var(--today-image, none);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px 18px;
+  }
+  .mtoday-hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(24,22,20,0) 30%, rgba(24,22,20,.92) 100%);
+    pointer-events: none;
+  }
+  .mtoday-hero-top { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: flex-start; }
+  /* Text sits directly on a photo (dark gradient scrim below only covers
+     the bottom half) — always use a fixed light palette + shadow here,
+     never the theme's --text-1, which is near-black in light mode and
+     unreadable against a bright image. Mirrors the desktop equivalent's
+     --today-fg-1/text-shadow treatment for .has-image. */
+  .mtoday-pill {
+    font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    background: rgba(24,22,20,.55); color: #fbf6ef;
+    padding: 4px 8px; border-radius: 6px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .mtoday-pill--accent { color: var(--accent); }
+  .mtoday-hero-bottom { position: relative; z-index: 1; }
+  .mtoday-city {
+    font-family: var(--font-display); font-size: 28px; font-weight: 700; line-height: 1.05;
+    color: #fbf6ef; text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 1px 10px rgba(0,0,0,.4);
+  }
+  .mtoday-hero-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .mtoday-weather {
+    font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--accent);
+    text-shadow: 0 1px 2px rgba(0,0,0,.85), 0 1px 10px rgba(0,0,0,.4);
+  }
+  .mtoday-lastnight {
+    font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    border: 1.5px dashed var(--accent); color: var(--accent); padding: 2px 8px; border-radius: 999px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  }
+
+  .mtoday-block { padding: 14px 18px; display: flex; flex-direction: column; gap: 6px; }
+  .mtoday-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .mtoday-block-title {
+    font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3);
+  }
+  .mtoday-block-count { color: var(--c-stay); font-weight: 600; text-transform: none; letter-spacing: 0; }
+  .mtoday-link { all: unset; cursor: pointer; font-size: 11px; color: var(--accent); }
+
+  .mtoday-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; border-radius: 10px; min-height: 44px; }
+  .mtoday-row--activity { background: var(--c-activity-bg); color: var(--c-activity); }
+  .mtoday-row--backup { color: var(--text-2); }
+  .mtoday-row-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; }
+
+  .mtoday-doc-row {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 12px; border-radius: 12px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    min-height: 44px; width: 100%;
+  }
+  .mtoday-doc-badge {
+    width: 34px; height: 34px; border-radius: 9px; background: var(--accent-dim);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
+  }
+  .mtoday-doc-body { flex: 1; min-width: 0; }
+  .mtoday-doc-title { font-family: var(--font-display); font-size: 14px; font-weight: 600; color: var(--text-1); }
+  .mtoday-doc-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .mtoday-doc-chevron { color: var(--text-3); font-size: 14px; }
+
+  .mtoday-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; justify-content: center; }
+  .mtoday-strip-card {
+    all: unset; cursor: pointer; flex-shrink: 0; width: 64px; min-height: 78px;
+    border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px;
+    text-align: center;
+  }
+  .mtoday-strip-card.is-today { background: var(--accent-dim); border: 2px solid var(--accent); }
+  .mtoday-strip-dow { font-family: var(--font-display); font-size: 10px; color: var(--text-3); }
+  .mtoday-strip-card.is-today .mtoday-strip-dow { color: var(--accent); font-weight: 700; }
+  .mtoday-strip-sub { font-size: 9px; color: var(--text-2); line-height: 1.2; }
+  .mtoday-strip-card.is-today .mtoday-strip-sub { color: var(--c-activity); font-weight: 600; }
+
+  .mtoday-map-preview {
+    all: unset; cursor: pointer; display: block; position: relative; width: 100%; height: 150px;
+    border-radius: 14px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border);
+  }
+  .mtoday-map-preview-mount {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  }
+  .mtoday-map-label {
+    position: absolute; bottom: 10px; left: 10px; z-index: 1;
+    font-family: var(--font-display); font-size: 10px; color: var(--accent); font-weight: 600;
+    background: rgba(24,22,20,.55); padding: 2px 7px; border-radius: 999px;
+  }
+
+  .mtoday-stat-card {
+    all: unset; cursor: pointer; display: block; width: 100%; box-sizing: border-box;
+    background: var(--bg-card); border: 1px solid var(--border); border-top: 3px solid var(--accent);
+    border-radius: 12px; padding: 12px 14px; text-align: left;
+  }
+  .mtoday-stat-card > div:first-child, .mtoday-stat-right { display: inline-block; }
+  .mtoday-stat-card { display: flex; justify-content: space-between; }
+  .mtoday-stat-right { text-align: right; }
+  .mtoday-stat-label { font-family: var(--font-display); font-size: 10px; color: var(--text-3); text-transform: uppercase; }
+  .mtoday-stat-val { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+  .mtoday-stat-val--positive { color: var(--c-stay); }
+
+  .mtoday-wishlist-viewall {
+    all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; width: 100%;
+  }
+  .mtoday-wish-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.03); }
+  .mtoday-wish-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-stay); flex-shrink: 0; }
+  .mtoday-wish-name { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mtoday-wish-price { font-family: var(--font-display); font-size: 13px; font-weight: 600; }
+}
+
+/* Mobile Today tab — pre-trip state */
+@media (max-width: 640px) {
+  .mpretrip-countdown { display: flex; align-items: baseline; gap: 6px; margin: 4px 0 10px; }
+  .mpretrip-num { font-family: var(--font-display); font-size: 40px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1; }
+  .mpretrip-unit { font-size: 11px; color: var(--text-3); text-transform: uppercase; }
+  .mpretrip-info-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px; font-family: var(--font-display); font-size: 13px; font-weight: 600; }
+  .mpretrip-info-row > span:first-child { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+
+  .mpretrip-stats { display: flex; gap: 8px; }
+  .mpretrip-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+  .mpretrip-stat-num { font-family: var(--font-display); font-size: 20px; font-weight: 700; }
+  .mpretrip-stat-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; }
+
+  .mpretrip-staybar-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .mpretrip-staybar { display: flex; height: 20px; border-radius: 6px; overflow: hidden; gap: 1px; }
+  .mpretrip-staybar-ticks { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--font-display); font-size: 10px; color: var(--text-3); }
+}
+
+/* Mobile Calendar tab — full agenda list */
+@media (max-width: 640px) {
+  .mcal-header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mcal-back { all: unset; cursor: pointer; color: var(--text-2); font-size: 14px; }
+  .mcal-title-bar { font-family: var(--font-display); font-size: 15px; font-weight: 700; }
+  .mcal-jump { all: unset; cursor: pointer; font-size: 11px; color: var(--accent); }
+
+  .mcal-group-header {
+    position: sticky; top: 41px; z-index: 4;
+    background: var(--bg-card);
+    padding: 6px 18px;
+    font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  [data-theme="light"] .mcal-group-header { background: var(--bg-hover); }
+
+  .mcal-row {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: flex; gap: 10px; width: 100%;
+    padding: 11px 18px;
+    border-left: 3px solid var(--text-3);
+    min-height: 44px; align-items: center;
+  }
+  .mcal-row.is-today { background: var(--accent-dim); }
+  .mcal-date { width: 34px; text-align: center; flex-shrink: 0; }
+  .mcal-num { display: block; font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-1); }
+  .mcal-row.is-today .mcal-num { color: var(--accent); }
+  .mcal-dow { display: block; font-size: 9px; color: var(--text-3); text-transform: uppercase; }
+  .mcal-content { flex: 1; min-width: 0; text-align: left; }
+  .mcal-title { font-size: 12px; font-weight: 600; }
+  .mcal-sub { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* Mobile Mapa tab — enlarged map, touch-friendly zoom, inline itinerary */
+@media (max-width: 640px) {
+  .mmap-header { padding: 14px 18px 4px; }
+  body[data-mobile-tab="map"] #trip-map { height: 320px; }
+  body[data-mobile-tab="map"] .leaflet-control-zoom a {
+    width: 40px !important; height: 40px !important; line-height: 40px !important; font-size: 20px !important;
+  }
+  .mmap-leg-card { border-radius: 10px; border: 1px solid var(--border); padding: 9px 11px; margin-bottom: 8px; }
+  .mmap-leg-card--flight { border-color: var(--c-flight-border); background: var(--c-flight-bg); }
+  .mmap-leg-card--train { border-color: var(--c-train-border); background: var(--c-train-bg); }
+  .mmap-leg-top { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-3); margin-bottom: 2px; }
+  .mmap-leg-route { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .mmap-leg-route-text { font-family: var(--font-display); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .mmap-leg-card--flight .mmap-leg-route-text { color: var(--c-flight); }
+  .mmap-leg-card--train .mmap-leg-route-text { color: var(--c-train); }
+  .mmap-leg-detail { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+}
+
+/* Mobile Presupuesto tab — 3-card stats + bottom-sheet expense form */
+@media (max-width: 640px) {
+  .mbudget-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px 10px; border-bottom: 1px solid var(--border-soft);
+  }
+  .mbudget-add {
+    width: 28px; height: 28px; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent-dim); color: var(--accent);
+    font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  .mbudget-stats { display: flex; gap: 8px; padding: 14px 18px 0; }
+  .mbudget-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
+  .mbudget-stat--accent { border-top: 3px solid var(--accent); }
+  .mbudget-stat-label { font-family: var(--font-display); font-size: 9px; color: var(--text-3); text-transform: uppercase; }
+  .mbudget-stat-val { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
+  .mbudget-stat-val--positive { color: var(--c-stay); }
+  .mbudget-stat-val--negative { color: var(--c-danger); }
+
+  body[data-mobile-tab="budget"] .budget-header { display: none; }
+  /* Sub-budgets is a desktop-only breakdown, not part of the mobile
+     Presupuesto tab's spec (3 stat cards → category bars → expense list)
+     — left unhidden it pushes the real content down and reads as sparse
+     above the fold before the category breakdown ever appears. */
+  body[data-mobile-tab="budget"] #budget-subbudgets { display: none; }
+
+  /* Restyle the existing centered modal as a slide-up sheet */
+  #budget-overlay.modal-overlay {
+    align-items: flex-end;
+    background: rgba(0,0,0,.55);
+  }
+  #budget-overlay .modal {
+    width: 100%; max-width: none;
+    border-radius: 18px 18px 0 0;
+    max-height: 85vh;
+    animation: sheetSlideUp .2s ease;
+  }
+}
+
+/* Mobile Wishlist tab — full-screen list + bottom-sheet add-item form */
+@media (max-width: 640px) {
+  body[data-mobile-tab="wishlist"] .wishlist-header { display: none; }
+
+  /* Restyle the existing centered modal as a slide-up sheet */
+  #wishlist-overlay.modal-overlay {
+    align-items: flex-end;
+    background: rgba(0,0,0,.55);
+  }
+  #wishlist-overlay .modal {
+    width: 100%; max-width: none;
+    border-radius: 18px 18px 0 0;
+    max-height: 85vh;
+    animation: sheetSlideUp .2s ease;
+  }
 }
