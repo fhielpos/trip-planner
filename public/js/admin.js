@@ -65,5 +65,8 @@ document.getElementById('admin-weather-refresh').addEventListener('click', e => 
 document.getElementById('admin-currency-refresh').addEventListener('click', e => {
   _refresh(e.target, '/api/rates/refresh');
 });
+document.getElementById('admin-geocode-refresh').addEventListener('click', e => {
+  _refresh(e.target, '/api/geocode/refresh');
+});
 
 _loadStatus();

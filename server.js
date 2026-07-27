@@ -1169,6 +1169,15 @@ app.post('/api/rates/refresh', async (req, res) => {
 // ── Admin status ────────────────────────────────
 // Read-only rollup for the hidden /admin page — every external data
 // source the app depends on, in one place.
+function geocodingSummary(accommodations) {
+  return {
+    total: accommodations.length,
+    ok: accommodations.filter(a => a.geocode_status === 'ok').length,
+    failed: accommodations.filter(a => a.geocode_status === 'failed').length,
+    notAttempted: accommodations.filter(a => !a.geocode_status).length,
+  };
+}
+
 app.get('/api/admin/status', (req, res) => {
   const weather = weatherStore.read();
   const rates = readRates();
@@ -1193,13 +1202,30 @@ app.get('/api/admin/status', (req, res) => {
     airports: {
       cachedCount: Object.keys(airports).length,
     },
-    geocoding: {
-      total: accommodations.length,
-      ok: accommodations.filter(a => a.geocode_status === 'ok').length,
-      failed: accommodations.filter(a => a.geocode_status === 'failed').length,
-      notAttempted: accommodations.filter(a => !a.geocode_status).length,
-    },
+    geocoding: geocodingSummary(accommodations),
   });
+});
+
+// Retries geocoding only for stays that don't already have a successful
+// geocode — an address that's already 'ok' is left alone (matches the
+// weather/currency refresh pattern of only refetching what's stale).
+app.post('/api/geocode/refresh', async (req, res) => {
+  const list = readAccommodations();
+  const candidates = list.filter(a => a.geocode_status !== 'ok' && (a.address || '').trim());
+  await Promise.all(candidates.map(async stay => {
+    const geocoded = await geocodeAddress(stay.address.trim());
+    if (geocoded) {
+      stay.exact_lat = geocoded.lat;
+      stay.exact_lon = geocoded.lon;
+      stay.geocode_status = 'ok';
+    } else {
+      stay.exact_lat = null;
+      stay.exact_lon = null;
+      stay.geocode_status = 'failed';
+    }
+  }));
+  writeAccommodations(list);
+  res.json(geocodingSummary(list));
 });
 
 // ── Travel documents ───────────────────────────
