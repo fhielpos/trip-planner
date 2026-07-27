@@ -22,6 +22,11 @@ const COMMIT = process.env.COMMIT || (() => {
   catch { return 'unknown'; }
 })();
 
+const COMMIT_MESSAGE = process.env.COMMIT_MESSAGE || (() => {
+  try { return execSync('git log -1 --pretty=%s', { stdio: ['pipe','pipe','ignore'] }).toString().trim(); }
+  catch { return ''; }
+})();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -1504,7 +1509,7 @@ app.get('/api/export', (req, res) => {
   res.send(JSON.stringify(payload, null, 2));
 });
 
-app.get('/api/version', (req, res) => res.json({ commit: COMMIT }));
+app.get('/api/version', (req, res) => res.json({ commit: COMMIT, commitMessage: COMMIT_MESSAGE }));
 
 app.get('/api/config', (req, res) => res.json({ recommendationsEnabled: RECOMMENDATIONS_ENABLED }));
 

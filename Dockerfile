@@ -21,6 +21,8 @@ RUN find server.js auth.js public -type f | sort | xargs cat | sha1sum | cut -c1
 
 ARG COMMIT
 ENV COMMIT=$COMMIT
+ARG COMMIT_MESSAGE
+ENV COMMIT_MESSAGE=$COMMIT_MESSAGE
 ENV NODE_ENV=production
 
 EXPOSE 3000
