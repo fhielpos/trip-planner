@@ -1,0 +1,69 @@
+/* =============================================
+   Admin status page — hidden operator view, reachable only via the
+   footer commit link. English-only, no i18n.
+   ============================================= */
+
+// ── Theme (duplicated from app.js:5-16 — this page doesn't load app.js) ──
+(function () {
+  const saved = localStorage.getItem('theme') ||
+    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
+  localStorage.setItem('theme', isLight ? 'dark' : 'light');
+});
+
+function _formatTimestamp(iso) {
+  if (!iso) return 'never';
+  return new Date(iso).toLocaleString();
+}
+
+async function _loadStatus() {
+  const [status, version] = await Promise.all([
+    fetch('/api/admin/status').then(r => r.json()),
+    fetch('/api/version').then(r => r.json()),
+  ]);
+
+  document.getElementById('admin-commit').textContent = version.commit;
+
+  document.getElementById('admin-weather-updated').textContent = _formatTimestamp(status.weather.lastUpdated);
+  document.getElementById('admin-weather-stays').textContent = status.weather.staysTracked;
+
+  document.getElementById('admin-currency-updated').textContent = _formatTimestamp(status.currency.lastUpdated);
+  document.getElementById('admin-currency-count').textContent = status.currency.currencyCount;
+  document.getElementById('admin-currency-overrides').textContent = status.currency.overrideCount;
+
+  document.getElementById('admin-flights-count').textContent = status.flights.count;
+  document.getElementById('admin-flights-synced').textContent = _formatTimestamp(status.flights.lastSyncedAt);
+
+  document.getElementById('admin-airports-count').textContent = status.airports.cachedCount;
+
+  document.getElementById('admin-geocode-total').textContent = status.geocoding.total;
+  document.getElementById('admin-geocode-ok').textContent = status.geocoding.ok;
+  document.getElementById('admin-geocode-failed').textContent = status.geocoding.failed;
+  document.getElementById('admin-geocode-none').textContent = status.geocoding.notAttempted;
+}
+
+async function _refresh(btn, url) {
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = 'Refreshing…';
+  try {
+    await fetch(url, { method: 'POST' });
+    await _loadStatus();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+document.getElementById('admin-weather-refresh').addEventListener('click', e => {
+  _refresh(e.target, '/api/weather/refresh');
+});
+document.getElementById('admin-currency-refresh').addEventListener('click', e => {
+  _refresh(e.target, '/api/rates/refresh');
+});
+
+_loadStatus();

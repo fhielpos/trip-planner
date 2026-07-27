@@ -240,6 +240,10 @@ app.get('/sw.js', (req, res) => {
   res.send(sw);
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/images', express.static(path.join(__dirname, 'data', 'images')));
 
@@ -447,7 +451,7 @@ app.delete('/api/accommodations/:id', (req, res) => {
 // Recomputed once per calendar day on read (see GET /api/weather below),
 // not per request — see docs/superpowers/specs/2026-07-02-weather-forecast-design.md.
 
-const weatherStore = jsonStore(WEATHER_FILE, () => ({ computedFor: null, byStay: {} }));
+const weatherStore = jsonStore(WEATHER_FILE, () => ({ computedFor: null, computedAt: null, byStay: {} }));
 
 const WEATHER_HORIZON_DAYS  = 15;
 const WEATHER_HISTORY_YEARS = 3;
@@ -596,7 +600,7 @@ async function computeWeather() {
   await Promise.all(stays.map(async stay => {
     byStay[stay.id] = await weatherForStay(stay, today, horizonEnd);
   }));
-  return { computedFor: today, byStay };
+  return { computedFor: today, computedAt: new Date().toISOString(), byStay };
 }
 
 app.get('/api/weather', async (req, res) => {
@@ -606,6 +610,12 @@ app.get('/api/weather', async (req, res) => {
     weatherStore.write(cache);
   }
   res.json(cache.byStay);
+});
+
+app.post('/api/weather/refresh', async (req, res) => {
+  const cache = await computeWeather();
+  weatherStore.write(cache);
+  res.json({ computedFor: cache.computedFor, computedAt: cache.computedAt });
 });
 
 // Flights are persisted in data/flights.json (stable ids, editable fields
@@ -644,6 +654,9 @@ function syncFlights(parsed, persisted) {
 
 const flightsStore = jsonStore(FLIGHTS_FILE, () => []);
 flightsStore.write(syncFlights(parseFlightyText(fs.readFileSync(FLIGHTY_FILE, 'utf8')), flightsStore.read()));
+// Flights only sync against flighty.txt at boot (see syncFlights doc comment
+// above) — this timestamp is what "last synced" means for that data.
+const serverBootTime = new Date().toISOString();
 
 function readFlights()      { return flightsStore.read(); }
 function writeFlights(list) { flightsStore.write(list); }
@@ -1151,6 +1164,42 @@ app.put('/api/rates/overrides', (req, res) => {
 app.post('/api/rates/refresh', async (req, res) => {
   const r = await refreshRatesIfStale(true);
   res.json(effectiveRatesPayload(r));
+});
+
+// ── Admin status ────────────────────────────────
+// Read-only rollup for the hidden /admin page — every external data
+// source the app depends on, in one place.
+app.get('/api/admin/status', (req, res) => {
+  const weather = weatherStore.read();
+  const rates = readRates();
+  const flights = readFlights();
+  const airports = airportsStore.read();
+  const accommodations = readAccommodations();
+
+  res.json({
+    weather: {
+      lastUpdated: weather.computedAt,
+      staysTracked: Object.keys(weather.byStay || {}).length,
+    },
+    currency: {
+      lastUpdated: rates.fetchedAt,
+      currencyCount: Object.keys(rates.rates || {}).length,
+      overrideCount: Object.keys(rates.overrides || {}).length,
+    },
+    flights: {
+      count: flights.length,
+      lastSyncedAt: serverBootTime,
+    },
+    airports: {
+      cachedCount: Object.keys(airports).length,
+    },
+    geocoding: {
+      total: accommodations.length,
+      ok: accommodations.filter(a => a.geocode_status === 'ok').length,
+      failed: accommodations.filter(a => a.geocode_status === 'failed').length,
+      notAttempted: accommodations.filter(a => !a.geocode_status).length,
+    },
+  });
 });
 
 // ── Travel documents ───────────────────────────
