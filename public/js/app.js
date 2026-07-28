@@ -15,6 +15,25 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
   localStorage.setItem('theme', isLight ? 'dark' : 'light');
 });
 
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  // Clear the service worker's caches (shell + cached /api/trip-style data)
+  // and unregister it before navigating — otherwise the next load of '/'
+  // is served straight from cacheFirst without ever hitting the server,
+  // so the logged-out redirect (and stale cached trip data) never happens.
+  if (window.caches) {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch { /* best-effort */ }
+  }
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.unregister();
+  } catch { /* best-effort */ }
+  window.location.href = '/login';
+});
+
 let tripData = null;
 let countdownInterval = null;
 

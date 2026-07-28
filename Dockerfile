@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-COPY server.js ./
+COPY server.js auth.js ./
 COPY public ./public
 
 # data directory will be mounted as a volume so trip.json persists
@@ -17,7 +17,7 @@ RUN mkdir -p /app/data
 # a `docker compose up --build` that has no git history / no --build-arg
 # always produces the same "unknown" COMMIT and the browser keeps serving
 # stale cached JS forever even though the image was rebuilt.
-RUN find server.js public -type f | sort | xargs cat | sha1sum | cut -c1-12 > /app/.build-id
+RUN find server.js auth.js public -type f | sort | xargs cat | sha1sum | cut -c1-12 > /app/.build-id
 
 ARG COMMIT
 ENV COMMIT=$COMMIT
