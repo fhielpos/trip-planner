@@ -710,6 +710,44 @@ document.getElementById('budget-modal-close').addEventListener('click', _closeEx
 document.getElementById('budget-cancel-btn').addEventListener('click', _closeExpenseModal);
 wireModal(document.getElementById('budget-overlay'), _closeExpenseModal);
 
+document.getElementById('budget-scan-receipt-btn').addEventListener('click', () => {
+  document.getElementById('budget-receipt-input').click();
+});
+
+document.getElementById('budget-receipt-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // allow re-selecting the same file next time
+  if (!file) return;
+
+  const scanBtn = document.getElementById('budget-scan-receipt-btn');
+  const statusEl = document.getElementById('budget-scan-status');
+  statusEl.hidden = true;
+  scanBtn.disabled = true;
+  const originalLabel = scanBtn.textContent;
+  scanBtn.textContent = t('budget.entry.scanning');
+
+  const amount = await scanReceiptForAmount(file);
+
+  scanBtn.disabled = false;
+  scanBtn.textContent = originalLabel;
+
+  if (amount === null) {
+    statusEl.textContent = t('budget.entry.scanFailed');
+    statusEl.hidden = false;
+    return;
+  }
+
+  const amountInput = document.getElementById('budget-amount');
+  amountInput.value = amount;
+  amountInput.focus();
+});
+
+if (typeof Tesseract === 'undefined') {
+  const scanBtn = document.getElementById('budget-scan-receipt-btn');
+  scanBtn.disabled = true;
+  scanBtn.title = t('budget.entry.scanUnavailable');
+}
+
 document.getElementById('budget-cat-selector').addEventListener('click', e => {
   const btn = e.target.closest('.type-btn');
   if (btn) _setSelectedCat(btn.dataset.cat);
