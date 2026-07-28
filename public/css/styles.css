@@ -1154,11 +1154,11 @@ body {
 .budget-section {
   background: var(--bg);
   border-top: 1px solid var(--border);
-  padding: 1.5rem;
 }
 .budget-section-inner {
   max-width: 1300px;
   margin: 0 auto;
+  padding: 1.25rem 1.5rem;
 }
 .budget-header {
   display: flex;
@@ -1177,20 +1177,15 @@ body {
 }
 .budget-header-actions { display: flex; align-items: center; gap: 0.5rem; }
 
-.btn-configure {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-2);
-  cursor: pointer;
-  padding: 0.28rem 0.65rem;
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  transition: color var(--trans), border-color var(--trans), background var(--trans);
-}
-.btn-configure:hover { color: var(--text-1); border-color: var(--text-2); background: var(--bg-hover); }
+/* Matches .btn-secondary's vertical padding so "Add expense" sits at the
+   same height as "View insights"/"Configure" in this row — .btn-add's
+   own vertical padding stays untouched everywhere else it's used
+   (itinerary's Add document, wishlist's Add wish). */
+.budget-header-actions .btn-add { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+/* <button> elements get the UA-default line-height ("normal") instead of
+   body's 1.5, so even with identical padding/font-size they render a few
+   px shorter than the <a>-based "View insights" link next to them. */
+.budget-header-actions button { line-height: 1.5; }
 
 /* Stats */
 .budget-stats-main {
@@ -1606,7 +1601,7 @@ body {
   .budget-stats-main { grid-template-columns: repeat(2, 1fr); }
   .budget-cat-row    { grid-template-columns: 1rem 5.5rem 1fr 4.5rem; }
   .budget-cat-pct    { display: none; }
-  .budget-section    { padding: 1rem 0.75rem; }
+  .budget-section-inner { padding: 1rem 0.75rem; }
   .budget-header         { flex-wrap: wrap; }
   .budget-header-actions { width: 100%; flex-wrap: wrap; }
 }
@@ -1617,11 +1612,11 @@ body {
 .wishlist-section {
   background: var(--bg);
   border-top: 1px solid var(--border);
-  padding: 1.5rem;
 }
 .wishlist-section-inner {
   max-width: 1300px;
   margin: 0 auto;
+  padding: 1.25rem 1.5rem;
 }
 .wishlist-header {
   display: flex;
@@ -1834,7 +1829,7 @@ body {
 .wishlist-fetch-status--error { color: var(--c-danger); }
 
 @media (max-width: 640px) {
-  .wishlist-section { padding: 1rem 0.75rem; }
+  .wishlist-section-inner { padding: 1rem 0.75rem; }
   .wishlist-item-name { font-size: 0.85rem; }
 }
 
