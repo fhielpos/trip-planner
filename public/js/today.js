@@ -16,6 +16,74 @@ function countryFlag(country) {
   return String.fromCodePoint(...[...cc].map(ch => 0x1f1e6 + ch.charCodeAt(0) - 65));
 }
 
+// Shared by both Today states (pre-trip and in-trip): a header (title,
+// optional stat line, "+" quick-add) plus the last 3 expenses. `statHtml`
+// carries whichever stat line each state already shows (remaining vs.
+// spent-today/daily-left) so this helper only owns the entries list.
+function _renderBudgetPreviewBlock(statHtml) {
+  const recent = typeof getRecentBudgetEntries === 'function' ? getRecentBudgetEntries(3) : [];
+  return `
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('budget.title')}</h3>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" class="mtoday-link" data-goto-tab="budget">${t('budgetInsights.viewInsights')} ›</button>
+          <button type="button" class="mbudget-add" id="mtoday-budget-add" aria-label="${t('budget.addEntry')}">+</button>
+        </div>
+      </div>
+      ${statHtml}
+      ${recent.length ? `
+      <div class="mtoday-wishlist-viewall" style="margin-top:8px">
+        ${recent.map(e => `
+          <div class="mtoday-wish-row" data-budget-entry-id="${e.id}">
+            <span class="mtoday-wish-dot" style="background:${e.color}"></span>
+            <span class="mtoday-wish-name">${_escHtml(e.label)}</span>
+            <span class="mtoday-wish-price">${e.amountLabel}</span>
+          </div>
+        `).join('')}
+      </div>` : ''}
+    </div>`;
+}
+
+// Shared by both Today states — always renders (even empty) so the
+// wishlist stays discoverable instead of disappearing when it has no items.
+function _renderWishlistPreviewBlock() {
+  const items = typeof getWishlistItems === 'function' ? getWishlistItems() : [];
+  return `
+    <div class="mtoday-block">
+      <div class="mtoday-block-header">
+        <h3 class="mtoday-block-title">${t('wishlist.title')}${items.length ? ` <span class="mtoday-block-count">· ${items.length} ${t('wishlist.itemsCount')}</span>` : ''}</h3>
+        <button type="button" class="mbudget-add" id="mtoday-wishlist-add" aria-label="${t('wishlist.addItem')}">+</button>
+      </div>
+      ${items.length ? `
+      <button type="button" class="mtoday-wishlist-viewall" data-goto-tab="wishlist">
+        ${items.slice(0, 15).map(w => `
+          <div class="mtoday-wish-row">
+            <span class="mtoday-wish-dot"></span>
+            <span class="mtoday-wish-name">${_escHtml(w.name)}</span>
+            <span class="mtoday-wish-price">${formatMoney(w.price, w.currency)}</span>
+          </div>
+        `).join('')}
+      </button>` : `<p class="wishlist-empty">${t('wishlist.empty')}</p>`}
+    </div>`;
+}
+
+// Wires the "+" buttons and entry rows produced by the two preview blocks
+// above — called once per render from each Today state after innerHTML is set.
+function _wireTodayPreviewBlocks(section) {
+  section.querySelector('#mtoday-budget-add')?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (typeof _openExpenseModal === 'function') _openExpenseModal(null);
+  });
+  section.querySelector('#mtoday-wishlist-add')?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (typeof _openWishlistModal === 'function') _openWishlistModal();
+  });
+  section.querySelectorAll('[data-budget-entry-id]').forEach(row => row.addEventListener('click', () => {
+    if (typeof _openExpenseModal === 'function') _openExpenseModal(row.dataset.budgetEntryId);
+  }));
+}
+
 // Documents attached to a flight/train's document_ids, resolved against the
 // full documents list. Never throws on a stale/missing id (see delete flow
 // in itinerary.js — leg cleanup on document delete isn't guaranteed atomic
@@ -272,7 +340,6 @@ function renderTodayMobileInTrip(section, data, ctx) {
   const { stay, today, dayNum, totalDays, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget } = ctx;
   const flag = stay ? countryFlag(stay.country) : '';
   const countryLabel = stay ? `${flag} ${stay.country}` : t('today.transit');
-  const wishlistItems = typeof getWishlistItems === 'function' ? getWishlistItems() : [];
 
   const weekDays = _buildTripDays(data).filter(d => d.date >= today).slice(0, 4);
 
@@ -347,34 +414,14 @@ function renderTodayMobileInTrip(section, data, ctx) {
       </button>
     </div>
 
-    ${budget ? `
-    <div class="mtoday-block">
-      <div class="mtoday-block-header">
-        <h3 class="mtoday-block-title">${t('budget.title')}</h3>
-        <button type="button" class="mtoday-link" data-goto-tab="budget">${t('budgetInsights.viewInsights')} ›</button>
-      </div>
+    ${budget ? _renderBudgetPreviewBlock(`
       <button type="button" class="mtoday-stat-card" data-goto-tab="budget">
         <div><div class="mtoday-stat-label">${t('today.spentTodayLabel')}</div><div class="mtoday-stat-val">${budget.spent}</div></div>
         ${budget.dailyLeft ? `<div class="mtoday-stat-right"><div class="mtoday-stat-label">${t('today.dailyAvailLabel')}</div><div class="mtoday-stat-val mtoday-stat-val--positive">${budget.dailyLeft}</div></div>` : ''}
       </button>
-    </div>` : ''}
+    `) : ''}
 
-    ${wishlistItems.length ? `
-    <div class="mtoday-block">
-      <div class="mtoday-block-header">
-        <h3 class="mtoday-block-title">${t('wishlist.title')} <span class="mtoday-block-count">· ${wishlistItems.length} ${t('wishlist.itemsCount')}</span></h3>
-        <button type="button" class="mbudget-add" id="mtoday-wishlist-add">+</button>
-      </div>
-      <button type="button" class="mtoday-wishlist-viewall" data-goto-tab="wishlist">
-        ${wishlistItems.slice(0, 15).map(w => `
-          <div class="mtoday-wish-row">
-            <span class="mtoday-wish-dot"></span>
-            <span class="mtoday-wish-name">${_escHtml(w.name)}</span>
-            <span class="mtoday-wish-price">${formatMoney(w.price, w.currency)}</span>
-          </div>
-        `).join('')}
-      </button>
-    </div>` : ''}
+    ${_renderWishlistPreviewBlock()}
   `;
 
   section.querySelectorAll('[data-id]').forEach(row => row.addEventListener('click', () => openEditModal(row.dataset.id)));
@@ -385,10 +432,10 @@ function renderTodayMobileInTrip(section, data, ctx) {
     const rows = dayEvents(date, data);
     openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? 'var(--accent)' : null, rows, empty: rows.length === 0 });
   }));
+  _wireTodayPreviewBlocks(section);
   section.querySelectorAll('[data-doc-id]').forEach(btn => btn.addEventListener('click', () => {
     window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
   }));
-  section.querySelector('#mtoday-wishlist-add')?.addEventListener('click', e => { e.stopPropagation(); if (typeof _openWishlistModal === 'function') _openWishlistModal(); });
   // map.js may have built its data before this DOM existed — (re)populate
   // the Ruta preview now that #mtoday-map-preview is actually in the page.
   if (typeof renderMobileRoutePreview === 'function') renderMobileRoutePreview(data.accommodations);
@@ -491,13 +538,13 @@ function renderTodayPreTrip(section, data) {
       <button type="button" class="mtoday-map-preview" id="mtoday-map-preview" data-goto-tab="map"></button>
     </div>
 
-    ${budgetRemaining !== null ? `
-    <div class="mtoday-block">
-      <h3 class="mtoday-block-title">${t('budget.title')}</h3>
+    ${budgetRemaining !== null ? _renderBudgetPreviewBlock(`
       <button type="button" class="mtoday-stat-card" data-goto-tab="budget">
         <div><div class="mtoday-stat-label">${t('budget.stats.remaining')}</div><div class="mtoday-stat-val mtoday-stat-val--positive">${formatCurrency(budgetRemaining)}</div></div>
       </button>
-    </div>` : ''}
+    `) : ''}
+
+    ${_renderWishlistPreviewBlock()}
 
     <div class="mtoday-block">
       <div class="mtoday-block-header">
@@ -515,6 +562,7 @@ function renderTodayPreTrip(section, data) {
   `;
 
   section.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+  _wireTodayPreviewBlocks(section);
   section.querySelectorAll('[data-open-day]').forEach(btn => btn.addEventListener('click', () => {
     const date = btn.dataset.openDay;
     const s = getActiveStay(data.accommodations, date);
