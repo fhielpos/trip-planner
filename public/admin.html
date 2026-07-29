@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Trip Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css" />
+  <meta name="theme-color" content="#181614" />
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-title">
+        <a href="/index.html" class="accom-back-link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          <span>Back</span>
+        </a>
+        <h1>Admin</h1>
+      </div>
+      <div class="header-right">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle theme">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main admin-main">
+
+    <section class="admin-section">
+      <h2>Build</h2>
+      <div class="admin-row"><span class="admin-label">Commit</span><span class="admin-value" id="admin-commit">—</span></div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Weather</h2>
+      <div class="admin-row"><span class="admin-label">Last updated</span><span class="admin-value" id="admin-weather-updated">—</span></div>
+      <div class="admin-row"><span class="admin-label">Stays tracked</span><span class="admin-value" id="admin-weather-stays">—</span></div>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-weather-refresh">Refresh now</button>
+    </section>
+
+    <section class="admin-section">
+      <h2>Currency</h2>
+      <div class="admin-row"><span class="admin-label">Last fetched</span><span class="admin-value" id="admin-currency-updated">—</span></div>
+      <div class="admin-row"><span class="admin-label">Currencies tracked</span><span class="admin-value" id="admin-currency-count">—</span></div>
+      <div class="admin-row"><span class="admin-label">Overrides configured</span><span class="admin-value" id="admin-currency-overrides">—</span></div>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-currency-refresh">Refresh now</button>
+
+      <h3 class="admin-subhead">Overrides</h3>
+      <p class="admin-note">Applies only to expenses created while enabled — rate is always currency → USD, and existing expenses are never changed.</p>
+      <div id="admin-override-list"></div>
+      <div class="admin-override-add">
+        <div class="form-row">
+          <label for="admin-override-currency">Currency</label>
+          <select id="admin-override-currency" class="form-select">
+            <option value="" disabled selected>Choose</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="admin-override-rate">Rate → USD</label>
+          <input type="number" step="0.0001" min="0" id="admin-override-rate" placeholder="0.0000" />
+        </div>
+        <button type="button" class="btn-secondary" id="admin-override-add-btn">Add</button>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Flights</h2>
+      <div class="admin-row"><span class="admin-label">Synced</span><span class="admin-value" id="admin-flights-count">—</span></div>
+      <div class="admin-row"><span class="admin-label">Last synced</span><span class="admin-value" id="admin-flights-synced">—</span></div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Airports</h2>
+      <div class="admin-row"><span class="admin-label">Coordinates cached</span><span class="admin-value" id="admin-airports-count">—</span></div>
+    </section>
+
+    <section class="admin-section">
+      <h2>Geocoding</h2>
+      <h3 class="admin-subhead">Accommodations</h3>
+      <div class="admin-row"><span class="admin-label">Total</span><span class="admin-value" id="admin-geocode-accom-total">—</span></div>
+      <div class="admin-row"><span class="admin-label">Geocoded</span><span class="admin-value" id="admin-geocode-accom-ok">—</span></div>
+      <div class="admin-row"><span class="admin-label">Failed</span><span class="admin-value" id="admin-geocode-accom-failed">—</span></div>
+      <div class="admin-row"><span class="admin-label">Not attempted</span><span class="admin-value" id="admin-geocode-accom-none">—</span></div>
+      <h3 class="admin-subhead">Activities</h3>
+      <div class="admin-row"><span class="admin-label">Total</span><span class="admin-value" id="admin-geocode-activity-total">—</span></div>
+      <div class="admin-row"><span class="admin-label">Geocoded</span><span class="admin-value" id="admin-geocode-activity-ok">—</span></div>
+      <div class="admin-row"><span class="admin-label">Failed</span><span class="admin-value" id="admin-geocode-activity-failed">—</span></div>
+      <div class="admin-row"><span class="admin-label">Not attempted</span><span class="admin-value" id="admin-geocode-activity-none">—</span></div>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-geocode-refresh">Refresh now</button>
+      <p class="admin-note">Retries failed / not-attempted addresses only, for both accommodations and activities.</p>
+    </section>
+
+  </main>
+
+  <script src="/js/admin.js"></script>
+</body>
+</html>

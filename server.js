@@ -240,6 +240,10 @@ app.get('/sw.js', (req, res) => {
   res.send(sw);
 });
 
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/images', express.static(path.join(__dirname, 'data', 'images')));
 
@@ -447,7 +451,7 @@ app.delete('/api/accommodations/:id', (req, res) => {
 // Recomputed once per calendar day on read (see GET /api/weather below),
 // not per request — see docs/superpowers/specs/2026-07-02-weather-forecast-design.md.
 
-const weatherStore = jsonStore(WEATHER_FILE, () => ({ computedFor: null, byStay: {} }));
+const weatherStore = jsonStore(WEATHER_FILE, () => ({ computedFor: null, computedAt: null, byStay: {} }));
 
 const WEATHER_HORIZON_DAYS  = 15;
 const WEATHER_HISTORY_YEARS = 3;
@@ -596,7 +600,7 @@ async function computeWeather() {
   await Promise.all(stays.map(async stay => {
     byStay[stay.id] = await weatherForStay(stay, today, horizonEnd);
   }));
-  return { computedFor: today, byStay };
+  return { computedFor: today, computedAt: new Date().toISOString(), byStay };
 }
 
 app.get('/api/weather', async (req, res) => {
@@ -606,6 +610,12 @@ app.get('/api/weather', async (req, res) => {
     weatherStore.write(cache);
   }
   res.json(cache.byStay);
+});
+
+app.post('/api/weather/refresh', async (req, res) => {
+  const cache = await computeWeather();
+  weatherStore.write(cache);
+  res.json({ computedFor: cache.computedFor, computedAt: cache.computedAt });
 });
 
 // Flights are persisted in data/flights.json (stable ids, editable fields
@@ -644,6 +654,9 @@ function syncFlights(parsed, persisted) {
 
 const flightsStore = jsonStore(FLIGHTS_FILE, () => []);
 flightsStore.write(syncFlights(parseFlightyText(fs.readFileSync(FLIGHTY_FILE, 'utf8')), flightsStore.read()));
+// Flights only sync against flighty.txt at boot (see syncFlights doc comment
+// above) — this timestamp is what "last synced" means for that data.
+const serverBootTime = new Date().toISOString();
 
 function readFlights()      { return flightsStore.read(); }
 function writeFlights(list) { flightsStore.write(list); }
@@ -994,12 +1007,18 @@ app.post('/api/budget/entries', (req, res) => {
     return res.status(400).json({ error: 'rate must be a positive number or null' });
   }
   const b = readBudget();
+  const currency = req.body.currency || b.initialBudgetCurrency;
+  const manualRate = req.body.rate != null ? Number(req.body.rate) : null;
   const entry = {
     id:          'b' + Date.now(),
     date:        req.body.date,
     amount:      Number(req.body.amount),
-    currency:    req.body.currency || b.initialBudgetCurrency,
-    rate:        req.body.rate != null ? Number(req.body.rate) : null,
+    currency,
+    // A manually-set rate always wins; otherwise, pin whatever override
+    // is active right now for this currency (see activeOverrideRate) — this
+    // is what makes an admin-panel override apply only to entries created
+    // while it's enabled, never retroactively to existing entries.
+    rate:        manualRate ?? activeOverrideRate(currency),
     category:    req.body.category || 'other',
     description: req.body.description || '',
     city:        req.body.city || '',
@@ -1083,15 +1102,25 @@ app.delete('/api/wishlist/:id', (req, res) => {
 const RATES_API_URL = 'https://open.er-api.com/v6/latest/USD';
 const RATES_TTL_MS = 24 * 60 * 60 * 1000;
 
-const ratesStore = jsonStore(RATES_FILE, () => ({ base: 'USD', fetchedAt: null, rates: {}, overrides: {} }));
+const ratesStore = jsonStore(RATES_FILE, () => ({ base: 'USD', fetchedAt: null, rates: {}, overrideRules: {} }));
 
 function readRates() {
   const r = ratesStore.read();
   if (!r.rates) r.rates = {};
-  if (!r.overrides) r.overrides = {};
+  if (!r.overrideRules) r.overrideRules = {};
   return r;
 }
 function writeRates(data) { ratesStore.write(data); }
+
+// An override rule only affects entries created (not edited) while it's
+// enabled — see POST /api/budget/entries. It intentionally does NOT feed
+// into effectiveRatesPayload/_effectiveRate, so it never retroactively
+// changes conversion for entries that already exist, and toggling it off
+// doesn't touch anything already pinned.
+function activeOverrideRate(currency) {
+  const rule = readRates().overrideRules[currency];
+  return (rule && rule.enabled) ? rule.rate : null;
+}
 
 // Fetches fresh USD-base rates, or null on any failure. Callers must never
 // overwrite an existing cache with a null result — a bad fetch (or, in this
@@ -1124,11 +1153,8 @@ async function refreshRatesIfStale(force) {
 
 function effectiveRatesPayload(r) {
   const out = { base: 'USD', fetchedAt: r.fetchedAt, rates: {} };
-  const codes = new Set([...Object.keys(r.rates), ...Object.keys(r.overrides)]);
-  for (const code of codes) {
-    const fetched = r.rates[code] ?? null;
-    const override = r.overrides[code] ?? null;
-    out.rates[code] = { fetched, override, effective: override ?? fetched };
+  for (const code of Object.keys(r.rates)) {
+    out.rates[code] = { fetched: r.rates[code], effective: r.rates[code] };
   }
   return out;
 }
@@ -1138,19 +1164,128 @@ app.get('/api/rates', async (req, res) => {
   res.json(effectiveRatesPayload(r));
 });
 
-app.put('/api/rates/overrides', (req, res) => {
-  const { currency, value } = req.body;
-  if (!currency) return res.status(400).json({ error: 'currency is required' });
+app.put('/api/rates/override-rules/:currency', (req, res) => {
+  const currency = req.params.currency.toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return res.status(400).json({ error: 'currency must be a 3-letter code' });
+  }
   const r = readRates();
-  if (value === null || value === undefined || value === '') delete r.overrides[currency];
-  else r.overrides[currency] = Number(value);
+  const existing = r.overrideRules[currency];
+  const rate = req.body.rate !== undefined ? Number(req.body.rate) : existing?.rate;
+  if (!(typeof rate === 'number' && Number.isFinite(rate) && rate > 0)) {
+    return res.status(400).json({ error: 'rate must be a positive number' });
+  }
+  const enabled = req.body.enabled !== undefined ? Boolean(req.body.enabled) : (existing?.enabled ?? true);
+  r.overrideRules[currency] = { rate, enabled };
   writeRates(r);
-  res.json(effectiveRatesPayload(r));
+  res.json(r.overrideRules);
+});
+
+app.delete('/api/rates/override-rules/:currency', (req, res) => {
+  const currency = req.params.currency.toUpperCase();
+  const r = readRates();
+  delete r.overrideRules[currency];
+  writeRates(r);
+  res.json(r.overrideRules);
 });
 
 app.post('/api/rates/refresh', async (req, res) => {
   const r = await refreshRatesIfStale(true);
   res.json(effectiveRatesPayload(r));
+});
+
+// ── Admin status ────────────────────────────────
+// Read-only rollup for the hidden /admin page — every external data
+// source the app depends on, in one place. Accommodations (accommodations.json)
+// and calendar activities (trip.json's data.calendar, rendered as "place"
+// pins by map.js) are geocoded independently, each with their own
+// geocode_status, so they're tracked as separate collections here.
+function geocodingSummary(items) {
+  return {
+    total: items.length,
+    ok: items.filter(i => i.geocode_status === 'ok').length,
+    failed: items.filter(i => i.geocode_status === 'failed').length,
+    notAttempted: items.filter(i => !i.geocode_status).length,
+  };
+}
+
+app.get('/api/admin/status', (req, res) => {
+  const weather = weatherStore.read();
+  const rates = readRates();
+  const flights = readFlights();
+  const airports = airportsStore.read();
+  const accommodations = readAccommodations();
+  const activities = readData().calendar || [];
+
+  res.json({
+    weather: {
+      lastUpdated: weather.computedAt,
+      staysTracked: Object.keys(weather.byStay || {}).length,
+    },
+    currency: {
+      lastUpdated: rates.fetchedAt,
+      currencyCount: Object.keys(rates.rates || {}).length,
+      currencyCodes: Object.keys(rates.rates || {}).sort(),
+      overrideCount: Object.keys(rates.overrideRules || {}).length,
+      overrideRules: rates.overrideRules || {},
+    },
+    flights: {
+      count: flights.length,
+      lastSyncedAt: serverBootTime,
+    },
+    airports: {
+      cachedCount: Object.keys(airports).length,
+    },
+    geocoding: {
+      accommodations: geocodingSummary(accommodations),
+      activities: geocodingSummary(activities),
+    },
+  });
+});
+
+// Retries geocoding only for entries that don't already have a successful
+// geocode — an address that's already 'ok' is left alone (matches the
+// weather/currency refresh pattern of only refetching what's stale).
+// Accommodations and calendar activities are separate collections with
+// separate address fields, so both get retried here.
+app.post('/api/geocode/refresh', async (req, res) => {
+  const accommodations = readAccommodations();
+  const accomCandidates = accommodations.filter(a => a.geocode_status !== 'ok' && (a.address || '').trim());
+  await Promise.all(accomCandidates.map(async stay => {
+    const geocoded = await geocodeAddress(stay.address.trim());
+    if (geocoded) {
+      stay.exact_lat = geocoded.lat;
+      stay.exact_lon = geocoded.lon;
+      stay.geocode_status = 'ok';
+    } else {
+      stay.exact_lat = null;
+      stay.exact_lon = null;
+      stay.geocode_status = 'failed';
+    }
+  }));
+  writeAccommodations(accommodations);
+
+  const data = readData();
+  const activities = data.calendar || [];
+  const activityCandidates = activities.filter(e => e.geocode_status !== 'ok' && (e.address || '').trim());
+  await Promise.all(activityCandidates.map(async entry => {
+    const geocoded = await geocodeAddress(entry.address.trim());
+    if (geocoded) {
+      entry.lat = geocoded.lat;
+      entry.lon = geocoded.lon;
+      entry.geocode_status = 'ok';
+    } else {
+      entry.lat = null;
+      entry.lon = null;
+      entry.geocode_status = 'failed';
+    }
+  }));
+  writeData(data);
+
+  res.json({
+    accommodations: geocodingSummary(accommodations),
+    activities: geocodingSummary(activities),
+  });
 });
 
 // ── Travel documents ───────────────────────────

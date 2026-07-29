@@ -88,9 +88,5 @@ function listKnownCurrencies() {
 }
 
 function getRateInfo(currency) {
-  return _rates.rates?.[currency] || { fetched: null, override: null, effective: null };
-}
-
-function getRatesFetchedAt() {
-  return _rates.fetchedAt || null;
+  return _rates.rates?.[currency] || { fetched: null, effective: null };
 }
