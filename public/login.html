@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
   <title>Trip Planner — Log in</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
@@ -124,9 +126,15 @@
       if (res.ok) {
         window.location.href = '/';
       } else {
-        errorEl.textContent = 'Incorrect password.';
+        const data = await res.json().catch(() => ({}));
+        errorEl.textContent = data.error || 'Incorrect password.';
         document.getElementById('password').value = '';
-        document.getElementById('password').focus();
+        if (res.status === 403) {
+          document.getElementById('password').disabled = true;
+          form.querySelector('button').disabled = true;
+        } else {
+          document.getElementById('password').focus();
+        }
       }
     });
   </script>
