@@ -26,7 +26,15 @@ async function _loadStatus() {
     fetch('/api/version').then(r => r.json()),
   ]);
 
-  document.getElementById('admin-commit').textContent = version.commit;
+  const commitLink = document.getElementById('admin-commit');
+  if (version.commit && version.commit !== 'unknown') {
+    commitLink.textContent = version.commit.slice(0, 7);
+    commitLink.href = `https://github.com/fhielpos/trip-planner/commit/${version.commit}`;
+  } else {
+    commitLink.textContent = 'unknown';
+    commitLink.removeAttribute('href');
+  }
+  document.getElementById('admin-commit-message').textContent = version.commitMessage || '—';
 
   document.getElementById('admin-weather-updated').textContent = _formatTimestamp(status.weather.lastUpdated);
   document.getElementById('admin-weather-stays').textContent = status.weather.staysTracked;
