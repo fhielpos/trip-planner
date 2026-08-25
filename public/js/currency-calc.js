@@ -4,6 +4,20 @@
    control and a price-tag OCR scan button.
    ============================================= */
 
+const CALC_PAIR_KEY = 'currencyCalcPair';
+
+function _calcLoadPair() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CALC_PAIR_KEY));
+    if (saved && saved.from && saved.to) return saved;
+  } catch { /* fall through to default */ }
+  return { from: 'USD', to: 'EUR' };
+}
+
+function _calcSavePair() {
+  localStorage.setItem(CALC_PAIR_KEY, JSON.stringify({ from: _calcGetCurrency('from'), to: _calcGetCurrency('to') }));
+}
+
 function _calcGetCurrency(which) {
   const active = document.querySelector(`#calc-currency-${which}-selector .type-btn.active[data-currency]`);
   if (active) return active.dataset.currency;
@@ -27,6 +41,7 @@ function _calcSetCurrency(which, code) {
   }
   _calcRenderRateInfo();
   _calcRecompute();
+  _calcSavePair();
 }
 
 // Only updates the computed result — deliberately does NOT touch
@@ -179,5 +194,6 @@ if (typeof Tesseract === 'undefined') {
   });
 });
 
-_calcSetCurrency('from', 'USD');
-_calcSetCurrency('to', 'EUR');
+const _calcInitialPair = _calcLoadPair();
+_calcSetCurrency('from', _calcInitialPair.from);
+_calcSetCurrency('to', _calcInitialPair.to);
