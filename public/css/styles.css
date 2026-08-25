@@ -3458,6 +3458,13 @@ body {
     border: 1px solid var(--accent); background: var(--accent-dim); color: var(--accent);
     font-size: 16px; font-weight: 700; cursor: pointer;
   }
+  .mbudget-header-actions { display: flex; align-items: center; gap: 8px; }
+  .mbudget-convert {
+    width: 28px; height: 28px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2);
+    font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
   .mbudget-stats { display: flex; gap: 8px; padding: 14px 18px 0; }
   .mbudget-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
   .mbudget-stat--accent { border-top: 3px solid var(--accent); }
@@ -3502,3 +3509,14 @@ body {
     animation: sheetSlideUp .2s ease;
   }
 }
+
+.calc-swap-btn {
+  align-self: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2);
+  font-size: 15px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--trans);
+}
+.calc-swap-btn:hover { color: var(--accent); border-color: var(--accent); }
+.calc-rate-info { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.25rem; }
