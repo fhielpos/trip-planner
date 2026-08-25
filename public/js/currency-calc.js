@@ -64,13 +64,13 @@ function _calcRateLegHtml(currency) {
     <div class="calc-rate-leg" data-currency="${currency}">
       <span>${rateText}</span>
       <details class="custom-rate-toggle calc-override-toggle">
-        <summary data-i18n="budget.calc.override">Override rate</summary>
+        <summary>${t('budget.calc.override')}</summary>
         <input type="number" class="calc-override-input" step="0.0001" min="0"
           value="${hasOverride ? info.effective : ''}"
           placeholder="${info.fetched !== null ? info.fetched : ''}" />
         <div class="calc-override-actions">
-          <button type="button" class="btn-secondary calc-override-save" data-i18n="modal.save">Save</button>
-          ${hasOverride ? `<button type="button" class="btn-secondary calc-override-remove" data-i18n="budget.calc.removeOverride">Remove override</button>` : ''}
+          <button type="button" class="btn-secondary calc-override-save">${t('modal.save')}</button>
+          ${hasOverride ? `<button type="button" class="btn-secondary calc-override-remove">${t('budget.calc.removeOverride')}</button>` : ''}
         </div>
       </details>
     </div>`;
