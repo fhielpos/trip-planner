@@ -126,6 +126,43 @@ document.getElementById('calc-swap-btn').addEventListener('click', () => {
   _calcSetCurrency('to', from);
 });
 
+document.getElementById('calc-scan-btn').addEventListener('click', () => {
+  document.getElementById('calc-receipt-input').click();
+});
+
+document.getElementById('calc-receipt-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // allow re-selecting the same file next time
+  if (!file) return;
+
+  const scanBtn = document.getElementById('calc-scan-btn');
+  const statusEl = document.getElementById('calc-scan-status');
+  statusEl.hidden = true;
+  scanBtn.disabled = true;
+  const originalLabel = scanBtn.textContent;
+  scanBtn.textContent = t('budget.entry.scanning');
+
+  const amount = await scanReceiptForAmount(file);
+
+  scanBtn.disabled = false;
+  scanBtn.textContent = originalLabel;
+
+  if (amount === null) {
+    statusEl.textContent = t('budget.entry.scanFailed');
+    statusEl.hidden = false;
+    return;
+  }
+
+  document.getElementById('calc-amount-from').value = amount;
+  _calcRecompute();
+});
+
+if (typeof Tesseract === 'undefined') {
+  const scanBtn = document.getElementById('calc-scan-btn');
+  scanBtn.disabled = true;
+  scanBtn.title = t('budget.entry.scanUnavailable');
+}
+
 ['from', 'to'].forEach(which => {
   document.getElementById(`calc-currency-${which}-selector`).addEventListener('click', e => {
     const btn = e.target.closest('.type-btn');
