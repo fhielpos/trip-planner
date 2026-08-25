@@ -3462,9 +3462,10 @@ body {
   .mbudget-convert {
     width: 28px; height: 28px; border-radius: 8px;
     border: 1px solid var(--border); background: var(--bg-card); color: var(--text-2);
-    font-size: 14px; cursor: pointer;
+    cursor: pointer;
     display: flex; align-items: center; justify-content: center;
   }
+  .mbudget-convert svg { width: 16px; height: 16px; }
   .mbudget-stats { display: flex; gap: 8px; padding: 14px 18px 0; }
   .mbudget-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
   .mbudget-stat--accent { border-top: 3px solid var(--accent); }
