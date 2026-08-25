@@ -154,6 +154,7 @@
   "budget.calc.override": "Override rate",
   "budget.calc.overridden": "overridden",
   "budget.calc.removeOverride": "Remove override",
+  "budget.calc.overrideHint": "Also affects budget and wishlist totals.",
   "wishlist.title": "Wishlist",
   "wishlist.addItem": "Add item",
   "wishlist.empty": "Your wishlist is empty",

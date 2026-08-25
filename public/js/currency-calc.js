@@ -83,6 +83,7 @@ function _calcRateLegHtml(currency) {
         <input type="number" class="calc-override-input" step="0.0001" min="0"
           value="${hasOverride ? info.effective : ''}"
           placeholder="${info.fetched !== null ? info.fetched : ''}" />
+        <p class="form-hint">${t('budget.calc.overrideHint')}</p>
         <div class="calc-override-actions">
           <button type="button" class="btn-secondary calc-override-save">${t('modal.save')}</button>
           ${hasOverride ? `<button type="button" class="btn-secondary calc-override-remove">${t('budget.calc.removeOverride')}</button>` : ''}
