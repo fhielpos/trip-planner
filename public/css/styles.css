@@ -3520,3 +3520,6 @@ body {
 }
 .calc-swap-btn:hover { color: var(--accent); border-color: var(--accent); }
 .calc-rate-info { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.25rem; }
+.calc-rate-leg { font-size: 0.78rem; color: var(--text-2); }
+.calc-rate-leg .calc-override-toggle { margin-top: 0.3rem; }
+.calc-override-actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }

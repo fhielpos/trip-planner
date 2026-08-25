@@ -25,6 +25,7 @@ function _calcSetCurrency(which, code) {
     select.innerHTML = codes.map(c => `<option value="${c}"${c === code ? ' selected' : ''}>${c}</option>`).join('');
     select.hidden = false;
   }
+  _calcRenderRateInfo();
   _calcRecompute();
 }
 
@@ -45,6 +46,65 @@ function _calcRecompute() {
   const result = convertAmount(amount, from, to);
   resultEl.value = result === null ? t('budget.calc.rateUnavailable') : formatMoney(result, to);
 }
+
+// A currency counts as "overridden" when its live effective rate differs
+// from the last-fetched live rate — this is a derived signal (no extra
+// endpoint needed): Task 1 made effective == the override rate whenever one
+// is enabled, and == fetched otherwise. The one false-negative edge case
+// (an override rate that happens to exactly equal the live fetched rate)
+// just hides the "Remove override" button in that coincidence — harmless.
+function _calcRateLegHtml(currency) {
+  if (currency === 'USD') return '';
+  const info = getRateInfo(currency);
+  const hasOverride = info.fetched !== null && info.effective !== null && info.fetched !== info.effective;
+  const rateText = info.effective !== null
+    ? `1 USD = ${info.effective} ${currency}${hasOverride ? ' · ' + t('budget.calc.overridden') : ''}`
+    : t('budget.calc.rateUnavailable');
+  return `
+    <div class="calc-rate-leg" data-currency="${currency}">
+      <span>${rateText}</span>
+      <details class="custom-rate-toggle calc-override-toggle">
+        <summary data-i18n="budget.calc.override">Override rate</summary>
+        <input type="number" class="calc-override-input" step="0.0001" min="0"
+          value="${hasOverride ? info.effective : ''}"
+          placeholder="${info.fetched !== null ? info.fetched : ''}" />
+        <div class="calc-override-actions">
+          <button type="button" class="btn-secondary calc-override-save" data-i18n="modal.save">Save</button>
+          ${hasOverride ? `<button type="button" class="btn-secondary calc-override-remove" data-i18n="budget.calc.removeOverride">Remove override</button>` : ''}
+        </div>
+      </details>
+    </div>`;
+}
+
+function _calcRenderRateInfo() {
+  const from = _calcGetCurrency('from');
+  const to = _calcGetCurrency('to');
+  const el = document.getElementById('calc-rate-info');
+  el.innerHTML = from === to ? '' : _calcRateLegHtml(from) + _calcRateLegHtml(to);
+}
+
+document.getElementById('calc-rate-info').addEventListener('click', async e => {
+  const leg = e.target.closest('.calc-rate-leg');
+  if (!leg) return;
+  const currency = leg.dataset.currency;
+
+  if (e.target.classList.contains('calc-override-save')) {
+    const rate = parseFloat(leg.querySelector('.calc-override-input').value);
+    if (!Number.isFinite(rate) || rate <= 0) return;
+    await fetch(`/api/rates/override-rules/${currency}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rate, enabled: true }),
+    });
+    await refreshCurrency();
+    _calcRenderRateInfo();
+    _calcRecompute();
+  } else if (e.target.classList.contains('calc-override-remove')) {
+    await fetch(`/api/rates/override-rules/${currency}`, { method: 'DELETE' });
+    await refreshCurrency();
+    _calcRenderRateInfo();
+    _calcRecompute();
+  }
+});
 
 function _openCalcModal() {
   document.getElementById('currency-calc-overlay').hidden = false;
