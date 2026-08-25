@@ -50,6 +50,19 @@ function toARS(amountUSD) {
   return rate ? amountUSD * rate : null;
 }
 
+// Converts between any two known currencies, routing through USD — e.g.
+// CHF -> ARS goes CHF -> USD -> ARS, same model as toUSD/toARS. The `from`
+// leg is as lenient as toUSD (an unavailable rate is treated as already-USD
+// rather than failing); the `to` leg is strict and returns null if its rate
+// is unavailable, matching toARS's existing null-on-unavailable convention.
+function convertAmount(amount, from, to) {
+  if (from === to) return amount;
+  const usd = toUSD(amount, from);
+  if (to === 'USD') return usd;
+  const rate = _effectiveRate(to);
+  return rate ? usd * rate : null;
+}
+
 function formatMoney(amount, currency) {
   const c = currency || 'USD';
   try {

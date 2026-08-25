@@ -1130,11 +1130,16 @@ function readRates() {
 }
 function writeRates(data) { ratesStore.write(data); }
 
-// An override rule only affects entries created (not edited) while it's
-// enabled — see POST /api/budget/entries. It intentionally does NOT feed
-// into effectiveRatesPayload/_effectiveRate, so it never retroactively
-// changes conversion for entries that already exist, and toggling it off
-// doesn't touch anything already pinned.
+// An override rule affects two things: (1) it's the default suggested rate
+// for a brand-new budget entry's own locked `rate` field (see
+// POST /api/budget/entries), and (2) it's this currency's live `effective`
+// rate everywhere else (effectiveRatesPayload → every _effectiveRate()-based
+// conversion in currency.js: budget/wishlist/budget-insights totals, the
+// currency calculator). A budget entry that already has its own locked
+// `rate` is unaffected either way — toUSD's per-entry `rate` argument
+// always takes priority over the currency-level effective rate, so
+// enabling/disabling an override never retroactively changes an entry that
+// was pinned to its own rate.
 function activeOverrideRate(currency) {
   const rule = readRates().overrideRules[currency];
   return (rule && rule.enabled) ? rule.rate : null;
@@ -1172,7 +1177,9 @@ async function refreshRatesIfStale(force) {
 function effectiveRatesPayload(r) {
   const out = { base: 'USD', fetchedAt: r.fetchedAt, rates: {} };
   for (const code of Object.keys(r.rates)) {
-    out.rates[code] = { fetched: r.rates[code], effective: r.rates[code] };
+    const rule = r.overrideRules[code];
+    const effective = (rule && rule.enabled) ? rule.rate : r.rates[code];
+    out.rates[code] = { fetched: r.rates[code], effective };
   }
   return out;
 }
