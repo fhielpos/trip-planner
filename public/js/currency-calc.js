@@ -122,6 +122,13 @@ document.getElementById('calc-rate-info').addEventListener('click', async e => {
 });
 
 function _openCalcModal() {
+  // Re-run currency selection on every open (not just once at script load,
+  // which can race app.js's async initI18n()/initCurrency() — see the
+  // currency-calc final-review fix notes). This re-populates the "More…"
+  // <select> and re-renders #calc-rate-info with resolved translations
+  // and rates, even the very first time the modal is opened.
+  _calcSetCurrency('from', _calcGetCurrency('from'));
+  _calcSetCurrency('to', _calcGetCurrency('to'));
   document.getElementById('currency-calc-overlay').hidden = false;
 }
 function _closeCalcModal() {
