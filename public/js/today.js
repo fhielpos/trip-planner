@@ -407,7 +407,10 @@ function renderTodayMobileInTrip(section, data, ctx) {
     <div class="mtoday-block">
       <div class="mtoday-block-header">
         <h3 class="mtoday-block-title">${t('map.title')}</h3>
-        <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <a class="mtoday-link" href="/accommodations.html">${t('stays.viewDetails')} ›</a>
+          <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
+        </div>
       </div>
       <button type="button" class="mtoday-map-preview" id="mtoday-map-preview" data-goto-tab="map">
         <span class="mtoday-map-label">${stay ? stay.city : ''}</span>
@@ -519,7 +522,7 @@ function renderTodayPreTrip(section, data) {
     <div class="mtoday-block">
       <div class="mtoday-block-header">
         <h3 class="mtoday-block-title">${t('stays.title')}</h3>
-        <button type="button" class="mtoday-link" data-goto-tab="calendar">${t('stays.viewDetails')} ›</button>
+        <a class="mtoday-link" href="/accommodations.html">${t('stays.viewDetails')} ›</a>
       </div>
       <div class="mpretrip-staybar-card">
         <div class="mpretrip-staybar">${stayBar}</div>
