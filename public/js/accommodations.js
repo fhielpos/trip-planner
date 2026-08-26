@@ -42,6 +42,27 @@ function _nightsFor(stay) {
   return Math.round((_parseLocal(stay.check_out) - _parseLocal(stay.check_in)) / 86400000);
 }
 
+// Overlap pairs (duplicated from timeline.js's computeStayIssues — this page
+// doesn't load timeline.js): every pair of stays sharing at least one night.
+function _overlapsById(stays) {
+  const byId = new Map();
+  for (let i = 0; i < stays.length; i++) {
+    for (let j = i + 1; j < stays.length; j++) {
+      const a = stays[i], b = stays[j];
+      const start = a.check_in > b.check_in ? a.check_in : b.check_in;
+      const end   = a.check_out < b.check_out ? a.check_out : b.check_out;
+      if (start < end) {
+        const msg = t('stays.overlap', { a: a.city, b: b.city, start: fmtDate(start, { year: false }), end: fmtDate(end, { year: false }), n: Math.round((_parseLocal(end) - _parseLocal(start)) / 86400000) });
+        if (!byId.has(a.id)) byId.set(a.id, []);
+        if (!byId.has(b.id)) byId.set(b.id, []);
+        byId.get(a.id).push(msg);
+        byId.get(b.id).push(msg);
+      }
+    }
+  }
+  return byId;
+}
+
 function _wireModal(overlay, closeFn) {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeFn(); });
   document.addEventListener('keydown', e => {
@@ -79,6 +100,7 @@ function _renderStats() {
 function _renderList() {
   const container = document.getElementById('accom-table-body');
   const sorted = [...(_accomList || [])].sort((a, b) => (a.check_in || '').localeCompare(b.check_in || ''));
+  const overlaps = _overlapsById(sorted);
 
   container.innerHTML = sorted.map((a, i) => {
     const nights = _nightsFor(a);
@@ -91,14 +113,16 @@ function _renderList() {
     // A full address already ends with the country name, so only show the
     // separate `country` field when there's no address to fall back on.
     const placeLine = a.address ? _escHtml(a.address) : _escHtml(a.country || '');
+    const rowOverlaps = overlaps.get(a.id);
 
     return `
-      <div class="accom-row" data-id="${a.id}" style="--stay-color:${_escHtml(a.color || '')}">
+      <div class="accom-row${rowOverlaps ? ' accom-row--overlap' : ''}" data-id="${a.id}" style="--stay-color:${_escHtml(a.color || '')}">
         <div class="accom-row-main">
           <div class="accom-row-city-line">
             <span class="accom-row-index accom-mono">${String(i + 1).padStart(2, '0')}⁄${sorted.length}</span>
             <span class="accom-row-city">${_escHtml(a.city || '')}</span>
             ${a.geocode_status === 'failed' ? `<span class="accom-geocode-failed" title="${t('accom.geocodeFailed')}">&#9888;</span>` : ''}
+            ${rowOverlaps ? `<span class="accom-overlap-flag" title="${_escHtml(rowOverlaps.join('\n'))}">&#9888;</span>` : ''}
           </div>
           <div class="accom-row-place">${placeLine}</div>
         </div>
@@ -127,6 +151,9 @@ function _renderList() {
           <button class="accom-edit-btn" data-edit-id="${a.id}" title="${t('accom.edit.title')}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
+          <button class="accom-delete-btn" data-delete-id="${a.id}" title="${t('modal.delete')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
         </div>
       </div>`;
   }).join('');
@@ -134,6 +161,20 @@ function _renderList() {
   container.querySelectorAll('[data-edit-id]').forEach(btn => {
     btn.addEventListener('click', () => _openEditModal(btn.dataset.editId));
   });
+  container.querySelectorAll('[data-delete-id]').forEach(btn => {
+    btn.addEventListener('click', () => _deleteStay(btn.dataset.deleteId));
+  });
+}
+
+async function _deleteStay(id) {
+  if (!confirm(t('modal.confirmDelete'))) return;
+  try {
+    const r = await fetch(`/api/accommodations/${id}`, { method: 'DELETE' });
+    if (!r.ok) throw new Error();
+    _accomList = _accomList.filter(x => x.id !== id);
+    _renderStats();
+    _renderList();
+  } catch { alert(t('modal.saveFailed')); }
 }
 
 function _openEditModal(id) {

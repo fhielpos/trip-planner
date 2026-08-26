@@ -2519,7 +2519,7 @@ body {
 .accom-no-price { color: var(--text-3); }
 
 .accom-row-actions { display: flex; align-items: center; gap: 0.15rem; }
-.accom-link-icon, .accom-edit-btn {
+.accom-link-icon, .accom-edit-btn, .accom-delete-btn {
   background: none;
   border: none;
   color: var(--text-2);
@@ -2531,12 +2531,16 @@ body {
 }
 .accom-link-icon:hover, .accom-edit-btn:hover { color: var(--accent); }
 .accom-link-icon svg, .accom-edit-btn svg { width: 15px; height: 15px; }
-.accom-geocode-failed {
+.accom-delete-btn:hover { color: var(--c-danger); }
+.accom-delete-btn svg { width: 15px; height: 15px; }
+.accom-geocode-failed, .accom-overlap-flag {
   color: var(--c-danger);
   cursor: help;
   font-size: 0.85rem;
   line-height: 1;
 }
+.accom-row--overlap { background: var(--c-danger-bg-strong); }
+.accom-row--overlap:hover { background: var(--c-danger-bg-strong); }
 
 @media (max-width: 900px) {
   .accom-row {
