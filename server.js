@@ -952,88 +952,119 @@ function aiBuildPrompt(ctx) {
   ].filter(Boolean).join('\n');
 }
 
+// Statuses worth retrying: rate limit, transient server errors, and
+// Anthropic's 529 "overloaded". A 4xx like 400/401/403 is a real problem
+// and retrying it just wastes time.
+const AI_RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 529]);
+const AI_RETRY_BACKOFF_MS = [800, 2200]; // one entry per retry after the first attempt
+
+function aiRetryDelay(res, attempt) {
+  const ra = Number(res?.headers?.get?.('retry-after'));
+  if (Number.isFinite(ra) && ra > 0) return Math.min(ra * 1000, 10000);
+  const base = AI_RETRY_BACKOFF_MS[attempt] ?? 3000;
+  return Math.round(base * (0.75 + Math.random() * 0.5)); // ±25% jitter
+}
+
 // Returns an array of raw suggestion objects, or null on any failure
 // (non-200, timeout, refusal, no tool_use block) so the caller can tell
 // "the request didn't work" apart from "the model returned nothing".
+// Retries transient failures (429 / 5xx / 529) with backoff before giving up.
 async function aiCallModel(ctx) {
   return aiFetchLimit(async () => {
-    let res;
-    try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        signal: AbortSignal.timeout(20000),
-        body: JSON.stringify({
-          model: AI_SUGGESTIONS_MODEL,
-          max_tokens: 1400,
-          system:
-            'You are a local travel guide. Suggest real, well-known places or activities ' +
-            'in the given city, appropriate for the date and season. Never repeat anything ' +
-            'already planned. Prefer a variety of categories unless asked to focus. Each ' +
-            'reason is two or three sentences: what it is, why it fits this day, one ' +
-            'practical tip.',
-          // Forced tool_choice already guarantees the call; aiSanitize() is
-          // the real guarantee of a safe payload, so no `strict: true` here.
-          tool_choice: { type: 'tool', name: 'propose_activities' },
-          tools: [{
-            name: 'propose_activities',
-            description: `Return up to ${AI_SUGGESTIONS_PER_CALL} suggested activities for the day.`,
-            input_schema: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['suggestions'],
-              properties: {
-                suggestions: {
-                  type: 'array', maxItems: AI_SUGGESTIONS_PER_CALL,
-                  items: {
-                    type: 'object',
-                    additionalProperties: false,
-                    required: ['name', 'category', 'reason'],
-                    properties: {
-                      name: { type: 'string' },
-                      category: { type: 'string', enum: AI_CATEGORIES },
-                      reason: { type: 'string' },
-                      address: { type: ['string', 'null'] },
-                      suggestedStartTime: { type: ['string', 'null'] },
-                      durationHours: { type: ['number', 'null'] },
-                    },
-                  },
+    const attempts = 1 + AI_RETRY_BACKOFF_MS.length;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const result = await aiCallModelOnce(ctx);
+      if (result.ok) return result.suggestions;
+      if (result.retryable && attempt < attempts - 1) {
+        const delay = aiRetryDelay(result.res, attempt);
+        console.warn(`[ai-suggestions] retry ${attempt + 1}/${attempts - 1} after ${result.reason} — waiting ${delay}ms`);
+        await sleep(delay);
+        continue;
+      }
+      console.error(`[ai-suggestions] giving up after ${attempt + 1} attempt(s): ${result.reason}`);
+      return null;
+    }
+    return null;
+  });
+}
+
+// One request/response. Returns { ok: true, suggestions } or
+// { ok: false, retryable, reason, res }.
+async function aiCallModelOnce(ctx) {
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    signal: AbortSignal.timeout(20000),
+    body: JSON.stringify({
+      model: AI_SUGGESTIONS_MODEL,
+      max_tokens: 1400,
+      system:
+        'You are a local travel guide. Suggest real, well-known places or activities ' +
+        'in the given city, appropriate for the date and season. Never repeat anything ' +
+        'already planned. Prefer a variety of categories unless asked to focus. Each ' +
+        'reason is two or three sentences: what it is, why it fits this day, one ' +
+        'practical tip.',
+      // Forced tool_choice already guarantees the call; aiSanitize() is
+      // the real guarantee of a safe payload, so no `strict: true` here.
+      tool_choice: { type: 'tool', name: 'propose_activities' },
+      tools: [{
+        name: 'propose_activities',
+        description: `Return up to ${AI_SUGGESTIONS_PER_CALL} suggested activities for the day.`,
+        input_schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['suggestions'],
+          properties: {
+            suggestions: {
+              type: 'array', maxItems: AI_SUGGESTIONS_PER_CALL,
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name', 'category', 'reason'],
+                properties: {
+                  name: { type: 'string' },
+                  category: { type: 'string', enum: AI_CATEGORIES },
+                  reason: { type: 'string' },
+                  address: { type: ['string', 'null'] },
+                  suggestedStartTime: { type: ['string', 'null'] },
+                  durationHours: { type: ['number', 'null'] },
                 },
               },
             },
-          }],
-          messages: [{ role: 'user', content: aiBuildPrompt(ctx) }],
-        }),
-      });
-    } catch (err) {
-      console.error(`[ai-suggestions] request failed (network/timeout): ${err.message}`);
-      return null;
-    }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      console.error(`[ai-suggestions] API ${res.status} for model "${AI_SUGGESTIONS_MODEL}": ${detail.slice(0, 500)}`);
-      return null;
-    }
-    let json;
-    try { json = await res.json(); } catch (err) {
-      console.error(`[ai-suggestions] could not parse API response: ${err.message}`);
-      return null;
-    }
-    if (json.stop_reason === 'refusal') {
-      console.error(`[ai-suggestions] model refused: ${JSON.stringify(json.stop_details || {})}`);
-      return null;
-    }
-    const tool = (json.content || []).find(b => b.type === 'tool_use');
-    if (!Array.isArray(tool?.input?.suggestions)) {
-      console.error(`[ai-suggestions] no propose_activities tool_use block; stop_reason=${json.stop_reason}`);
-      return null;
-    }
-    return tool.input.suggestions;
+          },
+        },
+      }],
+      messages: [{ role: 'user', content: aiBuildPrompt(ctx) }],
+    }),
   });
+  } catch (err) {
+    // AbortError (timeout) and network errors are worth one retry.
+    return { ok: false, retryable: true, reason: `network/timeout: ${err.message}`, res: null };
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    const retryable = AI_RETRYABLE_STATUS.has(res.status);
+    console.error(`[ai-suggestions] API ${res.status} for model "${AI_SUGGESTIONS_MODEL}": ${detail.slice(0, 500)}`);
+    return { ok: false, retryable, reason: `API ${res.status}`, res };
+  }
+  let json;
+  try { json = await res.json(); } catch (err) {
+    return { ok: false, retryable: false, reason: `unparseable response: ${err.message}`, res };
+  }
+  if (json.stop_reason === 'refusal') {
+    return { ok: false, retryable: false, reason: `model refused: ${JSON.stringify(json.stop_details || {})}`, res };
+  }
+  const tool = (json.content || []).find(b => b.type === 'tool_use');
+  if (!Array.isArray(tool?.input?.suggestions)) {
+    return { ok: false, retryable: false, reason: `no propose_activities tool_use block; stop_reason=${json.stop_reason}`, res };
+  }
+  return { ok: true, suggestions: tool.input.suggestions };
 }
 
 // Never trust the model's JSON — rebuild each item from a field whitelist

@@ -49,7 +49,7 @@ function _aiDismissedSet(date) {
 const _aiCache = new Map(); // dateStr -> { pool: [] | null, refreshesLeft }
 function _aiEntry(date) {
   if (!_aiCache.has(date)) {
-    _aiCache.set(date, { pool: null, refreshesLeft: undefined });
+    _aiCache.set(date, { pool: null, refreshesLeft: undefined, error: null, locked: false, lockedUntil: null });
   }
   return _aiCache.get(date);
 }
@@ -189,6 +189,8 @@ function _aiRenderPanel(container, date) {
   const pool = entry.pool || [];
   const selected = _aiSelectedCats();
   const refreshesLeft = entry.refreshesLeft;
+  const err = entry.error;
+  const locked = entry.locked === true;
 
   container.dataset.aiDate = date; // lets refreshOpenAiPanels() re-render this one
   container.textContent = '';
@@ -204,7 +206,28 @@ function _aiRenderPanel(container, date) {
   if (selected.length) shown = shown.filter(s => selected.includes(s.category));
 
   if (!shown.length) {
-    container.appendChild(_aiMsgEl(t('aiSuggestions.empty')));
+    if (locked) {
+      const when = entry.lockedUntil ? fmtDate(String(entry.lockedUntil).slice(0, 10), { year: false }) : '';
+      container.appendChild(_aiMsgEl(t('aiSuggestions.locked', { date: when })));
+    } else {
+      // "empty" covers both "nothing new for this day" and "the fetch failed".
+      container.appendChild(_aiMsgEl(t(err || 'aiSuggestions.empty')));
+      // A retry button right in the empty state. With a category filter on,
+      // the "get more {cats}" button below already serves this purpose.
+      if (!selected.length) {
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'ai-more';
+        retry.textContent = t('aiSuggestions.retry');
+        // On a failed fetch, retry plainly (may just succeed now); when the
+        // day genuinely has nothing new, force a fresh look (costs a refresh).
+        retry.addEventListener('click', e => {
+          e.stopPropagation();
+          _aiFetch(container, date, { refresh: !err });
+        });
+        container.appendChild(retry);
+      }
+    }
   } else {
     shown.slice(0, 6).forEach(s => container.appendChild(_aiCard(s, date)));
   }
@@ -226,7 +249,7 @@ function _aiRenderPanel(container, date) {
     container.appendChild(more);
   }
 
-  if (typeof refreshesLeft === 'number' && refreshesLeft > 0) {
+  if (shown.length && typeof refreshesLeft === 'number' && refreshesLeft > 0) {
     const foot = document.createElement('div');
     foot.className = 'ai-panel-foot';
     const btn = document.createElement('button');
@@ -258,30 +281,32 @@ async function _aiFetch(container, date, { refresh = false, more = false } = {})
       body: JSON.stringify({ date, refresh, more, categories: cats }),
     });
 
+    const entry = _aiEntry(date);
     if (res.status === 429) {
       const body = await res.json().catch(() => ({}));
-      const when = body.lockedUntil ? fmtDate(String(body.lockedUntil).slice(0, 10), { year: false }) : '';
+      entry.locked = true;
+      entry.lockedUntil = body.lockedUntil || null;
       _aiRenderPanel(container, date);
-      container.appendChild(_aiMsgEl(t('aiSuggestions.locked', { date: when })));
       return;
     }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       console.error(`[ai-suggestions] ${res.status}:`, body.error || res.statusText);
+      entry.error = 'aiSuggestions.loadFailed';
       _aiRenderPanel(container, date);
-      container.appendChild(_aiMsgEl(t('aiSuggestions.loadFailed')));
       return;
     }
 
     const payload = await res.json();
-    const entry = _aiEntry(date);
     entry.pool = Array.isArray(payload.pool) ? payload.pool : [];
     entry.refreshesLeft = payload.refreshesLeft;
+    entry.error = null;
+    entry.locked = false;
     _aiRenderPanel(container, date);
   } catch (e) {
     console.error('[ai-suggestions] request failed:', e);
+    _aiEntry(date).error = 'aiSuggestions.loadFailed';
     _aiRenderPanel(container, date);
-    container.appendChild(_aiMsgEl(t('aiSuggestions.loadFailed')));
   }
 }
 
