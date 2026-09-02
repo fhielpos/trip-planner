@@ -57,6 +57,7 @@
   "aiSuggestions.empty": "No new ideas right now — this day looks covered.",
   "aiSuggestions.loadFailed": "Couldn't get suggestions. Try again in a moment.",
   "aiSuggestions.refresh": "Refresh",
+  "aiSuggestions.retry": "Try again",
   "aiSuggestions.refreshesLeft": "{n} left",
   "aiSuggestions.locked": "That's all for now — fresh ideas on {date}.",
   "aiSuggestions.add": "Add",
