@@ -304,6 +304,11 @@ function renderToday(data) {
         <button type="button" class="today-recs-toggle" id="today-recs-toggle">${t('recommendations.seeLink')}</button>
         <div class="today-recs-panel" id="today-recs-panel" hidden></div>
       </div>` : ''}
+      ${stay && data.config?.aiSuggestionsEnabled ? `
+      <div class="today-block today-recs-block today-ai-block">
+        <button type="button" class="today-recs-toggle today-ai-toggle" id="today-ai-toggle">${t('aiSuggestions.seeLink')}</button>
+        <div class="today-recs-panel today-ai-panel" id="today-ai-panel" hidden></div>
+      </div>` : ''}
       ${budgetLine ? `<button type="button" class="today-budget" id="today-budget">💶 ${budgetLine}</button>` : ''}
       <button type="button" class="today-scroll-hint" id="today-scroll-hint" aria-label="calendar">⌄</button>
     </div>`;
@@ -334,6 +339,8 @@ function renderToday(data) {
       renderRecommendations(recsPanel, imageStay.id, today);
     }
   });
+
+  _wireAiToggle(section.querySelector('#today-ai-toggle'), section.querySelector('#today-ai-panel'), today);
 }
 
 function renderTodayMobileInTrip(section, data, ctx) {
@@ -389,6 +396,12 @@ function renderTodayMobileInTrip(section, data, ctx) {
       `).join('')}
     </div>` : ''}
 
+    ${stay && data.config?.aiSuggestionsEnabled ? `
+    <div class="mtoday-block mtoday-ai-block">
+      <button type="button" class="mtoday-ai-toggle" id="mtoday-ai-toggle">${t('aiSuggestions.seeLink')}</button>
+      <div class="mtoday-ai-panel" id="mtoday-ai-panel" hidden></div>
+    </div>` : ''}
+
     <div class="mtoday-block">
       <div class="mtoday-block-header">
         <h3 class="mtoday-block-title">${t('today.thisWeek')}</h3>
@@ -439,9 +452,24 @@ function renderTodayMobileInTrip(section, data, ctx) {
   section.querySelectorAll('[data-doc-id]').forEach(btn => btn.addEventListener('click', () => {
     window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
   }));
+  _wireAiToggle(section.querySelector('#mtoday-ai-toggle'), section.querySelector('#mtoday-ai-panel'), today);
   // map.js may have built its data before this DOM existed — (re)populate
   // the Ruta preview now that #mtoday-map-preview is actually in the page.
   if (typeof renderMobileRoutePreview === 'function') renderMobileRoutePreview(data.accommodations);
+}
+
+// Shared toggle wiring for the "Suggest things to do" panel — desktop
+// Today, mobile Today, both call this. Lazy: the API request only fires
+// the first time the panel is opened.
+function _wireAiToggle(toggle, panel, date) {
+  toggle?.addEventListener('click', () => {
+    const opening = panel.hidden;
+    panel.hidden = !opening;
+    if (opening && !panel.dataset.loaded) {
+      panel.dataset.loaded = '1';
+      renderAiSuggestions(panel, date);
+    }
+  });
 }
 
 // Builds the full list of trip days with a stay/date/dow/label attached —

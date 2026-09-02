@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const dns = require('dns');
 const net = require('net');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 const {
   COOKIE_NAME,
@@ -38,6 +39,14 @@ app.use(robotsTagMiddleware);
 // stay hidden otherwise). Defaults off.
 const RECOMMENDATIONS_ENABLED = process.env.RECOMMENDATIONS_ENABLED === 'true';
 
+// AI activity suggestions — operator-controlled, off by default. Needs both
+// an API key and the explicit flag; without both, /api/ai-suggestions* 404s
+// and the client shows no entry point. AI_SUGGESTIONS_MODEL overrides the
+// model (exact id, no date suffix). Key is read here only, never returned.
+const AI_SUGGESTIONS_ENABLED =
+  process.env.AI_SUGGESTIONS_ENABLED === 'true' && Boolean(process.env.ANTHROPIC_API_KEY);
+const AI_SUGGESTIONS_MODEL = process.env.AI_SUGGESTIONS_MODEL || 'claude-haiku-4-5';
+
 const DATA_FILE    = path.join(__dirname, 'data', 'trip.json');
 const ACCOM_FILE   = path.join(__dirname, 'data', 'accommodations.json');
 const FLIGHTY_FILE = path.join(__dirname, 'data', 'flighty.txt');
@@ -46,6 +55,7 @@ const WISHLIST_FILE  = path.join(__dirname, 'data', 'wishlist.json');
 const WEATHER_FILE   = path.join(__dirname, 'data', 'weather.json');
 const AIRPORTS_FILE  = path.join(__dirname, 'data', 'airports.json');
 const RECOMMENDATIONS_FILE = path.join(__dirname, 'data', 'recommendations.json');
+const AI_SUGGESTIONS_FILE = path.join(__dirname, 'data', 'ai-suggestions.json');
 const DOCUMENTS_FILE = path.join(__dirname, 'data', 'documents.json');
 const DOCUMENTS_DIR  = path.join(__dirname, 'data', 'documents-files');
 const FLIGHTS_FILE = path.join(__dirname, 'data', 'flights.json');
@@ -854,6 +864,263 @@ app.get('/api/recommendations/:stayId', async (req, res) => {
   res.json(fetched);
 });
 
+// ── AI activity suggestions ────────────────────
+// The model proposes a few things to do on a given trip day. Explicit-click
+// only, tiny hand-built prompt, forced tool-schema response, re-sanitized
+// server-side. Cost is capped two ways: 1 free fetch + 3 refreshes per
+// day (then a 72h lock, cleared by TTL or the admin reset), and a global
+// 50-calls / rolling-24h backstop. See
+// docs/superpowers/specs/2026-09-02-ai-activity-suggestions-design.md.
+
+const AI_MAX_REFRESHES_PER_DAY = 3;
+const AI_LOCK_MS = 72 * 60 * 60 * 1000;
+const AI_GLOBAL_LIMIT = 50;
+const AI_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+const AI_CATEGORIES = ['sightseeing', 'museum', 'outdoors', 'food', 'nightlife', 'shopping', 'daytrip'];
+const AI_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const AI_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+const aiSuggestionsStore = jsonStore(AI_SUGGESTIONS_FILE, () => ({
+  cache: {}, refreshes: {}, global: { windowStart: null, count: 0 },
+}));
+const aiFetchLimit = createLimiter(1); // serialise concurrent clicks
+
+// The stay whose window covers `date` (check_in inclusive, check_out
+// exclusive — the checkout day belongs to the next place / transit).
+function aiActiveStay(date) {
+  return readAccommodations().find(a => a.check_in <= date && date < a.check_out) || null;
+}
+
+function aiPlanHash(titles) {
+  return crypto.createHash('sha1').update(titles.slice().sort().join('|')).digest('hex').slice(0, 8);
+}
+
+function aiBuildContext(date, lang) {
+  const stay = aiActiveStay(date);
+  if (!stay || !stay.city) return null;
+  const data = readData();
+  const cal = data.calendar || [];
+  const todayTitles = cal
+    .filter(e => e.date === date && e.type !== 'accommodation' && e.title)
+    .map(e => e.title.trim());
+  const tripTitles = [...new Set(cal
+    .filter(e => e.type !== 'accommodation' && e.title)
+    .map(e => e.title.trim()))].slice(0, 40);
+  const d = new Date(date + 'T00:00:00Z');
+  return {
+    date,
+    lang: lang === 'es' ? 'es' : 'en',
+    city: stay.city,
+    country: stay.country || '',
+    weekday: AI_WEEKDAYS[d.getUTCDay()],
+    month: AI_MONTHS[d.getUTCMonth()],
+    alreadyPlannedToday: todayTitles,
+    alreadyPlannedTrip: tripTitles,
+    planHash: aiPlanHash(todayTitles),
+  };
+}
+
+function aiBuildPrompt(ctx) {
+  const place = [ctx.city, ctx.country].filter(Boolean).join(', ');
+  return [
+    `City: ${place}`,
+    `Date: ${ctx.date} (${ctx.weekday}, ${ctx.month})`,
+    ctx.alreadyPlannedToday.length
+      ? `Already planned that day: ${ctx.alreadyPlannedToday.join('; ')}`
+      : `Nothing is planned that day yet.`,
+    ctx.alreadyPlannedTrip.length
+      ? `Already planned elsewhere on this trip: ${ctx.alreadyPlannedTrip.join('; ')}`
+      : null,
+    `Reply language: ${ctx.lang}`,
+    `Propose up to 4 activities not already listed above. Write each reason as one short sentence in the reply language.`,
+  ].filter(Boolean).join('\n');
+}
+
+// Returns an array of raw suggestion objects, or null on any failure
+// (non-200, timeout, refusal, no tool_use block) so the caller can tell
+// "the request didn't work" apart from "the model returned nothing".
+async function aiCallModel(ctx) {
+  return aiFetchLimit(async () => {
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        signal: AbortSignal.timeout(20000),
+        body: JSON.stringify({
+          model: AI_SUGGESTIONS_MODEL,
+          max_tokens: 1024,
+          system:
+            'You are a concise local travel guide. Suggest real, well-known places or ' +
+            'activities in the given city, appropriate for the date and season. Never ' +
+            'repeat anything already planned. Prefer a variety of categories. Keep each ' +
+            'reason to one short sentence.',
+          tool_choice: { type: 'tool', name: 'propose_activities' },
+          tools: [{
+            name: 'propose_activities',
+            description: 'Return up to 4 suggested activities for the day.',
+            strict: true,
+            input_schema: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['suggestions'],
+              properties: {
+                suggestions: {
+                  type: 'array', maxItems: 4,
+                  items: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['name', 'category', 'reason'],
+                    properties: {
+                      name: { type: 'string' },
+                      category: { type: 'string', enum: AI_CATEGORIES },
+                      reason: { type: 'string' },
+                      address: { type: ['string', 'null'] },
+                      suggestedStartTime: { type: ['string', 'null'] },
+                      durationHours: { type: ['number', 'null'] },
+                    },
+                  },
+                },
+              },
+            },
+          }],
+          messages: [{ role: 'user', content: aiBuildPrompt(ctx) }],
+        }),
+      });
+    } catch {
+      return null; // network error / timeout
+    }
+    if (!res.ok) return null;
+    let json;
+    try { json = await res.json(); } catch { return null; }
+    if (json.stop_reason === 'refusal') return null;
+    const tool = (json.content || []).find(b => b.type === 'tool_use');
+    return Array.isArray(tool?.input?.suggestions) ? tool.input.suggestions : null;
+  });
+}
+
+// Never trust the model's JSON — rebuild each item from a field whitelist
+// with length / enum / format caps, drop anything invalid, cap at 4.
+function aiSanitize(raw) {
+  const clip = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const out = [];
+  for (const item of Array.isArray(raw) ? raw : []) {
+    if (!item || typeof item !== 'object') continue;
+    const name = clip(item.name, 80);
+    if (!name) continue;
+    const category = AI_CATEGORIES.includes(item.category) ? item.category : 'sightseeing';
+    const reason = clip(item.reason, 140);
+    const address = clip(item.address, 160) || null;
+    const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(item.suggestedStartTime) ? item.suggestedStartTime : null;
+    const dur = (typeof item.durationHours === 'number' && Number.isFinite(item.durationHours)
+      && item.durationHours > 0 && item.durationHours <= 12) ? item.durationHours : null;
+    out.push({ name, category, reason, address, suggestedStartTime: time, durationHours: dur });
+    if (out.length === 4) break;
+  }
+  return out;
+}
+
+// Roll the global 24h window if it has elapsed; returns the live counter.
+function aiGlobalCounter(store) {
+  const now = Date.now();
+  const g = store.global || (store.global = { windowStart: null, count: 0 });
+  if (!g.windowStart || now - Date.parse(g.windowStart) > AI_GLOBAL_WINDOW_MS) {
+    g.windowStart = new Date(now).toISOString();
+    g.count = 0;
+  }
+  return g;
+}
+
+app.post('/api/ai-suggestions', async (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+
+  const { date, refresh } = req.body || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) {
+    return res.status(400).json({ error: 'Invalid date' });
+  }
+  const trip = readData().trip;
+  if (trip && (date < trip.startDate || date > trip.endDate)) {
+    return res.status(400).json({ error: 'Date outside trip' });
+  }
+  const ctx = aiBuildContext(date, req.query.lang);
+  if (!ctx) return res.status(400).json({ error: 'No city for this date' });
+
+  const store = aiSuggestionsStore.read();
+  store.cache ||= {}; store.refreshes ||= {};
+
+  // Fast path: serve cache when the plan for that day is unchanged and the
+  // caller isn't explicitly asking for fresh ideas.
+  const cached = store.cache[date];
+  if (!refresh && cached && cached.planHash === ctx.planHash) {
+    const rec = store.refreshes[date];
+    return res.json({
+      suggestions: cached.suggestions,
+      refreshesLeft: rec ? Math.max(0, AI_MAX_REFRESHES_PER_DAY - rec.count) : AI_MAX_REFRESHES_PER_DAY,
+      locked: false, lockedUntil: null,
+    });
+  }
+
+  // Global backstop — every real API call counts, success or failure.
+  const g = aiGlobalCounter(store);
+  if (g.count >= AI_GLOBAL_LIMIT) {
+    aiSuggestionsStore.write(store);
+    return res.status(429).json({
+      error: 'Daily suggestion limit reached', scope: 'global',
+      lockedUntil: new Date(Date.parse(g.windowStart) + AI_GLOBAL_WINDOW_MS).toISOString(),
+    });
+  }
+
+  // Per-day refresh gate (only when the caller asked for a refresh).
+  const rec = store.refreshes[date] || (store.refreshes[date] = { count: 0, lockedUntil: null });
+  if (refresh) {
+    if (rec.lockedUntil && Date.parse(rec.lockedUntil) > Date.now()) {
+      aiSuggestionsStore.write(store);
+      return res.status(429).json({ error: 'Refresh limit reached', scope: 'day', lockedUntil: rec.lockedUntil });
+    }
+    if (rec.count >= AI_MAX_REFRESHES_PER_DAY) {
+      rec.lockedUntil = new Date(Date.now() + AI_LOCK_MS).toISOString();
+      aiSuggestionsStore.write(store);
+      return res.status(429).json({ error: 'Refresh limit reached', scope: 'day', lockedUntil: rec.lockedUntil });
+    }
+  }
+
+  g.count += 1;
+  aiSuggestionsStore.write(store); // reserve the global slot before the call
+
+  const raw = await aiCallModel(ctx);
+  if (raw === null) {
+    return res.status(502).json({ error: 'Suggestion request failed' });
+  }
+  const suggestions = aiSanitize(raw);
+
+  const after = aiSuggestionsStore.read();
+  after.cache ||= {}; after.refreshes ||= {};
+  const recAfter = after.refreshes[date] || (after.refreshes[date] = { count: 0, lockedUntil: null });
+  if (refresh) recAfter.count += 1;
+  after.cache[date] = { planHash: ctx.planHash, suggestions, fetchedAt: new Date().toISOString() };
+  aiSuggestionsStore.write(after);
+
+  res.json({
+    suggestions,
+    refreshesLeft: Math.max(0, AI_MAX_REFRESHES_PER_DAY - recAfter.count),
+    locked: false, lockedUntil: null,
+  });
+});
+
+app.post('/api/ai-suggestions/reset-limits', (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const store = aiSuggestionsStore.read();
+  store.refreshes = {};
+  store.global = { windowStart: null, count: 0 };
+  aiSuggestionsStore.write(store);
+  res.json({ ok: true });
+});
+
 // Update trip info
 app.put('/api/trip', (req, res) => {
   const data = readData();
@@ -1265,8 +1532,26 @@ app.get('/api/admin/status', (req, res) => {
       accommodations: geocodingSummary(accommodations),
       activities: geocodingSummary(activities),
     },
+    aiSuggestions: aiStatusSummary(),
   });
 });
+
+// Rollup for the admin panel's "AI Suggestions" section.
+function aiStatusSummary() {
+  if (!AI_SUGGESTIONS_ENABLED) return { enabled: false };
+  const store = aiSuggestionsStore.read();
+  const g = store.global || {};
+  const windowLive = g.windowStart && Date.now() - Date.parse(g.windowStart) <= AI_GLOBAL_WINDOW_MS;
+  const now = Date.now();
+  return {
+    enabled: true,
+    callsLast24h: windowLive ? (g.count || 0) : 0,
+    callLimit: AI_GLOBAL_LIMIT,
+    daysCached: Object.keys(store.cache || {}).length,
+    lockedDays: Object.values(store.refreshes || {})
+      .filter(r => r.lockedUntil && Date.parse(r.lockedUntil) > now).length,
+  };
+}
 
 // Retries geocoding only for entries that don't already have a successful
 // geocode — an address that's already 'ok' is left alone (matches the
@@ -1518,7 +1803,10 @@ app.get('/api/export', (req, res) => {
 
 app.get('/api/version', (req, res) => res.json({ commit: COMMIT, commitMessage: COMMIT_MESSAGE }));
 
-app.get('/api/config', (req, res) => res.json({ recommendationsEnabled: RECOMMENDATIONS_ENABLED }));
+app.get('/api/config', (req, res) => res.json({
+  recommendationsEnabled: RECOMMENDATIONS_ENABLED,
+  aiSuggestionsEnabled: AI_SUGGESTIONS_ENABLED,
+}));
 
 // Catch-all error handler — keeps error responses JSON instead of Express's
 // default HTML/stack-trace page (data/*.json can be hand-edited concurrently

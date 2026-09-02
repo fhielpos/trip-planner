@@ -91,6 +91,15 @@
       <div class="admin-row"><span class="admin-label">Coordinates cached</span><span class="admin-value" id="admin-airports-count">—</span></div>
     </section>
 
+    <section class="admin-section" id="admin-ai-section" hidden>
+      <h2>AI Suggestions</h2>
+      <div class="admin-row"><span class="admin-label">Calls (24h)</span><span class="admin-value" id="admin-ai-calls">—</span></div>
+      <div class="admin-row"><span class="admin-label">Days cached</span><span class="admin-value" id="admin-ai-cached">—</span></div>
+      <div class="admin-row"><span class="admin-label">Locked days</span><span class="admin-value" id="admin-ai-locked">—</span></div>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-ai-reset">Reset limits</button>
+      <p class="admin-note">Clears every per-day refresh lock and the rolling 24h call counter.</p>
+    </section>
+
     <section class="admin-section">
       <h2>Geocoding</h2>
       <h3 class="admin-subhead">Accommodations</h3>
