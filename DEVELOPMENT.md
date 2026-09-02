@@ -18,6 +18,21 @@ docker compose up -d
 
 `node_modules` has no registry access inside Docker, so it is COPY'd from the host. Run `npm install` on the host before rebuilding if dependencies change.
 
+## Environment variables
+
+Set in the deployment environment (Railway) or an `.env` — none are required for the app to boot.
+
+| Variable | Purpose |
+|----------|---------|
+| `APP_PASSWORD` | Shared login password. Unset = auth disabled (dev only). |
+| `SESSION_SECRET` | HMAC secret for session cookies. Unset = random per boot (sessions drop on restart). |
+| `RECOMMENDATIONS_ENABLED` | `true` turns on the OSM/Overpass "nearby places" panel. |
+| `ANTHROPIC_API_KEY` | API key for AI activity suggestions. Feature stays off if unset. |
+| `AI_SUGGESTIONS_ENABLED` | `true` **and** a key present turns the AI suggestions feature on. Kill-switch. |
+| `AI_SUGGESTIONS_MODEL` | Override the model id (default `claude-haiku-4-5`). Exact id, no date suffix. |
+
+AI suggestions are cost-capped in `data/ai-suggestions.json`: 1 free fetch + 3 refreshes per trip day (then a 72h lock), plus a global 50-calls / rolling-24h ceiling. Both clear from the admin panel (`/admin` → AI Suggestions → Reset limits).
+
 ## Trip-specific hardcoding
 
 Things in the codebase that are specific to this trip and would need updating for a different one:

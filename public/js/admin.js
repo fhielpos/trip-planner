@@ -50,6 +50,15 @@ async function _loadStatus() {
 
   document.getElementById('admin-airports-count').textContent = status.airports.cachedCount;
 
+  const ai = status.aiSuggestions || { enabled: false };
+  const aiSection = document.getElementById('admin-ai-section');
+  aiSection.hidden = !ai.enabled;
+  if (ai.enabled) {
+    document.getElementById('admin-ai-calls').textContent = `${ai.callsLast24h} / ${ai.callLimit}`;
+    document.getElementById('admin-ai-cached').textContent = ai.daysCached;
+    document.getElementById('admin-ai-locked').textContent = ai.lockedDays;
+  }
+
   document.getElementById('admin-geocode-accom-total').textContent = status.geocoding.accommodations.total;
   document.getElementById('admin-geocode-accom-ok').textContent = status.geocoding.accommodations.ok;
   document.getElementById('admin-geocode-accom-failed').textContent = status.geocoding.accommodations.failed;
@@ -145,6 +154,9 @@ document.getElementById('admin-currency-refresh').addEventListener('click', e =>
 });
 document.getElementById('admin-geocode-refresh').addEventListener('click', e => {
   _refresh(e.target, '/api/geocode/refresh');
+});
+document.getElementById('admin-ai-reset').addEventListener('click', e => {
+  _refresh(e.target, '/api/ai-suggestions/reset-limits');
 });
 
 _loadStatus();

@@ -323,7 +323,9 @@ function _positionFloatingPanel(panel, anchorEl) {
 }
 
 function _closeDayRecsPanel(dateStr) {
-  document.querySelector(`.day-recs-panel[data-for="${dateStr}"]`)?.remove();
+  document.querySelectorAll(
+    `.day-recs-panel[data-for="${dateStr}"], .day-recs-panel[data-ai-for="${dateStr}"]`
+  ).forEach(p => p.remove());
 }
 
 function toggleCardExpand(card, expand) {
@@ -331,6 +333,7 @@ function toggleCardExpand(card, expand) {
   const chips = chipsByDate[card.dataset.date] || [];
   let addBtn  = card.querySelector('.day-add-btn');
   let recsBtn = card.querySelector('.day-recs-btn');
+  let aiBtn   = card.querySelector('.day-ai-btn');
 
   if (expand) {
     card.classList.add('expanded');
@@ -381,12 +384,42 @@ function toggleCardExpand(card, expand) {
       });
       card.appendChild(recsBtn);
     }
+    if (tripData.config?.aiSuggestionsEnabled && !aiBtn) {
+      aiBtn = document.createElement('button');
+      aiBtn.className = 'day-add-btn day-ai-btn';
+      aiBtn.textContent = t('aiSuggestions.seeLink');
+      aiBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const dateStr = card.dataset.date;
+        const existing = document.querySelector(`.day-recs-panel[data-ai-for="${dateStr}"]`);
+        if (existing) { existing.remove(); return; }
+
+        const panel = document.createElement('div');
+        panel.className = 'day-recs-panel';
+        panel.dataset.aiFor = dateStr;
+        panel.addEventListener('click', ev => ev.stopPropagation());
+        document.body.appendChild(panel);
+        _positionFloatingPanel(panel, aiBtn);
+        renderAiSuggestions(panel, dateStr);
+
+        setTimeout(() => {
+          document.addEventListener('click', function onOutside(ev) {
+            if (!panel.contains(ev.target) && ev.target !== aiBtn) {
+              panel.remove();
+              document.removeEventListener('click', onOutside);
+            }
+          });
+        }, 0);
+      });
+      card.appendChild(aiBtn);
+    }
   } else {
     card.classList.remove('expanded');
     if (chipsEl) renderChips(chipsEl, chips, CHIPS_MAX);
     if (addBtn) addBtn.remove();
     _closeDayRecsPanel(card.dataset.date);
     if (recsBtn) recsBtn.remove();
+    if (aiBtn) aiBtn.remove();
   }
 }
 
@@ -750,6 +783,8 @@ function openAddModal(defaultDate, prefill) {
   if (prefill) {
     modal.title.value   = prefill.title || '';
     modal.address.value = prefill.address || '';
+    modal.notes.value   = prefill.notes || '';
+    modal.startTime.value = prefill.startTime || '';
     modal.lat.value      = prefill.lat ?? '';
     modal.lon.value      = prefill.lon ?? '';
   }

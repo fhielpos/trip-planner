@@ -21,6 +21,7 @@ const SHELL_ASSETS = [
   '/js/timeline.js',
   '/js/recommendations.js',
   '/js/today.js',
+  '/js/ai-suggestions.js',
   '/js/map.js',
   '/js/budget.js',
   '/js/currency-calc.js',
