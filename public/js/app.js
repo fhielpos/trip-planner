@@ -788,6 +788,7 @@ function openAddModal(defaultDate, prefill) {
     modal.lat.value      = prefill.lat ?? '';
     modal.lon.value      = prefill.lon ?? '';
   }
+  if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
 }
@@ -810,6 +811,7 @@ function openEditModal(id) {
   modal.endTime.value   = e.endTime || '';
   modal.lat.value        = e.lat ?? '';
   modal.lon.value        = e.lon ?? '';
+  if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
 }
@@ -828,6 +830,7 @@ function openStayModal(id) {
   modal.startDate.value = a.check_in || '';
   modal.endDate.value   = a.check_out || '';
   modal.url.value       = a.url || '';
+  if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
 }
@@ -914,6 +917,7 @@ modal.form.addEventListener('submit', async e => {
     if (typeof renderMap === 'function') {
       renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports, tripData.calendar);
     }
+    if (typeof refreshOpenAiPanels === 'function') refreshOpenAiPanels();
   } catch { alert(t('modal.saveFailed')); }
 });
 
@@ -933,6 +937,7 @@ $('btn-delete-entry').addEventListener('click', async () => {
     closeModal();
     renderPlanner();
     renderInfoBar();
+    if (typeof refreshOpenAiPanels === 'function') refreshOpenAiPanels();
   } catch { alert(t('modal.deleteFailed')); }
 });
 

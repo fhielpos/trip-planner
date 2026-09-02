@@ -603,7 +603,9 @@ body {
    viewport, so it scrolls naturally with the page. */
 .day-recs-panel {
   position: absolute;
-  z-index: 50;
+  /* Above Leaflet's control/pane z-indexes (up to 1000) — the day cards
+     near the bottom of the grid open this panel over the Route map. */
+  z-index: 1002;
   max-height: 320px;
   overflow-y: auto;
   padding: 0.5rem;
@@ -759,11 +761,64 @@ body {
   font-style: italic;
   line-height: 1.35;
   color: var(--text-3);
+  cursor: pointer;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.ai-card-reason:hover { color: var(--text-2); }
+.ai-card-reason--expanded {
+  -webkit-line-clamp: 99;
+  overflow: visible;
+}
+
+/* Category filter chips — toggle to steer the model / filter the pool. */
+.ai-cat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.55rem;
+}
+.ai-cat-chip {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-3);
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--trans), border-color var(--trans), background var(--trans);
+}
+.ai-cat-chip:hover { color: var(--text-1); border-color: var(--text-3); }
+.ai-cat-chip.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.ai-cat-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.ai-more {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--text-2);
+  font-family: var(--font-display);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ai-more:hover { color: var(--accent); border-color: var(--accent); }
+.ai-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .ai-panel-foot {
   display: flex;
   align-items: center;
@@ -795,6 +850,28 @@ body {
 .ai-refresh:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Loading state — pulsing dashed placeholders shaped like the cards. */
+.ai-loading { display: flex; flex-direction: column; gap: 0.4rem; }
+.ai-skel {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.55rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  animation: ai-skel-pulse 1.4s ease-in-out infinite;
+}
+.ai-skel:nth-child(3) { animation-delay: 0.16s; }
+.ai-skel:nth-child(4) { animation-delay: 0.32s; }
+.ai-skel-bar { height: 0.6rem; border-radius: 3px; background: var(--border); }
+.ai-skel-bar:nth-child(1) { width: 52%; }
+.ai-skel-bar:nth-child(2) { width: 100%; }
+.ai-skel-bar:nth-child(3) { width: 78%; }
+@keyframes ai-skel-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.85; }
 }
 
 /* =============================================
@@ -2425,7 +2502,9 @@ body {
   top: calc(100% + 0.4rem);
   left: 0;
   right: 0;
-  z-index: 5;
+  /* Above the planner day-cards (z-index 10) and Leaflet's panes/controls
+     — a short hero lets this dropdown overlap the content below it. */
+  z-index: 1002;
   max-height: 320px;
   overflow-y: auto;
   padding: 0.5rem;
@@ -3426,6 +3505,8 @@ body {
   .mtoday-ai-panel { margin-top: 4px; }
   .mtoday-ai-panel .ai-card-name { font-size: 14px; }
   .mtoday-ai-panel .ai-card-reason { font-size: 12px; }
+  .mtoday-ai-panel .ai-cat-chip { font-size: 11px; padding: 5px 10px; }
+  .mtoday-ai-panel .ai-cat-row { gap: 5px; margin-bottom: 10px; }
   .mtoday-ai-panel .ai-panel-msg { font-size: 13px; }
 
   .mtoday-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 6px; border-radius: 10px; min-height: 44px; }

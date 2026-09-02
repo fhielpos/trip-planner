@@ -876,7 +876,9 @@ const AI_MAX_REFRESHES_PER_DAY = 3;
 const AI_LOCK_MS = 72 * 60 * 60 * 1000;
 const AI_GLOBAL_LIMIT = 50;
 const AI_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
-const AI_CATEGORIES = ['sightseeing', 'museum', 'outdoors', 'food', 'nightlife', 'shopping', 'daytrip'];
+const AI_CATEGORIES = ['sightseeing', 'culture', 'outdoors', 'food', 'nightlife', 'shopping', 'daytrip'];
+const AI_POOL_MAX = 20;      // suggestions kept per day across category combos
+const AI_SUGGESTIONS_PER_CALL = 6;
 const AI_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const AI_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -896,7 +898,16 @@ function aiPlanHash(titles) {
   return crypto.createHash('sha1').update(titles.slice().sort().join('|')).digest('hex').slice(0, 8);
 }
 
-function aiBuildContext(date, lang) {
+// Sorted, de-duped, whitelisted category list; '' when none selected.
+function aiNormCategories(raw) {
+  const list = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(',') : []);
+  return [...new Set(list.map(c => String(c).trim().toLowerCase()))]
+    .filter(c => AI_CATEGORIES.includes(c))
+    .sort();
+}
+const aiCatKey = cats => cats.length ? cats.join(',') : 'all';
+
+function aiBuildContext(date, lang, categories) {
   const stay = aiActiveStay(date);
   if (!stay || !stay.city) return null;
   const data = readData();
@@ -906,11 +917,12 @@ function aiBuildContext(date, lang) {
     .map(e => e.title.trim());
   const tripTitles = [...new Set(cal
     .filter(e => e.type !== 'accommodation' && e.title)
-    .map(e => e.title.trim()))].slice(0, 40);
+    .map(e => e.title.trim()))].slice(0, 20);
   const d = new Date(date + 'T00:00:00Z');
   return {
     date,
     lang: lang === 'es' ? 'es' : 'en',
+    categories: aiNormCategories(categories),
     city: stay.city,
     country: stay.country || '',
     weekday: AI_WEEKDAYS[d.getUTCDay()],
@@ -932,8 +944,11 @@ function aiBuildPrompt(ctx) {
     ctx.alreadyPlannedTrip.length
       ? `Already planned elsewhere on this trip: ${ctx.alreadyPlannedTrip.join('; ')}`
       : null,
+    ctx.categories.length
+      ? `Focus on these kinds of activities: ${ctx.categories.join(', ')}. One strong pick outside them is fine if it clearly stands out.`
+      : null,
     `Reply language: ${ctx.lang}`,
-    `Propose up to 4 activities not already listed above. Write each reason as one short sentence in the reply language.`,
+    `Propose up to ${AI_SUGGESTIONS_PER_CALL} activities not already listed above. Write each reason as two or three sentences in the reply language.`,
   ].filter(Boolean).join('\n');
 }
 
@@ -954,24 +969,26 @@ async function aiCallModel(ctx) {
         signal: AbortSignal.timeout(20000),
         body: JSON.stringify({
           model: AI_SUGGESTIONS_MODEL,
-          max_tokens: 1024,
+          max_tokens: 1400,
           system:
-            'You are a concise local travel guide. Suggest real, well-known places or ' +
-            'activities in the given city, appropriate for the date and season. Never ' +
-            'repeat anything already planned. Prefer a variety of categories. Keep each ' +
-            'reason to one short sentence.',
+            'You are a local travel guide. Suggest real, well-known places or activities ' +
+            'in the given city, appropriate for the date and season. Never repeat anything ' +
+            'already planned. Prefer a variety of categories unless asked to focus. Each ' +
+            'reason is two or three sentences: what it is, why it fits this day, one ' +
+            'practical tip.',
+          // Forced tool_choice already guarantees the call; aiSanitize() is
+          // the real guarantee of a safe payload, so no `strict: true` here.
           tool_choice: { type: 'tool', name: 'propose_activities' },
           tools: [{
             name: 'propose_activities',
-            description: 'Return up to 4 suggested activities for the day.',
-            strict: true,
+            description: `Return up to ${AI_SUGGESTIONS_PER_CALL} suggested activities for the day.`,
             input_schema: {
               type: 'object',
               additionalProperties: false,
               required: ['suggestions'],
               properties: {
                 suggestions: {
-                  type: 'array', maxItems: 4,
+                  type: 'array', maxItems: AI_SUGGESTIONS_PER_CALL,
                   items: {
                     type: 'object',
                     additionalProperties: false,
@@ -992,20 +1009,35 @@ async function aiCallModel(ctx) {
           messages: [{ role: 'user', content: aiBuildPrompt(ctx) }],
         }),
       });
-    } catch {
-      return null; // network error / timeout
+    } catch (err) {
+      console.error(`[ai-suggestions] request failed (network/timeout): ${err.message}`);
+      return null;
     }
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      console.error(`[ai-suggestions] API ${res.status} for model "${AI_SUGGESTIONS_MODEL}": ${detail.slice(0, 500)}`);
+      return null;
+    }
     let json;
-    try { json = await res.json(); } catch { return null; }
-    if (json.stop_reason === 'refusal') return null;
+    try { json = await res.json(); } catch (err) {
+      console.error(`[ai-suggestions] could not parse API response: ${err.message}`);
+      return null;
+    }
+    if (json.stop_reason === 'refusal') {
+      console.error(`[ai-suggestions] model refused: ${JSON.stringify(json.stop_details || {})}`);
+      return null;
+    }
     const tool = (json.content || []).find(b => b.type === 'tool_use');
-    return Array.isArray(tool?.input?.suggestions) ? tool.input.suggestions : null;
+    if (!Array.isArray(tool?.input?.suggestions)) {
+      console.error(`[ai-suggestions] no propose_activities tool_use block; stop_reason=${json.stop_reason}`);
+      return null;
+    }
+    return tool.input.suggestions;
   });
 }
 
 // Never trust the model's JSON — rebuild each item from a field whitelist
-// with length / enum / format caps, drop anything invalid, cap at 4.
+// with length / enum / format caps, drop anything invalid.
 function aiSanitize(raw) {
   const clip = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
   const out = [];
@@ -1014,15 +1046,52 @@ function aiSanitize(raw) {
     const name = clip(item.name, 80);
     if (!name) continue;
     const category = AI_CATEGORIES.includes(item.category) ? item.category : 'sightseeing';
-    const reason = clip(item.reason, 140);
+    const reason = clip(item.reason, 400);
     const address = clip(item.address, 160) || null;
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(item.suggestedStartTime) ? item.suggestedStartTime : null;
     const dur = (typeof item.durationHours === 'number' && Number.isFinite(item.durationHours)
       && item.durationHours > 0 && item.durationHours <= 12) ? item.durationHours : null;
     out.push({ name, category, reason, address, suggestedStartTime: time, durationHours: dur });
-    if (out.length === 4) break;
+    if (out.length === AI_SUGGESTIONS_PER_CALL) break;
   }
   return out;
+}
+
+// Keep only well-formed combo entries. With `planHash` given, also drop
+// combos from a stale day-plan — used on a Refresh write so an explicit
+// Refresh after the plan changed genuinely resets the day; a plain
+// (non-refresh) write keeps every combo regardless of plan, since opening
+// the panel must never silently spend a model call.
+function aiCleanDay(dayObj, planHash) {
+  const out = {};
+  for (const [k, v] of Object.entries(dayObj || {})) {
+    if (!v || typeof v !== 'object' || !Array.isArray(v.suggestions)) continue;
+    if (planHash && v.planHash !== planHash) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+// Union of every cached combo's suggestions for `date`, newest combo
+// first, de-duped by name, capped. The client filters this pool by the
+// selected categories locally; it only re-calls the model on an explicit
+// Refresh or "get more".
+function aiPoolForDay(cache, date) {
+  const combos = Object.values((cache || {})[date] || {})
+    .filter(c => c && typeof c === 'object' && Array.isArray(c.suggestions))
+    .sort((a, b) => String(b.fetchedAt || '').localeCompare(String(a.fetchedAt || '')));
+  const seen = new Set();
+  const pool = [];
+  for (const combo of combos) {
+    for (const s of combo.suggestions) {
+      const k = s.name.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      pool.push(s);
+      if (pool.length === AI_POOL_MAX) return pool;
+    }
+  }
+  return pool;
 }
 
 // Roll the global 24h window if it has elapsed; returns the live counter.
@@ -1039,7 +1108,7 @@ function aiGlobalCounter(store) {
 app.post('/api/ai-suggestions', async (req, res) => {
   if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
 
-  const { date, refresh } = req.body || {};
+  const { date, refresh, more } = req.body || {};
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) {
     return res.status(400).json({ error: 'Invalid date' });
   }
@@ -1047,22 +1116,32 @@ app.post('/api/ai-suggestions', async (req, res) => {
   if (trip && (date < trip.startDate || date > trip.endDate)) {
     return res.status(400).json({ error: 'Date outside trip' });
   }
-  const ctx = aiBuildContext(date, req.query.lang);
+  const ctx = aiBuildContext(date, req.query.lang, req.body.categories);
   if (!ctx) return res.status(400).json({ error: 'No city for this date' });
+  const catKey = aiCatKey(ctx.categories);
 
   const store = aiSuggestionsStore.read();
   store.cache ||= {}; store.refreshes ||= {};
+  const dayCache = store.cache[date] || {};
 
-  // Fast path: serve cache when the plan for that day is unchanged and the
-  // caller isn't explicitly asking for fresh ideas.
-  const cached = store.cache[date];
-  if (!refresh && cached && cached.planHash === ctx.planHash) {
-    const rec = store.refreshes[date];
-    return res.json({
-      suggestions: cached.suggestions,
-      refreshesLeft: rec ? Math.max(0, AI_MAX_REFRESHES_PER_DAY - rec.count) : AI_MAX_REFRESHES_PER_DAY,
-      locked: false, lockedUntil: null,
-    });
+  const respondCached = () => res.json({
+    pool: aiPoolForDay(store.cache, date),
+    refreshesLeft: (() => {
+      const rec = store.refreshes[date];
+      return rec ? Math.max(0, AI_MAX_REFRESHES_PER_DAY - rec.count) : AI_MAX_REFRESHES_PER_DAY;
+    })(),
+    locked: false, lockedUntil: null,
+  });
+
+  // Fast path — never spend a model call unless the user explicitly asked:
+  //  - a plain open: any cached combo for the day is enough (the client
+  //    filters the pool locally, and a changed plan / category selection
+  //    must not trigger a fetch);
+  //  - a "get more" for a specific category combo: only skip the call if
+  //    that combo is already cached.
+  if (!refresh) {
+    const enough = more ? dayCache[catKey] : Object.keys(dayCache).length > 0;
+    if (enough) return respondCached();
   }
 
   // Global backstop — every real API call counts, success or failure.
@@ -1075,7 +1154,8 @@ app.post('/api/ai-suggestions', async (req, res) => {
     });
   }
 
-  // Per-day refresh gate (only when the caller asked for a refresh).
+  // Per-day refresh gate (only when the caller asked for a refresh — a
+  // first fetch for a new category combo is a plain miss, not a refresh).
   const rec = store.refreshes[date] || (store.refreshes[date] = { count: 0, lockedUntil: null });
   if (refresh) {
     if (rec.lockedUntil && Date.parse(rec.lockedUntil) > Date.now()) {
@@ -1102,11 +1182,15 @@ app.post('/api/ai-suggestions', async (req, res) => {
   after.cache ||= {}; after.refreshes ||= {};
   const recAfter = after.refreshes[date] || (after.refreshes[date] = { count: 0, lockedUntil: null });
   if (refresh) recAfter.count += 1;
-  after.cache[date] = { planHash: ctx.planHash, suggestions, fetchedAt: new Date().toISOString() };
+  // A Refresh resets the day to the current plan; a plain fetch / "get
+  // more" merges into whatever is already cached, plan unchanged.
+  const dayObj = aiCleanDay(after.cache[date], refresh ? ctx.planHash : null);
+  dayObj[catKey] = { planHash: ctx.planHash, suggestions, fetchedAt: new Date().toISOString() };
+  after.cache[date] = dayObj;
   aiSuggestionsStore.write(after);
 
   res.json({
-    suggestions,
+    pool: aiPoolForDay(after.cache, date),
     refreshesLeft: Math.max(0, AI_MAX_REFRESHES_PER_DAY - recAfter.count),
     locked: false, lockedUntil: null,
   });
