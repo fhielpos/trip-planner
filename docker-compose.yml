@@ -7,4 +7,11 @@ services:
       - ./data:/app/data
     environment:
       - PORT=3000
+      # AI activity suggestions — feature stays off unless a key is set
+      # AND AI_SUGGESTIONS_ENABLED=true. Values come from the host env / .env,
+      # never committed here. AI_SUGGESTIONS_MODEL is optional (default
+      # claude-haiku-4-5). See DEVELOPMENT.md.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AI_SUGGESTIONS_ENABLED=${AI_SUGGESTIONS_ENABLED:-}
+      - AI_SUGGESTIONS_MODEL=${AI_SUGGESTIONS_MODEL:-}
     restart: unless-stopped
