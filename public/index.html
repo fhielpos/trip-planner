@@ -382,6 +382,7 @@
   <!-- Modal -->
   <div class="modal-overlay" id="modal-overlay" hidden>
     <div class="modal">
+      <div class="modal-grab" aria-hidden="true"></div>
       <div class="modal-header">
         <h3 id="modal-title">Add Activity</h3>
         <button class="modal-close" id="modal-close">
@@ -408,7 +409,10 @@
         </div>
         <div class="form-row" id="single-date-row">
           <label for="entry-date"><span data-i18n="modal.dateLabel">Date</span> <span class="required">*</span></label>
-          <input type="date" id="entry-date" required />
+          <div class="date-field">
+            <input type="date" id="entry-date" required />
+            <span class="date-field-stay" id="entry-date-stay" aria-hidden="true"></span>
+          </div>
         </div>
         <div class="form-row" id="multi-date-row" hidden>
           <label><span data-i18n="modal.datesLabel">Dates</span> <span class="required">*</span></label>
@@ -425,6 +429,13 @@
             <span data-i18n="modal.rangeTo">to</span>
             <input type="time" id="entry-end-time" />
           </div>
+          <div class="time-slot-row" id="time-slot-row">
+            <button type="button" class="slot-chip active" data-slot="day" data-i18n="modal.slotDay">All day</button>
+            <button type="button" class="slot-chip" data-slot="morning" data-i18n="modal.slotMorning">Morning</button>
+            <button type="button" class="slot-chip" data-slot="afternoon" data-i18n="modal.slotAfternoon">Afternoon</button>
+            <button type="button" class="slot-chip" data-slot="evening" data-i18n="modal.slotEvening">Evening</button>
+          </div>
+          <p class="time-slot-hint" id="time-slot-hint" data-i18n="modal.slotHint">No time set: appears under “During the day,” above timed events.</p>
         </div>
         <div class="form-row" id="url-row" hidden>
           <label for="entry-url" data-i18n="modal.urlLabel">Booking link</label>

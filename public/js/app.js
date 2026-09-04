@@ -787,6 +787,8 @@ const modal = {
   url:        $('entry-url'),
   address:    $('entry-address'),
   notes:      $('entry-notes'),
+  dateStay:   $('entry-date-stay'),
+  slotRow:    $('time-slot-row'),
   singleRow:  $('single-date-row'),
   multiRow:   $('multi-date-row'),
   timeRow:    $('time-row'),
@@ -832,6 +834,39 @@ modal.typeSel.addEventListener('click', e => {
   if (btn) setType(btn.dataset.type);
 });
 
+// Mobile (5d) — the part-of-day slot chips under the time pair. Presentational
+// only: nothing about the slot is persisted. An activity with no start time
+// already renders under «Durante el día» via the untimed-slot rule; the
+// Mañana/Tarde/Noche buckets are a UI hint, not stored.
+function setSlot(slot) {
+  if (!modal.slotRow) return;
+  modal.slotRow.querySelectorAll('.slot-chip').forEach(b =>
+    b.classList.toggle('active', !!slot && b.dataset.slot === slot)
+  );
+}
+
+// Fills the inline flag + city beside the date field from the stay the picked
+// date falls within (empty in transit).
+function updateDateStay() {
+  if (!modal.dateStay) return;
+  const day = modal.date.value;
+  const stay = day && typeof tripData !== 'undefined' && tripData && tripData.accommodations
+    ? getActiveStay(tripData.accommodations, day) : null;
+  const flag = stay && typeof countryFlag === 'function' ? countryFlag(stay.country) : '';
+  modal.dateStay.textContent = stay ? `${flag ? flag + ' ' : ''}${stay.city}` : '';
+}
+
+if (modal.slotRow) {
+  modal.slotRow.addEventListener('click', e => {
+    const b = e.target.closest('.slot-chip');
+    if (b) setSlot(b.dataset.slot);
+  });
+}
+modal.date.addEventListener('change', updateDateStay);
+[modal.startTime, modal.endTime].forEach(el =>
+  el && el.addEventListener('input', () => setSlot(modal.startTime.value ? null : 'day'))
+);
+
 function openAddModal(defaultDate, prefill) {
   modal.form.reset();
   modal.id.value = '';
@@ -840,7 +875,9 @@ function openAddModal(defaultDate, prefill) {
   modal.deleteBtn.hidden = true;
   lockTypeButtons('');
   setType('activity');
+  setSlot('day');
   if (defaultDate) modal.date.value = defaultDate;
+  updateDateStay();
   if (prefill) {
     modal.title.value   = prefill.title || '';
     modal.address.value = prefill.address || '';
@@ -848,6 +885,7 @@ function openAddModal(defaultDate, prefill) {
     modal.startTime.value = prefill.startTime || '';
     modal.lat.value      = prefill.lat ?? '';
     modal.lon.value      = prefill.lon ?? '';
+    if (prefill.startTime) setSlot(null);
   }
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
@@ -872,6 +910,8 @@ function openEditModal(id) {
   modal.endTime.value   = e.endTime || '';
   modal.lat.value        = e.lat ?? '';
   modal.lon.value        = e.lon ?? '';
+  setSlot(e.startTime ? null : 'day');
+  updateDateStay();
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
@@ -891,6 +931,7 @@ function openStayModal(id) {
   modal.startDate.value = a.check_in || '';
   modal.endDate.value   = a.check_out || '';
   modal.url.value       = a.url || '';
+  updateDateStay();
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);

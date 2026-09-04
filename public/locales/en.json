@@ -371,5 +371,10 @@
   "daySheet.aiContextNoTemp": "{city} · you already have {n} plans",
   "daySheet.aiUnkeyed": "The button is on every day, but it needs an API key. Set it up in Settings.",
   "daySheet.goToSettings": "Go to Settings",
-  "daySheet.freeDayBody": "Nothing planned. Add an activity whenever you like."
+  "daySheet.freeDayBody": "Nothing planned. Add an activity whenever you like.",
+  "modal.slotDay": "All day",
+  "modal.slotMorning": "Morning",
+  "modal.slotAfternoon": "Afternoon",
+  "modal.slotEvening": "Evening",
+  "modal.slotHint": "No time set: appears under “During the day,” above timed events."
 }

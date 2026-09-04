@@ -4162,6 +4162,202 @@ body {
   #currency-calc-overlay .calc-swap-btn { margin: 4px auto; }
 }
 
+/* Mobile — Add / Edit activity form (handoff 5d). Dark fields, .label field
+   labels, scrollable Tipo chips, the start–end time pair with the
+   part-of-day slot row, and the accent Guardar. Desktop is untouched. */
+.modal-grab { display: none; }
+.date-field-stay { display: none; }
+.time-slot-row,
+.time-slot-hint { display: none; }
+
+@media (max-width: 640px) {
+  #modal-overlay .modal {
+    max-height: calc(100dvh - 150px);
+    background: var(--bg-app);
+    border-color: var(--hairline-card);
+  }
+  #modal-overlay .modal-grab {
+    display: block;
+    width: 38px; height: 4px; border-radius: 2px;
+    background: var(--ink-45);
+    margin: 10px auto 0;
+  }
+  #modal-overlay .modal-header {
+    padding: 14px 16px 0;
+    border-bottom: 0;
+  }
+  #modal-overlay .modal-header h3 {
+    font-family: var(--font-label);
+    font-size: 13px;
+    font-weight: var(--label-weight);
+    letter-spacing: var(--label-tracking);
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+  #modal-overlay .modal-close { color: var(--ink-45); }
+  #modal-overlay .modal-form { padding: 4px 16px 40px; gap: 18px; }
+
+  #modal-overlay .form-row { gap: 8px; }
+  #modal-overlay .form-row > label {
+    font-family: var(--font-label);
+    font-size: 10.5px;
+    font-weight: var(--label-weight);
+    letter-spacing: var(--label-tracking);
+    text-transform: uppercase;
+    color: var(--ink-55);
+  }
+  #modal-overlay .required { color: var(--alert); }
+
+  #modal-overlay .form-row input[type="text"],
+  #modal-overlay .form-row input[type="date"],
+  #modal-overlay .form-row input[type="time"],
+  #modal-overlay .form-row input[type="url"],
+  #modal-overlay .form-row textarea {
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-row);
+    color: var(--ink);
+    font-size: 15px;
+    padding: 13px 14px;
+  }
+  #modal-overlay .form-row input:focus,
+  #modal-overlay .form-row textarea:focus { border-color: var(--accent); }
+  #modal-overlay .form-row textarea { min-height: 56px; font-size: 13.5px; }
+
+  /* Tipo — horizontal-scroll chips */
+  #modal-overlay .type-selector {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 7px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  #modal-overlay .type-selector::-webkit-scrollbar { display: none; }
+  #modal-overlay .type-btn {
+    flex: none;
+    padding: 11px 15px;
+    font-size: 11px;
+    border-radius: 9px;
+    border: 1px solid var(--hairline-card);
+    background: transparent;
+    color: var(--ink-55);
+  }
+  #modal-overlay .type-btn.active,
+  #modal-overlay .type-btn.active[data-type] {
+    background: var(--accent-tint);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  /* Fecha — mono value + inline stay flag/city */
+  #modal-overlay .date-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-row);
+    padding: 0 14px;
+  }
+  #modal-overlay .date-field input[type="date"] {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    padding: 13px 0;
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+  #modal-overlay .date-field-stay {
+    display: block;
+    flex: none;
+    font-family: var(--font-label);
+    font-size: 11px;
+    letter-spacing: var(--label-tracking);
+    text-transform: uppercase;
+    color: var(--ink-55);
+    white-space: nowrap;
+  }
+  #modal-overlay .date-field-stay:empty { display: none; }
+
+  /* Horario — start–end pair */
+  #modal-overlay .time-range { gap: 9px; }
+  #modal-overlay .time-range input[type="time"] {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+  #modal-overlay .time-range > span {
+    flex: none;
+    font-family: var(--font-label);
+    font-size: 10.5px;
+    letter-spacing: var(--label-tracking);
+    color: var(--ink-45);
+  }
+
+  /* the 5d addition — part-of-day slot chips + hint */
+  #modal-overlay .time-slot-row { display: flex; gap: 7px; margin-top: 9px; }
+  #modal-overlay .slot-chip {
+    flex: 1;
+    padding: 10px 3px;
+    text-align: center;
+    line-height: 1.15;
+    cursor: pointer;
+    font-family: var(--font-label);
+    font-size: 10px;
+    font-weight: var(--label-weight);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-chip);
+    background: transparent;
+    color: var(--ink-55);
+  }
+  #modal-overlay .slot-chip.active {
+    background: var(--accent-tint);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+  #modal-overlay .time-slot-hint {
+    display: block;
+    margin: 8px 0 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-45);
+    text-wrap: pretty;
+  }
+
+  /* Cancelar / Guardar */
+  #modal-overlay .form-actions { border-top: 0; padding-top: 20px; gap: 8px; }
+  #modal-overlay .form-actions-right { flex: 1; gap: 8px; }
+  #modal-overlay .form-actions .btn-secondary {
+    flex: 1;
+    padding: 14px;
+    text-align: center;
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-row);
+    background: transparent;
+    color: var(--ink-55);
+    font-size: 12px;
+  }
+  #modal-overlay .form-actions .btn-primary {
+    flex: 1.4;
+    padding: 14px;
+    text-align: center;
+    border-radius: var(--r-row);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-app);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  #modal-overlay .form-actions .btn-danger {
+    padding: 14px 12px;
+    border-radius: var(--r-row);
+    font-size: 12px;
+  }
+}
+
 /* Mobile Wishlist tab — full-screen list + bottom-sheet add-item form */
 @media (max-width: 640px) {
   body[data-mobile-tab="wishlist"] .wishlist-header { display: none; }
