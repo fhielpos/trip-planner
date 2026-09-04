@@ -353,5 +353,6 @@
   "budget.stats.perDay": "{amount} / día",
   "budget.stats.spentAmount": "{amount} gastado",
   "budget.stats.totalAmount": "{amount} total",
-  "budgetInsights.byCategory": "Por categoría"
+  "budgetInsights.byCategory": "Por categoría",
+  "wishlist.listSums": "la lista suma {amount}"
 }

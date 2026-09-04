@@ -2049,6 +2049,9 @@ body {
   gap: 0.4rem;
   flex-shrink: 0;
 }
+/* Desktop: the wrapper is transparent so buy/delete stay inline with the
+   price column; mobile re-groups them into their own row (see below). */
+.wishlist-item-btns { display: contents; }
 .wishlist-item-price {
   font-family: var(--font-display);
   font-size: 0.9rem;
@@ -3869,12 +3872,35 @@ body {
   .mcal-check-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
 }
 
-/* Mobile Mapa tab — enlarged map, touch-friendly zoom, inline itinerary */
+/* Mobile Mapa tab — windowed map, chip legend, inline itinerary (4a) */
 @media (max-width: 640px) {
-  .mmap-header { padding: 14px 18px 4px; }
-  body[data-mobile-tab="map"] #trip-map { height: 320px; }
+  /* The back button is redundant now the tab bar owns navigation */
+  body[data-mobile-tab="map"] .mmap-header { display: none; }
+  body[data-mobile-tab="map"] .stays-section-header { padding: 14px 16px 10px; }
+  body[data-mobile-tab="map"] .map-section-title { font-family: var(--font-label); text-transform: uppercase; letter-spacing: var(--label-tracking); font-weight: 600; font-size: 12px; color: var(--ink); margin: 0; }
+  body[data-mobile-tab="map"] .map-section-links { display: flex; gap: 6px; }
+  body[data-mobile-tab="map"] .map-section-links .btn-secondary {
+    font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
+    font-size: 10px; padding: 6px 9px; border: 1px solid var(--accent-tint); border-radius: 7px;
+    color: var(--accent-ink); background: none;
+  }
+  /* windowed, not full-bleed — the page scrolls beneath it */
+  body[data-mobile-tab="map"] #trip-map {
+    height: 330px; margin: 0 14px; border-radius: var(--r-card);
+    border: 1px solid var(--hairline-card); overflow: hidden;
+  }
   body[data-mobile-tab="map"] .leaflet-control-zoom a {
-    width: 40px !important; height: 40px !important; line-height: 40px !important; font-size: 20px !important;
+    width: 34px !important; height: 34px !important; line-height: 34px !important; font-size: 18px !important;
+  }
+  body[data-mobile-tab="map"] .map-filters {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px;
+  }
+  body[data-mobile-tab="map"] .map-filter,
+  body[data-mobile-tab="map"] .map-filters button,
+  body[data-mobile-tab="map"] .map-filters .legend-item {
+    font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
+    font-size: 10px; padding: 6px 10px; border: 1px solid var(--hairline-card);
+    border-radius: var(--r-pill); color: var(--ink-55);
   }
   .mmap-leg-card { border-radius: 10px; border: 1px solid var(--border); padding: 9px 11px; margin-bottom: 8px; }
   .mmap-leg-card--flight { border-color: var(--c-flight-border); background: var(--c-flight-bg); }
@@ -3989,6 +4015,49 @@ body {
 /* Mobile Wishlist tab — full-screen list + bottom-sheet add-item form */
 @media (max-width: 640px) {
   body[data-mobile-tab="wishlist"] .wishlist-header { display: none; }
+
+  /* Handoff 5f-left — hero card + roomier rows */
+  #wishlist-list { padding: 14px 16px 120px; }
+  .wishlist-hero {
+    padding: 14px; margin-bottom: 14px;
+    background: var(--bg-raised); border: 1px solid var(--hairline-card); border-radius: var(--r-card);
+  }
+  .wishlist-hero-lbl { font-size: 10.5px; color: var(--ink-55); }
+  .wishlist-hero-figure { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  .wishlist-hero-big { font-size: 32px; font-weight: 700; letter-spacing: -.02em; color: var(--positive); }
+  .wishlist-hero-big--negative { color: var(--alert); }
+  .wishlist-hero-of { font-size: 12px; color: var(--ink-45); }
+  .wishlist-hero-bar { height: 5px; margin-top: 11px; border-radius: 3px; overflow: hidden; background: rgba(240,235,228,.1); }
+  [data-theme="terracotta"] .wishlist-hero-bar,
+  [data-theme="light"] .wishlist-hero-bar { background: var(--hairline-soft); }
+  .wishlist-hero-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--positive)); }
+  .wishlist-hero-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-45); margin-top: 8px; }
+
+  body[data-mobile-tab="wishlist"] .wishlist-items { display: flex; flex-direction: column; gap: 8px; }
+  body[data-mobile-tab="wishlist"] .wishlist-item {
+    align-items: flex-start; gap: 10px;
+    margin: 0; padding: 13px 14px; border: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+    border-radius: 11px; background: var(--bg-raised);
+  }
+  body[data-mobile-tab="wishlist"] .wishlist-afford-dot { margin-top: 6px; }
+  body[data-mobile-tab="wishlist"] .wishlist-item-main { display: block; min-width: 0; flex: 1; }
+  body[data-mobile-tab="wishlist"] .wishlist-item-name {
+    display: block; font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink);
+    white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
+  }
+  body[data-mobile-tab="wishlist"] .wishlist-item-main .wishlist-link { display: inline-block; }
+  body[data-mobile-tab="wishlist"] .wishlist-impact { display: block; margin-top: 4px; font-size: 11.5px; white-space: normal; }
+  body[data-mobile-tab="wishlist"] .wishlist-item-actions {
+    flex-direction: column; align-items: flex-end; gap: 8px; flex: none;
+  }
+  body[data-mobile-tab="wishlist"] .wishlist-item-price-col { text-align: right; }
+  body[data-mobile-tab="wishlist"] .wishlist-item-price { font-family: var(--font-mono); font-size: 16.5px; font-weight: 700; color: var(--ink); }
+  body[data-mobile-tab="wishlist"] .wishlist-item-price-col .currency-conversion { display: block; font-size: 10.5px; color: var(--ink-45); white-space: nowrap; margin-top: 2px; }
+  body[data-mobile-tab="wishlist"] .wishlist-item-btns { display: flex; gap: 8px; }
+  body[data-mobile-tab="wishlist"] .wishlist-buy-btn,
+  body[data-mobile-tab="wishlist"] .wishlist-delete-btn { width: 44px; height: 44px; border-radius: 9px; }
+  body[data-mobile-tab="wishlist"] .wishlist-item.is-bought { opacity: .65; background: var(--bg-sunken); }
+  body[data-mobile-tab="wishlist"] .wishlist-item.is-bought .wishlist-item-name { text-decoration: line-through; }
 
   /* Restyle the existing centered modal as a slide-up sheet */
   #wishlist-overlay.modal-overlay {
