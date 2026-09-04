@@ -733,10 +733,7 @@ function renderPlannerMobile(data) {
 
   grid.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
   grid.querySelectorAll('.mcal-row').forEach(row => row.addEventListener('click', () => {
-    const date = row.dataset.date;
-    const s = getActiveStay(data.accommodations, date);
-    const rows = dayEvents(date, data);
-    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
+    openDaySheet(row.dataset.date, data);
   }));
   document.getElementById('mcal-jump-today')?.addEventListener('click', () => {
     const row = grid.querySelector('.mcal-row.is-today');

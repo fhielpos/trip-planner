@@ -641,10 +641,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
     if (typeof _openExpenseModal === 'function') _openExpenseModal(null);
   });
   section.querySelectorAll('[data-open-day]').forEach(btn => btn.addEventListener('click', () => {
-    const date = btn.dataset.openDay;
-    const s = getActiveStay(data.accommodations, date);
-    const rows = dayEvents(date, data);
-    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? 'var(--accent)' : null, rows, empty: rows.length === 0 });
+    openDaySheet(btn.dataset.openDay, data);
   }));
   _wireTodayPreviewBlocks(section);
   section.querySelectorAll('[data-doc-id]').forEach(btn => btn.addEventListener('click', () => {
@@ -790,10 +787,7 @@ function renderTodayPreTrip(section, data) {
   section.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
   _wireTodayPreviewBlocks(section);
   section.querySelectorAll('[data-open-day]').forEach(btn => btn.addEventListener('click', () => {
-    const date = btn.dataset.openDay;
-    const s = getActiveStay(data.accommodations, date);
-    const rows = dayEvents(date, data);
-    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap?.[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
+    openDaySheet(btn.dataset.openDay, data);
   }));
   if (typeof renderMobileRoutePreview === 'function') renderMobileRoutePreview(data.accommodations);
 }

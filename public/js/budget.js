@@ -986,3 +986,24 @@ function getRecentBudgetEntries(n) {
       amountLabel: formatMoney(e.amount, e.currency),
     }));
 }
+
+// Pre-formatted expenses for one day — the Day sheet's "Gastos del día"
+// section (mirrors getRecentBudgetEntries). `totalUSD` is the sum of the
+// same rows so the section header figure always equals the list.
+function getDayExpenses(date) {
+  const rows = (_budget?.entries || []).filter(e => e.date === date);
+  const totalUSD = rows.reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
+  return {
+    entries: rows
+      .sort((a, b) => (b.id || '').localeCompare(a.id || ''))
+      .map(e => ({
+        id: e.id,
+        label: e.description || _catName(e.category),
+        color: _catColor(e.category),
+        amountLabel: formatMoney(e.amount, e.currency),
+      })),
+    count: rows.length,
+    totalUSD,
+    totalLabel: formatCurrency(totalUSD),
+  };
+}

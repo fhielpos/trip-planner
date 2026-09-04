@@ -354,5 +354,22 @@
   "budget.stats.spentAmount": "{amount} gastado",
   "budget.stats.totalAmount": "{amount} total",
   "budgetInsights.byCategory": "Por categoría",
-  "wishlist.listSums": "la lista suma {amount}"
+  "wishlist.listSums": "la lista suma {amount}",
+  "daySheet.nightDayLine": "noche {n} de {total} · día {d} de {days}",
+  "daySheet.dayLine": "día {d} de {days}",
+  "daySheet.duringDay": "Durante el día",
+  "daySheet.scheduled": "Con horario",
+  "daySheet.accommodation": "Alojamiento",
+  "daySheet.dayExpenses": "Gastos del día",
+  "daySheet.stayEntry": "entrada {in} · salida {out}",
+  "daySheet.paid": "pagado",
+  "daySheet.noStay": "Sin alojamiento cargado",
+  "daySheet.noStayMeta": "Todavía sin reservar",
+  "daySheet.addStay": "Añadir",
+  "daySheet.docSaved": "PDF · guardado",
+  "daySheet.aiContext": "{city} · {temp}° · ya tenés {n} planes",
+  "daySheet.aiContextNoTemp": "{city} · ya tenés {n} planes",
+  "daySheet.aiUnkeyed": "El botón está en todos los días, pero necesita una clave de API. Configurala en Ajustes.",
+  "daySheet.goToSettings": "Ir a Ajustes",
+  "daySheet.freeDayBody": "No hay nada planeado. Agregá una actividad cuando quieras."
 }

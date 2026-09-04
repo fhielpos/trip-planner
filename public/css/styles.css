@@ -3534,6 +3534,156 @@ body {
   .sheet-row-icon { font-size: 14px; }
   .sheet-row-title { flex: 1; font-size: 13px; color: var(--text-1); }
 
+  /* ---- Day sheet (5c) ---- */
+  .sheet--day:not([hidden]) {
+    top: 120px;
+    max-height: calc(100dvh - 120px);
+    background: var(--bg-app);
+    border-top: 1px solid var(--hairline-card);
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    padding: 10px 0 calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  .sheet--day .sheet-handle { background: var(--ink-45); margin: 0 auto; }
+  .sheet--day .sheet-header { padding: 4px 16px 0; margin-bottom: 0; min-height: 0; }
+  .sheet--day .sheet-title { display: none; }
+  .sheet--day .sheet-close { color: var(--ink-45); }
+  .sheet--day .sheet-body { padding: 0 16px; }
+
+  .daysheet-titleblock { padding: 6px 0 2px; }
+  .daysheet-titlerow { display: flex; align-items: baseline; gap: 9px; }
+  .daysheet-date { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); text-transform: capitalize; }
+  .daysheet-month { font-size: 11px; color: var(--ink-55); }
+  .daysheet-hoy {
+    margin-left: auto; font-size: 9.5px; padding: 4px 7px; border-radius: var(--r-chip);
+    background: var(--accent); color: var(--bg-app);
+  }
+  .daysheet-cityrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .daysheet-cityflag { font-size: 14px; line-height: 1; }
+  .daysheet-city { font-size: 11.5px; color: var(--accent-ink); }
+  .daysheet-nightday { font-size: 11.5px; color: var(--ink-45); }
+
+  .daysheet-sec { padding: 18px 0 0; }
+  .daysheet-sec-head { margin-bottom: 10px; }
+  .daysheet-sec-head--split { display: flex; align-items: baseline; justify-content: space-between; }
+  .daysheet-sec-head .label { font-size: 10.5px; color: var(--ink-45); }
+  .daysheet-exp-sum { font-size: 12px; color: var(--ink-55); }
+
+  .daysheet-sec-rows--untimed .daysheet-row,
+  .daysheet-sec-rows--timed .daysheet-row,
+  .daysheet-sec-rows--stay .daysheet-row {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 13px 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-row);
+  }
+  .daysheet-sec-rows--untimed .daysheet-row + .daysheet-row,
+  .daysheet-sec-rows--timed .daysheet-row + .daysheet-row { margin-top: 8px; }
+  .daysheet-sec-rows--untimed .daysheet-row { border-left: 2px solid var(--cat-culture); }
+  .daysheet-sec-rows--timed .daysheet-row { border-left: 2px solid var(--accent); }
+  .daysheet-sec-rows--stay .daysheet-row {
+    align-items: center;
+    background: var(--accent-wash);
+    border: 1px dashed var(--hairline-card);
+  }
+  .daysheet-row--btn { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; }
+
+  .daysheet-slot {
+    flex: none; width: 44px; text-align: center; padding-top: 1px;
+  }
+  .daysheet-slot--time { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+  .daysheet-slot--lbl { font-size: 10px; color: var(--ink-55); }
+  .daysheet-row-body { flex: 1; min-width: 0; }
+  .daysheet-row-title { font-size: 15px; font-weight: 600; line-height: 1.25; color: var(--ink); text-wrap: pretty; }
+  .daysheet-sec-rows--stay .daysheet-row-title { font-size: 13.5px; font-weight: 400; }
+  .daysheet-row-title--muted { color: var(--ink-55); }
+  .daysheet-row-meta { font-size: 12.5px; color: var(--ink-45); margin-top: 5px; }
+  .daysheet-sec-rows--stay .daysheet-row-meta { font-family: var(--font-mono); font-size: 11px; margin-top: 3px; }
+  .daysheet-chev { flex: none; align-self: center; color: var(--ink-45); }
+  .daysheet-chev--accent { color: var(--accent-ink); font-size: 11px; }
+
+  .daysheet-exp-list { display: flex; flex-direction: column; }
+  .daysheet-exp-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 0; border-top: 1px solid var(--hairline-soft);
+    cursor: pointer;
+  }
+  .daysheet-exp-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+  .daysheet-exp-name { flex: 1; min-width: 0; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .daysheet-exp-amt { flex: none; width: 88px; text-align: right; font-size: 14px; font-weight: 700; color: var(--ink); }
+
+  .daysheet-doc-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .daysheet-doc {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    flex: 1 1 44%;
+    display: flex; align-items: center; gap: 9px;
+    padding: 12px 13px;
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-row);
+  }
+  .daysheet-doc-glyph { color: var(--accent); font-size: 13px; flex: none; }
+  .daysheet-doc-body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .daysheet-doc-title { font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .daysheet-doc-sub { font-size: 10.5px; color: var(--ink-45); }
+
+  .daysheet-freeday { text-align: center; padding-top: 26px; }
+  .daysheet-freeday-glyph {
+    width: 52px; height: 52px; margin: 0 auto;
+    border: 1px dashed var(--hairline-card); border-radius: 50%;
+    display: grid; place-items: center; color: var(--accent-ink); font-size: 20px;
+  }
+  .daysheet-freeday-title { font-size: 17px; font-weight: 600; color: var(--ink); margin-top: 14px; }
+  .daysheet-freeday-body { font-size: 13.5px; color: var(--ink-55); margin: 7px auto 0; max-width: 270px; text-wrap: pretty; }
+
+  .daysheet-ai .daysheet-ai-row {
+    all: unset; box-sizing: border-box; width: 100%; cursor: pointer;
+    display: flex; align-items: center; gap: 11px;
+    padding: 13px 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-card);
+    border-radius: var(--r-card);
+  }
+  .daysheet-ai .daysheet-ai-row--off {
+    cursor: default;
+    background: var(--accent-wash);
+    border: 1px dashed var(--hairline-card);
+  }
+  .daysheet-ai-glyph {
+    flex: none; width: 28px; height: 28px; border-radius: var(--r-chip);
+    background: var(--accent-tint); color: var(--accent);
+    display: grid; place-items: center; font-size: 13px;
+  }
+  .daysheet-ai-glyph--off { background: var(--bg-sunken); color: var(--ink-45); }
+  .daysheet-ai-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .daysheet-ai-title { font-size: 11.5px; color: var(--accent-ink); }
+  .daysheet-ai-title--off { color: var(--ink-45); }
+  .daysheet-ai-ctx { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-45); }
+  .daysheet-ai-ctx--off { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-55); text-wrap: pretty; }
+  .daysheet-ai-settings {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    display: inline-block; margin-top: 11px; font-size: 10.5px; color: var(--accent-ink);
+  }
+  .daysheet-ai-panel { margin-top: 8px; }
+
+  .daysheet-actions { display: flex; gap: 8px; padding: 20px 0 0; }
+  .daysheet-act {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    flex: 1; text-align: center; padding: 13px;
+    border: 1px solid var(--hairline-card); border-radius: var(--r-row);
+    font-size: 11.5px; color: var(--ink-55);
+  }
+  .daysheet-act--primary {
+    background: var(--accent-tint); border-color: var(--accent); color: var(--accent-ink);
+  }
+  .daysheet-row--btn:focus-visible,
+  .daysheet-doc:focus-visible,
+  .daysheet-ai-row:focus-visible,
+  .daysheet-ai-settings:focus-visible,
+  .daysheet-act:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  }
+
   .mobile-toast:not([hidden]) {
     display: block;
     position: fixed;

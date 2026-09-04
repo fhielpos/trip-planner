@@ -354,5 +354,22 @@
   "budget.stats.spentAmount": "{amount} spent",
   "budget.stats.totalAmount": "{amount} total",
   "budgetInsights.byCategory": "By category",
-  "wishlist.listSums": "the list adds {amount}"
+  "wishlist.listSums": "the list adds {amount}",
+  "daySheet.nightDayLine": "night {n} of {total} · day {d} of {days}",
+  "daySheet.dayLine": "day {d} of {days}",
+  "daySheet.duringDay": "During the day",
+  "daySheet.scheduled": "Scheduled",
+  "daySheet.accommodation": "Accommodation",
+  "daySheet.dayExpenses": "Day's expenses",
+  "daySheet.stayEntry": "check-in {in} · check-out {out}",
+  "daySheet.paid": "paid",
+  "daySheet.noStay": "No accommodation saved",
+  "daySheet.noStayMeta": "Not booked yet",
+  "daySheet.addStay": "Add",
+  "daySheet.docSaved": "PDF · saved",
+  "daySheet.aiContext": "{city} · {temp}° · you already have {n} plans",
+  "daySheet.aiContextNoTemp": "{city} · you already have {n} plans",
+  "daySheet.aiUnkeyed": "The button is on every day, but it needs an API key. Set it up in Settings.",
+  "daySheet.goToSettings": "Go to Settings",
+  "daySheet.freeDayBody": "Nothing planned. Add an activity whenever you like."
 }
