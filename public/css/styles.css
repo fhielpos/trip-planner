@@ -3906,20 +3906,54 @@ body {
     display: flex; align-items: center; justify-content: center;
   }
   .mbudget-convert svg { width: 16px; height: 16px; }
-  .mbudget-stats { display: flex; gap: 8px; padding: 14px 18px 0; }
-  .mbudget-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 10px; }
-  .mbudget-stat--accent { border-top: 3px solid var(--accent); }
-  .mbudget-stat-label { font-family: var(--font-display); font-size: 9px; color: var(--text-3); text-transform: uppercase; }
-  .mbudget-stat-val { font-family: var(--font-display); font-size: 16px; font-weight: 700; }
-  .mbudget-stat-val--positive { color: var(--c-stay); }
-  .mbudget-stat-val--negative { color: var(--c-danger); }
+  /* Handoff 2b — one hero card + two chips; category breakdown -> Insights */
+  .mbudget-hero {
+    margin: 14px 16px 0; padding: 14px;
+    background: var(--bg-raised); border: 1px solid var(--hairline-card);
+    border-radius: var(--r-card);
+  }
+  .mbudget-hero-lbl { font-size: 10.5px; color: var(--ink-55); }
+  .mbudget-hero-figure { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  .mbudget-hero-big { font-size: 34px; font-weight: 700; letter-spacing: -.02em; color: var(--positive); }
+  .mbudget-hero-big--negative { color: var(--alert); }
+  .mbudget-hero-perday { font-size: 12px; color: var(--ink-45); }
+  .mbudget-hero-bar { height: 5px; margin-top: 11px; border-radius: 3px; overflow: hidden; background: rgba(240,235,228,.1); }
+  [data-theme="terracotta"] .mbudget-hero-bar,
+  [data-theme="light"] .mbudget-hero-bar { background: var(--hairline-soft); }
+  .mbudget-hero-bar > span { display: block; height: 100%; background: var(--accent); }
+  .mbudget-hero-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-45); margin-top: 8px; }
 
-  body[data-mobile-tab="budget"] .budget-header { display: none; }
-  /* Sub-budgets is a desktop-only breakdown, not part of the mobile
-     Presupuesto tab's spec (3 stat cards → category bars → expense list)
-     — left unhidden it pushes the real content down and reads as sparse
-     above the fold before the category breakdown ever appears. */
-  body[data-mobile-tab="budget"] #budget-subbudgets { display: none; }
+  .mbudget-chips { display: flex; gap: 8px; margin: 10px 16px 0; }
+  .mbudget-chip {
+    all: unset; cursor: pointer; box-sizing: border-box; flex: 1; text-align: center;
+    padding: 11px; border: 1px solid var(--accent-tint); border-radius: var(--r-chip);
+    font-family: var(--font-label); text-transform: uppercase; letter-spacing: .12em;
+    font-weight: 600; font-size: 10.5px; color: var(--accent-ink);
+  }
+  .mbudget-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  body[data-mobile-tab="budget"] .budget-header,
+  body[data-mobile-tab="budget"] .mbudget-header,
+  body[data-mobile-tab="budget"] #budget-subbudgets,
+  body[data-mobile-tab="budget"] #budget-categories-bar { display: none; }
+  body[data-mobile-tab="budget"] .budget-sub-title { margin: 16px 0 4px; }
+
+  /* Expense rows — 7px dot, fixed 96px mono amount column, ARS on tap */
+  body[data-mobile-tab="budget"] #budget-entries-list .budget-block { padding: 0 16px; }
+  body[data-mobile-tab="budget"] .budget-entry {
+    align-items: center; gap: 10px; padding: 13px 0;
+    border-top: 1px solid var(--hairline-soft); border-bottom: 0;
+  }
+  body[data-mobile-tab="budget"] .budget-entry-dot { width: 7px; height: 7px; align-self: flex-start; margin-top: 5px; }
+  body[data-mobile-tab="budget"] .budget-entry-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  body[data-mobile-tab="budget"] .budget-entry-desc { font-size: 15px; font-weight: 600; color: var(--ink); white-space: normal; }
+  body[data-mobile-tab="budget"] .budget-entry-city { font-size: 12px; color: var(--ink-45); }
+  body[data-mobile-tab="budget"] .budget-entry-amount-col { width: var(--amount-col); flex: none; text-align: right; cursor: pointer; }
+  body[data-mobile-tab="budget"] .budget-entry-amount { font-family: var(--font-mono); font-size: 16.5px; font-weight: 700; color: var(--ink); }
+  body[data-mobile-tab="budget"] .budget-entry-conv { display: block; font-size: 11px; color: var(--ink-45); margin-top: 2px; }
+  .budget-entry-ars { display: none; font-size: 11px; color: var(--positive); margin-top: 2px; }
+  .budget-entry.is-ars .budget-entry-ars { display: block; }
+  body[data-mobile-tab="budget"] .budget-entry .currency-conversion { display: none; }
 
   /* Restyle the existing centered modal as a slide-up sheet */
   #budget-overlay.modal-overlay {
@@ -3932,6 +3966,24 @@ body {
     max-height: 85vh;
     animation: sheetSlideUp .2s ease;
   }
+}
+
+/* Mobile — the remaining centered modals become slide-up sheets too
+   (calculator 5b, add-activity 5d, budget settings) so every overlay
+   matches the redesign's sheet treatment. */
+@media (max-width: 640px) {
+  #currency-calc-overlay.modal-overlay,
+  #modal-overlay.modal-overlay,
+  #budget-settings-overlay.modal-overlay { align-items: flex-end; background: rgba(0,0,0,.55); }
+  #currency-calc-overlay .modal,
+  #modal-overlay .modal,
+  #budget-settings-overlay .modal {
+    width: 100%; max-width: none;
+    border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+    max-height: 88vh;
+    animation: sheetSlideUp var(--dur-sheet) var(--ease-sheet);
+  }
+  #currency-calc-overlay .calc-swap-btn { margin: 4px auto; }
 }
 
 /* Mobile Wishlist tab — full-screen list + bottom-sheet add-item form */

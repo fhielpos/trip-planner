@@ -348,5 +348,10 @@
   "today.tileWishlist": "{n} ítems",
   "cal.checkinCity": "Entrada {city}",
   "cal.checkoutCity": "salida {city}",
-  "today.hoyChip": "Hoy"
+  "today.hoyChip": "Hoy",
+  "budget.stats.nDays": "{n} días",
+  "budget.stats.perDay": "{amount} / día",
+  "budget.stats.spentAmount": "{amount} gastado",
+  "budget.stats.totalAmount": "{amount} total",
+  "budgetInsights.byCategory": "Por categoría"
 }
