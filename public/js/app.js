@@ -649,8 +649,12 @@ function renderPlannerMobile(data) {
     const key = stay ? stay.city + stay.check_in : 'transit';
     if (key !== lastStayKey && stay) {
       const colour = data.colorMap[stay.check_in];
-      html += `<div class="mcal-group-header" style="color:${colour?.accent || 'var(--accent)'}">
-        ${countryFlag(stay.country)} ${stay.city} · ${fmtDate(stay.check_in, { year: false })}–${fmtDate(stay.check_out, { year: false })}
+      const nights = Math.round((parseLocal(stay.check_out) - parseLocal(stay.check_in)) / 86400000);
+      html += `<div class="mcal-group-header" style="--mcal-group-accent:${colour?.accent || 'var(--accent)'}">
+        <span class="mcal-group-flag">${countryFlag(stay.country)}</span>
+        <span class="label mcal-group-city">${_escHtml(stay.city)}</span>
+        <span class="mono mcal-group-range">${fmtDate(stay.check_in, { year: false })} – ${fmtDate(stay.check_out, { year: false })}</span>
+        <span class="label mono mcal-group-nights">${nights} n</span>
       </div>`;
       lastStayKey = key;
     }
@@ -666,44 +670,55 @@ function renderPlannerMobile(data) {
     // pick silently dropped every event but the first. The subtitle instead
     // joins every remaining item with " · "; CSS ellipsis handles overflow,
     // and the full list is always one tap away via the Day Sheet.
+    // Activities carry the row's weight; flights/trains follow; check-in/out
+    // is demoted to a meta line (see handoff 3a). `travelEvents` = same-day
+    // flights/trains (excludes the 🛏 check-in and 🧳 check-out rows).
     const acts = collectTodayActivities(data.calendar, d.date).map(a => a.main);
     const events = dayEvents(d.date, data).filter(r => r.icon !== '◦' && r.icon !== '↻');
-    const travelEvents = events.filter(r => r.icon !== '🛏');
-    let title, sub;
-    if (d.isFirstOfStay) {
-      title = t('chip.checkin', { city: stay.city });
-      const subParts = travelEvents.length ? travelEvents.map(e => e.title) : (acts[0] ? [acts[0].title] : []);
-      sub = subParts.length ? subParts.join(' · ') : null;
-    } else if (acts[0]) {
-      title = acts[0].title;
-      const subParts = events.length ? events.map(e => e.title) : (acts[1] ? [acts[1].title] : []);
-      sub = subParts.length ? subParts.join(' · ') : null;
-    } else if (events[0]) {
-      title = events[0].title;
-      const subParts = events.slice(1).map(e => e.title);
-      sub = subParts.length ? subParts.join(' · ') : null;
+    const travelEvents = events.filter(r => r.icon !== '🛏' && r.icon !== '🧳');
+    const checkOutStay = (data.accommodations || []).find(a => a.check_out === d.date);
+
+    const actTitle = m => `${_escHtml(m.title)}${m.startTime ? ` <span class="mono mcal-time">${_escHtml(formatTime(m.startTime))}</span>` : ''}`;
+    let titleHtml, freeDay = false;
+    if (acts[0]) {
+      titleHtml = actTitle(acts[0]);
+    } else if (travelEvents[0]) {
+      titleHtml = _escHtml(travelEvents[0].title);
     } else {
-      title = stay ? stay.city : t('today.transit');
-      sub = null;
+      titleHtml = t('today.freeDay');
+      freeDay = true;
     }
+    const subParts = [
+      ...acts.slice(1).map(m => m.title),
+      ...(acts[0] ? travelEvents.map(e => e.title) : travelEvents.slice(1).map(e => e.title)),
+    ];
+    const sub = subParts.length ? subParts.join(' · ') : null;
+
+    const checkParts = [];
+    if (d.isFirstOfStay) checkParts.push(t('cal.checkinCity', { city: stay.city }));
+    if (checkOutStay) checkParts.push(t('cal.checkoutCity', { city: checkOutStay.city }));
 
     const isToday = d.date === today;
-    const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--text-3)';
+    const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--ink-45)';
     html += `
-      <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${rowColor}">
-        <div class="mcal-date"><span class="mcal-num">${d.num}</span><span class="mcal-dow">${d.dow}</span></div>
+      <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${isToday ? 'var(--accent)' : rowColor}">
+        <div class="mcal-date"><span class="mono mcal-num">${d.num}</span><span class="label mcal-dow">${d.dow}</span></div>
         <div class="mcal-content">
-          <div class="mcal-title" style="color:${rowColor}">${_escHtml(title)}</div>
+          <div class="mcal-title${freeDay ? ' mcal-title--free' : ''}">${titleHtml}${isToday ? ` <span class="label mcal-hoy">${t('today.hoyChip') || 'Hoy'}</span>` : ''}</div>
           ${sub ? `<div class="mcal-sub">${_escHtml(sub)}</div>` : ''}
+          ${checkParts.length ? `<div class="mcal-check"><span class="mcal-check-dot"></span>${_escHtml(checkParts.join(' · '))}</div>` : ''}
         </div>
       </button>`;
   }
 
+  const rangeLabel = `${parseLocal(data.trip.startDate).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })} – ${parseLocal(data.trip.endDate).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })}`;
   grid.innerHTML = `
     <div class="mcal-header">
-      <button type="button" class="mcal-back" data-goto-tab="today">‹ ${t('tabs.today')}</button>
-      <span class="mcal-title-bar">${t('tabs.calendar')}</span>
-      <button type="button" class="mcal-jump" id="mcal-jump-today">${t('calendar.jumpToday')}</button>
+      <div class="mcal-header-titles">
+        <span class="label mcal-title-bar">${t('tabs.calendar')}</span>
+        <span class="mono mcal-header-range">${rangeLabel}</span>
+      </div>
+      <button type="button" class="label mcal-jump" id="mcal-jump-today">${t('calendar.jumpToday')}</button>
     </div>
     ${html}
   `;

@@ -345,5 +345,8 @@
   "today.spentTodayAmount": "{amount} spent today",
   "today.remainingAmount": "{amount} left",
   "today.tileStays": "{n} stays",
-  "today.tileWishlist": "{n} items"
+  "today.tileWishlist": "{n} items",
+  "cal.checkinCity": "Check-in {city}",
+  "cal.checkoutCity": "check-out {city}",
+  "today.hoyChip": "Today"
 }
