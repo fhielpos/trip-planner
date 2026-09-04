@@ -433,7 +433,7 @@ function _nextLeg(data, today) {
 // label — never an empty gutter. See the handoff's "Untimed events" rule.
 function _slotCell(time, fallbackKey) {
   return time
-    ? `<span class="mtoday-slot mono mtoday-slot--time">${formatTime(time)}</span>`
+    ? `<span class="mtoday-slot mono mtoday-slot--time">${formatTime24(time)}</span>`
     : `<span class="mtoday-slot label mtoday-slot--lbl">${t(fallbackKey || 'today.slotDay')}</span>`;
 }
 
@@ -521,7 +521,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
         <span class="mtoday-nextleg-glyph">${leg.kind === 'flight' ? '✈' : '🚆'}</span>
         <div class="mtoday-nextleg-body">
           <div class="label mtoday-nextleg-lbl">${t('today.nextLeg')} · ${fmtDate(leg.date, { year: false })}</div>
-          <div class="mono mtoday-nextleg-route">${leg.time ? formatTime(leg.time) + ' ' : ''}${leg.from} → ${leg.to}${leg.carrier ? ' · ' + leg.carrier : ''}</div>
+          <div class="mono mtoday-nextleg-route">${leg.time ? formatTime24(leg.time) + ' ' : ''}${leg.from} → ${leg.to}${leg.carrier ? ' · ' + leg.carrier : ''}</div>
         </div>
         ${leg.url ? `<a class="label mtoday-nextleg-pass" href="${leg.url}" target="_blank" rel="noopener">${t('today.boardingPass')}</a>` : ''}
       </div>

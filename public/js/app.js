@@ -124,6 +124,14 @@ function formatTime(str) {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
 
+// 24-hour "HH:MM" — the mobile redesign shows times mono in 24h (handoff
+// typography). Desktop keeps formatTime's 12h until it's restyled.
+function formatTime24(str) {
+  if (!str) return '';
+  const [h, m] = str.split(':');
+  return `${String(Number(h)).padStart(2, '0')}:${String(Number(m || 0)).padStart(2, '0')}`;
+}
+
 function formatShort(str) {
   return fmtDate(str, { year: false });
 }
@@ -678,7 +686,7 @@ function renderPlannerMobile(data) {
     const travelEvents = events.filter(r => r.icon !== '🛏' && r.icon !== '🧳');
     const checkOutStay = (data.accommodations || []).find(a => a.check_out === d.date);
 
-    const actTitle = m => `${_escHtml(m.title)}${m.startTime ? ` <span class="mono mcal-time">${_escHtml(formatTime(m.startTime))}</span>` : ''}`;
+    const actTitle = m => `${_escHtml(m.title)}${m.startTime ? ` <span class="mono mcal-time">${_escHtml(formatTime24(m.startTime))}</span>` : ''}`;
     let titleHtml, freeDay = false;
     if (acts[0]) {
       titleHtml = actTitle(acts[0]);
