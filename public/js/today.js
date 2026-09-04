@@ -267,7 +267,10 @@ function renderToday(data) {
   // No active stay only happens on a checkout day with no same-day check-in
   // (the final day of the trip) — fall back to the departing stay's image.
   const imageStay = stay || (data.accommodations || []).find(a => a.check_out === today);
-  section.style.setProperty('--today-image', imageStay?.image ? `url(/images/${imageStay.image})` : 'none');
+  // Leave the custom property unset when there's no image so the mobile hero's
+  // gradient-placeholder fallback (var(--today-image, <gradient>)) can apply.
+  if (imageStay?.image) section.style.setProperty('--today-image', `url(/images/${imageStay.image})`);
+  else section.style.removeProperty('--today-image');
   section.classList.toggle('has-image', Boolean(imageStay?.image));
 
   const dayNum = Math.round((parseLocal(today) - parseLocal(data.trip.startDate)) / 86400000) + 1;
@@ -320,7 +323,7 @@ function renderToday(data) {
     : null;
 
   if (isMobileViewport()) {
-    renderTodayMobileInTrip(section, data, { stay, today, dayNum, totalDays, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget });
+    renderTodayMobileInTrip(section, data, { stay, today, dayNum, totalDays, w, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget });
     registerMobileRerender(() => renderToday(data));
     return;
   }
@@ -403,105 +406,240 @@ function renderToday(data) {
   _wireAiToggle(section.querySelector('#today-ai-toggle'), section.querySelector('#today-ai-panel'), today);
 }
 
+// The next flight or train departing on/after `today`, with its position
+// in the whole leg sequence (flights + trains, chronological).
+function _nextLeg(data, today) {
+  const legs = [
+    ...(data.flights || []).map(f => ({
+      kind: 'flight', date: f.departureDate, time: f.departureTime || '',
+      from: f.from, to: f.to,
+      carrier: [f.flightNumber].filter(Boolean).join(' '),
+      url: f.flightyUrl || null,
+    })),
+    ...(data.trains || []).map(tr => ({
+      kind: 'train', date: tr.departureDate, time: tr.departureTime || '',
+      from: tr.fromCity, to: tr.toCity, carrier: tr.operator || '',
+      url: tr.url || null,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || (a.time || '99').localeCompare(b.time || '99'));
+
+  const total = legs.length;
+  const idx = legs.findIndex(l => l.date >= today);
+  if (idx === -1) return null;
+  return { ...legs[idx], index: idx + 1, total };
+}
+
+// Slot column for an agenda row: a real time, or an uppercase part-of-day
+// label — never an empty gutter. See the handoff's "Untimed events" rule.
+function _slotCell(time, fallbackKey) {
+  return time
+    ? `<span class="mtoday-slot mono mtoday-slot--time">${formatTime(time)}</span>`
+    : `<span class="mtoday-slot label mtoday-slot--lbl">${t(fallbackKey || 'today.slotDay')}</span>`;
+}
+
 function renderTodayMobileInTrip(section, data, ctx) {
-  const { stay, today, dayNum, totalDays, weatherLine, sunTimes, lastNight, heroCity, acts, activeDocs, budget } = ctx;
-  const flag = stay ? countryFlag(stay.country) : '';
-  const countryLabel = stay ? `${flag} ${stay.country}` : t('today.transit');
+  const { stay, today, w, lastNight, heroCity, acts, activeDocs, budget } = ctx;
 
-  const weekDays = _buildTripDays(data).filter(d => d.date >= today).slice(0, 4);
+  // ---- hero pill: night N of M ----
+  let nightPill = '';
+  if (stay) {
+    const total = Math.round((parseLocal(stay.check_out) - parseLocal(stay.check_in)) / 86400000);
+    const n = Math.round((parseLocal(today) - parseLocal(stay.check_in)) / 86400000) + 1;
+    nightPill = t('today.nightOf', { n, total });
+  }
+  const dateLabel = parseLocal(today).toLocaleDateString(getDateLocale(), { weekday: 'short', day: 'numeric', month: 'short' });
 
-  section.innerHTML = `
-    <div class="mtoday-hero">
-      <div class="mtoday-hero-top">
-        <span class="mtoday-pill">${countryLabel}</span>
-        <span class="mtoday-pill mtoday-pill--accent">${t('budget.stats.dayOf', { day: dayNum, total: totalDays })}</span>
-      </div>
-      <div class="mtoday-hero-bottom">
-        <div class="mtoday-city">${heroCity}</div>
-        <div class="mtoday-hero-meta">
-          ${weatherLine ? `<span class="mtoday-weather">${weatherLine}</span>${sunTimes}` : ''}
-          ${lastNight ? `<span class="mtoday-lastnight">${t('today.lastNight')}</span>` : ''}
+  // ---- itinerary card rows: untimed activities, then timed items, then the night ----
+  const events = collectTodayEvents(data, today);            // checkouts / flights / trains / checkins
+  const untimed = acts.filter(a => !a.main.startTime);
+  const timedActs = acts.filter(a => a.main.startTime);
+
+  const rowsHtml = [];
+  for (const { main, backup } of untimed) {
+    rowsHtml.push(`
+      <div class="mtoday-itin-row" data-id="${main.id}">
+        ${_slotCell('', 'today.slotDay')}
+        <div class="mtoday-itin-body">
+          <div class="mtoday-itin-title">${_escHtml(main.title)}</div>
+          <div class="mtoday-itin-meta">${t('today.noTimeTapToSet')}</div>
         </div>
+      </div>`);
+    if (backup) rowsHtml.push(`
+      <div class="mtoday-itin-row mtoday-itin-row--backup" data-id="${backup.id}">
+        ${_slotCell('', 'today.slotDay')}
+        <div class="mtoday-itin-body"><div class="mtoday-itin-title">${_escHtml(backup.title)}</div>
+        <div class="mtoday-itin-meta">${t('today.backup')}</div></div>
+      </div>`);
+  }
+  for (const { main, backup } of timedActs) {
+    rowsHtml.push(`
+      <div class="mtoday-itin-row" data-id="${main.id}">
+        ${_slotCell(main.startTime)}
+        <div class="mtoday-itin-body"><div class="mtoday-itin-title">${_escHtml(main.title)}</div>
+        ${main.address ? `<div class="mtoday-itin-meta">${_escHtml(main.address)}</div>` : ''}</div>
+      </div>`);
+    if (backup) rowsHtml.push(`
+      <div class="mtoday-itin-row mtoday-itin-row--backup" data-id="${backup.id}">
+        ${_slotCell(backup.startTime, 'today.slotDay')}
+        <div class="mtoday-itin-body"><div class="mtoday-itin-title">${_escHtml(backup.title)}</div>
+        <div class="mtoday-itin-meta">${t('today.backup')}</div></div>
+      </div>`);
+  }
+  for (const e of events) {
+    const slotKey = e.order === 0 ? 'today.slotOut' : e.order === 2 ? 'today.slotIn' : 'today.slotDay';
+    rowsHtml.push(`
+      <div class="mtoday-itin-row">
+        ${_slotCell(e.time, slotKey)}
+        <div class="mtoday-itin-body"><div class="mtoday-itin-title">${e.icon} ${_escHtml(e.label)}</div></div>
+      </div>`);
+  }
+
+  const itinCard = `
+    <div class="mtoday-card mtoday-itin">
+      <div class="mtoday-itin-head">
+        <span class="label mtoday-itin-head-lbl">${t('today.itineraryToday')}</span>
+        <span class="mono mtoday-itin-head-date">${dateLabel}</span>
       </div>
-    </div>
-
-    ${acts.length ? `
-    <div class="mtoday-block">
-      <h3 class="mtoday-block-title">${t('today.events')}</h3>
-      ${acts.map(({ main, backup }) => `
-        <div class="mtoday-row mtoday-row--activity" data-id="${main.id}">
-          <span class="mtoday-row-icon">◦</span>
-          <div class="mtoday-row-body"><div class="mtoday-row-title">${main.startTime ? formatTime(main.startTime) + ' · ' : ''}${main.title}</div></div>
+      <div class="perf-x"></div>
+      ${rowsHtml.join('') || `<div class="mtoday-itin-row"><div class="mtoday-itin-body"><div class="mtoday-itin-meta mtoday-freeday">${t('today.freeDay')}</div></div></div>`}
+      ${stay ? `
+      <div class="mtoday-itin-row mtoday-itin-row--night">
+        <span class="mtoday-slot label mtoday-slot--lbl">${t('today.slotNight')}</span>
+        <div class="mtoday-itin-body">
+          <div class="mtoday-itin-title">${_escHtml(stay.name || stay.city)}</div>
+          <div class="mtoday-itin-meta">${t('today.checkoutAt', { date: fmtDate(stay.check_out, { year: false }), time: stay.check_out_time || '' }).trim()}</div>
         </div>
-        ${backup ? `
-        <div class="mtoday-row mtoday-row--backup" data-id="${backup.id}">
-          <span class="mtoday-row-icon">↻</span>
-          <div class="mtoday-row-body"><div class="mtoday-row-title">${backup.title}</div></div>
-        </div>` : ''}
-      `).join('')}
-    </div>` : ''}
+        <span class="mtoday-itin-chev">›</span>
+      </div>` : ''}
+    </div>`;
 
-    ${activeDocs.length ? `
-    <div class="mtoday-block">
-      <h3 class="mtoday-block-title">${t('documents.title')} <span class="mtoday-block-count">· ${activeDocs.length} ${t('documents.active')}</span></h3>
+  // ---- next leg ----
+  const leg = _nextLeg(data, today);
+  const legCard = leg ? `
+    <div class="mtoday-nextleg-wrap">
+      <div class="mtoday-card mtoday-nextleg">
+        <span class="mtoday-nextleg-glyph">${leg.kind === 'flight' ? '✈' : '🚆'}</span>
+        <div class="mtoday-nextleg-body">
+          <div class="label mtoday-nextleg-lbl">${t('today.nextLeg')} · ${fmtDate(leg.date, { year: false })}</div>
+          <div class="mono mtoday-nextleg-route">${leg.time ? formatTime(leg.time) + ' ' : ''}${leg.from} → ${leg.to}${leg.carrier ? ' · ' + leg.carrier : ''}</div>
+        </div>
+        ${leg.url ? `<a class="label mtoday-nextleg-pass" href="${leg.url}" target="_blank" rel="noopener">${t('today.boardingPass')}</a>` : ''}
+      </div>
+      <div class="mtoday-nextleg-foot">
+        <span class="label">${t('today.legOf', { n: leg.index, total: leg.total })}</span>
+        <a class="label mtoday-link" href="/journey.html">${t('today.seeFullRoute')} ›</a>
+      </div>
+    </div>` : '';
+
+  // ---- today's budget ----
+  let budgetCard = '';
+  if (budget && budget.dayAllowanceUSD) {
+    const pct = Math.max(0, Math.min(100, Math.round((budget.spentTodayUSD / budget.dayAllowanceUSD) * 100)));
+    budgetCard = `
+      <div class="mtoday-card mtoday-budget">
+        <div class="mtoday-card-head">
+          <span class="label">${t('today.availableToday')}</span>
+          <button type="button" class="label mtoday-link" id="mtoday-add-expense">${t('today.addExpense')} ›</button>
+        </div>
+        <div class="mtoday-budget-figure">
+          <span class="mono mtoday-budget-big">${budget.dailyLeft}</span>
+          <span class="mono mtoday-budget-of">${t('today.ofAmount', { amount: budget.dayAllowanceLabel })}</span>
+        </div>
+        <div class="mtoday-budget-bar"><span style="width:${pct}%"></span></div>
+        <div class="mono mtoday-budget-row">
+          <span>${t('today.spentTodayAmount', { amount: budget.spent })}</span>
+          <span>${t('today.remainingAmount', { amount: budget.remainingLabel })}</span>
+        </div>
+      </div>`;
+  }
+
+  // ---- two tiles ----
+  const wl = typeof getWishlistItems === 'function' ? getWishlistItems() : [];
+  const tiles = `
+    <div class="mtoday-tiles">
+      <button type="button" class="mtoday-tile" data-goto-tab="map">
+        <span class="mtoday-tile-glyph">⊕</span>
+        <span class="label mtoday-tile-lbl">${t('map.title')}</span>
+        <span class="mtoday-tile-val">${t('today.tileStays', { n: (data.accommodations || []).length })}</span>
+      </button>
+      <button type="button" class="mtoday-tile" data-goto-tab="wishlist">
+        <span class="mtoday-tile-glyph">☰</span>
+        <span class="label mtoday-tile-lbl">${t('wishlist.title')}</span>
+        <span class="mtoday-tile-val">${t('today.tileWishlist', { n: wl.length })}</span>
+      </button>
+    </div>`;
+
+  // ---- this week ----
+  const weekDays = _buildTripDays(data).filter(d => d.date >= today).slice(0, 6);
+  const weekStrip = `
+    <div class="mtoday-week-sec">
+      <div class="mtoday-card-head">
+        <span class="label">${t('today.thisWeek')}</span>
+      </div>
+      <div class="mtoday-week">
+        ${weekDays.map(d => `
+          <button type="button" class="mtoday-weekcard${d.date === today ? ' is-today' : ''}" data-open-day="${d.date}">
+            <span class="label mono mtoday-weekcard-date">${d.dow} ${d.num}</span>
+            <span class="mtoday-weekcard-title">${_escHtml(d.label)}</span>
+          </button>`).join('')}
+        <button type="button" class="mtoday-weekcard mtoday-weekcard--more" data-goto-tab="calendar" aria-label="${t('today.seeFullMonth')}">›</button>
+      </div>
+    </div>`;
+
+  // ---- optional: docs + AI (kept from prior work) ----
+  const docsBlock = activeDocs.length ? `
+    <div class="mtoday-week-sec">
+      <div class="mtoday-card-head"><span class="label">${t('documents.title')}</span></div>
       ${activeDocs.map(d => `
         <button type="button" class="mtoday-doc-row" data-doc-id="${d.id}">
           <span class="mtoday-doc-badge">📄</span>
           <div class="mtoday-doc-body">
-            <div class="mtoday-doc-title">${d.title}</div>
+            <div class="mtoday-doc-title">${_escHtml(d.title)}</div>
             <div class="mtoday-doc-sub">${t('documents.validRange', { from: fmtDate(d.valid_from, { year: false }), to: fmtDate(d.valid_to, { year: false }) })}</div>
           </div>
           <span class="mtoday-doc-chevron">›</span>
-        </button>
-      `).join('')}
-    </div>` : ''}
+        </button>`).join('')}
+    </div>` : '';
 
-    ${stay && data.config?.aiSuggestionsEnabled ? `
-    <div class="mtoday-block mtoday-ai-block">
+  const aiBlock = (stay && data.config?.aiSuggestionsEnabled) ? `
+    <div class="mtoday-week-sec mtoday-ai-block">
       <button type="button" class="mtoday-ai-toggle" id="mtoday-ai-toggle">${t('aiSuggestions.seeLink')}</button>
       <div class="mtoday-ai-panel" id="mtoday-ai-panel" hidden></div>
+    </div>` : '';
+
+  section.innerHTML = `
+    <div class="mtoday-hero">
+      <div class="mtoday-hero-overlay">
+        <span class="mtoday-hero-flag">${stay ? countryFlag(stay.country) : ''}</span>
+        <span class="mtoday-city">${_escHtml(heroCity.replace(/^\S+\s/, ''))}</span>
+        ${nightPill ? `<span class="label mtoday-hero-pill">${nightPill}</span>` : ''}
+      </div>
+    </div>
+
+    ${w ? `
+    <div class="mtoday-weatherbar mono">
+      <span class="mtoday-wx-temp">${w.source === 'historical' ? '~' : ''}${weatherIcon(w.code)} ${w.tempMax}°/${w.tempMin}°</span>
+      ${w.sunrise && w.sunset ? `<span class="mtoday-wx-sun">↑${w.sunrise} ↓${w.sunset}</span>` : ''}
     </div>` : ''}
 
-    <div class="mtoday-block">
-      <div class="mtoday-block-header">
-        <h3 class="mtoday-block-title">${t('today.thisWeek')}</h3>
-        <button type="button" class="mtoday-link" data-goto-tab="calendar">${t('today.seeFullMonth')}</button>
-      </div>
-      <div class="mtoday-strip">
-        ${weekDays.map(d => `
-          <button type="button" class="mtoday-strip-card${d.date === today ? ' is-today' : ''}" data-open-day="${d.date}">
-            <span class="mtoday-strip-dow">${d.dow} ${d.num}</span>
-            <span class="mtoday-strip-sub">${_escHtml(d.label)}</span>
-          </button>
-        `).join('')}
-      </div>
+    <div class="mtoday-body">
+      ${itinCard}
+      ${legCard}
+      ${budgetCard}
+      ${tiles}
+      ${weekStrip}
+      ${docsBlock}
+      ${aiBlock}
+      ${_renderWishlistPreviewBlock()}
     </div>
-
-    <div class="mtoday-block">
-      <div class="mtoday-block-header">
-        <h3 class="mtoday-block-title">${t('map.title')}</h3>
-        <div style="display:flex;align-items:center;gap:10px">
-          <a class="mtoday-link" href="/accommodations.html">${t('stays.viewDetails')} ›</a>
-          <button type="button" class="mtoday-link" data-goto-tab="map">${t('map.viewJourney')} ›</button>
-        </div>
-      </div>
-      <button type="button" class="mtoday-map-preview" id="mtoday-map-preview" data-goto-tab="map">
-        <span class="mtoday-map-label">${stay ? stay.city : ''}</span>
-      </button>
-    </div>
-
-    ${budget ? _renderBudgetPreviewBlock(`
-      <button type="button" class="mtoday-stat-card" data-goto-tab="budget">
-        <div><div class="mtoday-stat-label">${t('today.spentTodayLabel')}</div><div class="mtoday-stat-val">${budget.spent}</div></div>
-        ${budget.dailyLeft ? `<div class="mtoday-stat-right"><div class="mtoday-stat-label">${t('today.dailyAvailLabel')}</div><div class="mtoday-stat-val mtoday-stat-val--positive">${budget.dailyLeft}</div></div>` : ''}
-      </button>
-    `) : ''}
-
-    ${_renderWishlistPreviewBlock()}
   `;
 
   section.querySelectorAll('[data-id]').forEach(row => row.addEventListener('click', () => openEditModal(row.dataset.id)));
   section.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
+  section.querySelector('#mtoday-add-expense')?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (typeof _openExpenseModal === 'function') _openExpenseModal(null);
+  });
   section.querySelectorAll('[data-open-day]').forEach(btn => btn.addEventListener('click', () => {
     const date = btn.dataset.openDay;
     const s = getActiveStay(data.accommodations, date);
@@ -513,9 +651,6 @@ function renderTodayMobileInTrip(section, data, ctx) {
     window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
   }));
   _wireAiToggle(section.querySelector('#mtoday-ai-toggle'), section.querySelector('#mtoday-ai-panel'), today);
-  // map.js may have built its data before this DOM existed — (re)populate
-  // the Ruta preview now that #mtoday-map-preview is actually in the page.
-  if (typeof renderMobileRoutePreview === 'function') renderMobileRoutePreview(data.accommodations);
 }
 
 // Shared toggle wiring for the "Suggest things to do" panel — desktop

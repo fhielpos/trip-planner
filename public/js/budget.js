@@ -914,9 +914,17 @@ function getTodayBudget() {
   const spentToday = _budget.entries
     .filter(e => e.date === today)
     .reduce((sum, e) => sum + toUSD(e.amount, e.currency, e.rate), 0);
+  const dayAllowance = s.dailyBudgetLeft !== null ? s.dailyBudgetLeft + spentToday : null;
   return {
     spent: formatCurrency(spentToday),
     dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,
+    // raw USD numbers for the redesigned Today budget card (2a)
+    spentTodayUSD: spentToday,
+    dailyLeftUSD: s.dailyBudgetLeft,
+    dayAllowanceUSD: dayAllowance,
+    remainingUSD: s.remaining,
+    remainingLabel: formatCurrency(s.remaining),
+    dayAllowanceLabel: dayAllowance !== null ? formatCurrency(dayAllowance) : null,
   };
 }
 
