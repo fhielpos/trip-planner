@@ -7,8 +7,24 @@
   <title>Trip Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css" />
+  <script>
+    /* Resolve the theme before first paint. Three states: carbon | terracotta
+       | system. Migrates the legacy 'dark'/'light' values. Kept in <head>
+       inline so there's no flash; the runtime toggle lives in app.js. */
+    (function () {
+      var raw = null;
+      try { raw = localStorage.getItem('theme'); } catch (e) {}
+      if (raw === 'light') raw = 'terracotta';
+      if (raw !== 'carbon' && raw !== 'terracotta' && raw !== 'system') raw = 'carbon';
+      try { localStorage.setItem('theme', raw); } catch (e) {}
+      var resolved = raw === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'terracotta' : 'carbon')
+        : raw;
+      document.documentElement.setAttribute('data-theme', resolved);
+    })();
+  </script>
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <meta name="theme-color" content="#181614" />
@@ -17,6 +33,18 @@
 <body>
 
   <header class="app-header">
+    <!-- Mobile redesign header (≤640px); desktop uses .header-inner below -->
+    <div class="m-header" id="m-header">
+      <div class="m-header-row">
+        <span class="m-header-stamp" id="m-header-stamp"></span>
+        <div class="m-header-status">
+          <div class="m-header-day mono" id="m-header-day"></div>
+          <div class="m-header-sync label" id="m-header-sync" aria-live="polite"></div>
+        </div>
+        <button type="button" class="m-header-menu" id="m-header-menu" aria-label="Ajustes" aria-haspopup="dialog">···</button>
+      </div>
+      <div class="m-header-progress"><span id="m-header-progress-fill"></span></div>
+    </div>
     <div class="header-inner">
       <div class="header-title">
         <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -555,9 +583,56 @@
     <div class="sheet-body" id="day-sheet-body"></div>
   </div>
 
+  <!-- Mobile add FAB + type-picker fan (≤640px) -->
+  <div class="m-fab-scrim" id="m-fab-scrim"></div>
+  <div class="m-fab-menu" id="m-fab-menu" role="menu" aria-label="Añadir" hidden>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="activity">
+      <span class="m-fab-item-glyph">◈</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.activity">Actividad</span>
+        <span class="m-fab-item-ctx" id="m-fab-ctx-activity"></span>
+      </span>
+    </button>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="expense">
+      <span class="m-fab-item-glyph">⊜</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.expense">Gasto</span>
+        <span class="m-fab-item-ctx" id="m-fab-ctx-expense"></span>
+      </span>
+    </button>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="stay">
+      <span class="m-fab-item-glyph">⌂</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.stay">Alojamiento</span>
+        <span class="m-fab-item-ctx" id="m-fab-ctx-stay"></span>
+      </span>
+    </button>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="wishlist">
+      <span class="m-fab-item-glyph">☰</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.wishlist">A la lista de deseos</span>
+      </span>
+    </button>
+  </div>
+  <button type="button" class="m-fab" id="m-fab" aria-label="Añadir" aria-expanded="false">+</button>
+
+  <!-- Settings sheet (≤640px) — everything moved out of the header -->
+  <div class="settings-sheet" id="settings-sheet" hidden>
+    <div class="settings-sheet-panel" role="dialog" aria-modal="true" aria-label="Ajustes">
+      <div class="settings-sheet-handle"></div>
+      <div class="settings-sheet-titles">
+        <h2 data-i18n="settings.title">Ajustes</h2>
+        <span class="settings-sheet-ver mono" id="settings-version">offline</span>
+        <button type="button" class="settings-sheet-done" id="settings-done" data-i18n="settings.done">Listo</button>
+      </div>
+      <div class="settings-sheet-body" id="settings-sheet-body"></div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="mobile-toast" id="mobile-toast" hidden></div>
 
+  <script src="/js/prefs.js"></script>
   <script src="/js/i18n.js"></script>
   <script src="/js/mobile-nav.js"></script>
   <script src="/js/currency.js"></script>
@@ -574,6 +649,7 @@
   <script src="/js/budget.js"></script>
   <script src="/js/currency-calc.js"></script>
   <script src="/js/wishlist.js"></script>
+  <script src="/js/settings.js"></script>
   <script>
     fetch('/api/version').then(r => r.json()).then(({ commit }) => {
       document.getElementById('app-version').textContent = commit.slice(0, 8);

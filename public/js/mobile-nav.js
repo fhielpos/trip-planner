@@ -29,6 +29,7 @@ function setMobileTab(tab) {
   document.querySelectorAll('.mobile-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.tab === tab);
   });
+  if (typeof closeAddFab === 'function') closeAddFab();
   window.scrollTo(0, 0);
   // #trip-map is built while hidden behind the default Today tab; Leaflet
   // needs an explicit re-measure + re-fit once it actually becomes visible.
@@ -48,7 +49,91 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !document.getElementById('day-sheet')?.hidden) closeSheet();
   });
+
+  // Header ··· → Settings sheet (implemented in settings.js)
+  document.getElementById('m-header-menu')?.addEventListener('click', () => {
+    if (typeof openSettingsSheet === 'function') openSettingsSheet();
+  });
+
+  initAddFab();
 });
+
+// ── Add FAB + type-picker fan ───────────────────
+
+function _fabDateLabel() {
+  try {
+    const d = typeof parseLocal === 'function' && typeof appToday === 'function'
+      ? parseLocal(appToday()) : new Date();
+    const loc = typeof getDateLocale === 'function' ? getDateLocale() : undefined;
+    return d.toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' });
+  } catch { return ''; }
+}
+
+function openAddFab() {
+  const menu = document.getElementById('m-fab-menu');
+  const fab = document.getElementById('m-fab');
+  if (!menu || !fab) return;
+  const setCtx = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt || ''; };
+  setCtx('m-fab-ctx-activity', _fabDateLabel());
+  setCtx('m-fab-ctx-expense', typeof t === 'function' ? t('fab.today') : '');
+  menu.hidden = false;
+  document.body.classList.add('m-fab-open');
+  fab.setAttribute('aria-expanded', 'true');
+}
+
+function closeAddFab() {
+  const menu = document.getElementById('m-fab-menu');
+  const fab = document.getElementById('m-fab');
+  if (menu) menu.hidden = true;
+  document.body.classList.remove('m-fab-open');
+  if (fab) fab.setAttribute('aria-expanded', 'false');
+}
+
+function toggleAddFab() {
+  document.body.classList.contains('m-fab-open') ? closeAddFab() : openAddFab();
+}
+
+function _fabDefaultDate() {
+  if (typeof appToday !== 'function' || typeof tripData === 'undefined' || !tripData?.trip) {
+    return typeof appToday === 'function' ? appToday() : undefined;
+  }
+  const today = appToday();
+  return (today >= tripData.trip.startDate && today <= tripData.trip.endDate)
+    ? today : tripData.trip.startDate;
+}
+
+function _fabDispatch(kind) {
+  closeAddFab();
+  const date = _fabDefaultDate();
+  switch (kind) {
+    case 'activity':
+      if (typeof openAddModal === 'function') openAddModal(date);
+      break;
+    case 'stay':
+      if (typeof openAddModal === 'function') {
+        openAddModal(date);
+        if (typeof setType === 'function') setType('accommodation');
+      }
+      break;
+    case 'expense':
+      if (typeof _openExpenseModal === 'function') _openExpenseModal(null);
+      break;
+    case 'wishlist':
+      if (typeof _openWishlistModal === 'function') _openWishlistModal();
+      break;
+  }
+}
+
+function initAddFab() {
+  document.getElementById('m-fab')?.addEventListener('click', toggleAddFab);
+  document.getElementById('m-fab-scrim')?.addEventListener('click', closeAddFab);
+  document.querySelectorAll('.m-fab-item').forEach(btn => {
+    btn.addEventListener('click', () => _fabDispatch(btn.dataset.add));
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.body.classList.contains('m-fab-open')) closeAddFab();
+  });
+}
 
 // ── Day Sheet ───────────────────────────────────
 

@@ -3,19 +3,58 @@
    ============================================= */
 
 // ── Theme ──────────────────────────────────────
-(function () {
-  const saved = localStorage.getItem('theme') ||
-    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
-})();
+// The <head> inline script has already resolved and applied the theme
+// before first paint (and migrated legacy 'dark'/'light'). This is the
+// runtime layer: the setter used by Settings, keeping <system> live, and
+// the desktop toggle button.
+const THEME_VALUES = ['carbon', 'terracotta', 'system'];
+const META_THEME_COLOR = { carbon: '#181614', terracotta: '#faf4ea' };
+let _systemThemeMql = null;
 
-document.getElementById('theme-toggle').addEventListener('click', () => {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
-  localStorage.setItem('theme', isLight ? 'dark' : 'light');
+function getTheme() {
+  const raw = localStorage.getItem('theme');
+  return THEME_VALUES.includes(raw) ? raw : 'carbon';
+}
+
+function resolveTheme(value) {
+  if (value === 'system') {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'terracotta' : 'carbon';
+  }
+  return value === 'terracotta' ? 'terracotta' : 'carbon';
+}
+
+function _applyResolvedTheme(value) {
+  const resolved = resolveTheme(value);
+  document.documentElement.setAttribute('data-theme', resolved);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', META_THEME_COLOR[resolved]);
+}
+
+function setTheme(value) {
+  const next = THEME_VALUES.includes(value) ? value : 'carbon';
+  localStorage.setItem('theme', next);
+  _applyResolvedTheme(next);
+  // Only track the OS setting while the user has actually chosen "system".
+  if (next === 'system') {
+    if (!_systemThemeMql) {
+      _systemThemeMql = window.matchMedia('(prefers-color-scheme: light)');
+      _systemThemeMql.addEventListener('change', () => {
+        if (getTheme() === 'system') _applyResolvedTheme('system');
+      });
+    }
+  }
+  document.dispatchEvent(new CustomEvent('themechange', { detail: { theme: next } }));
+}
+
+// Re-sync the meta colour on load and start the listener if already on "system".
+setTheme(getTheme());
+
+// Desktop header keeps a plain light/dark toggle (no "system" step).
+document.getElementById('theme-toggle')?.addEventListener('click', () => {
+  setTheme(resolveTheme(getTheme()) === 'terracotta' ? 'carbon' : 'terracotta');
 });
 
-document.getElementById('logout-btn').addEventListener('click', async () => {
+async function logout() {
   await fetch('/api/logout', { method: 'POST' });
   // Clear the service worker's caches (shell + cached /api/trip-style data)
   // and unregister it before navigating — otherwise the next load of '/'
@@ -32,7 +71,9 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
     await reg?.unregister();
   } catch { /* best-effort */ }
   window.location.href = '/login';
-});
+}
+
+document.getElementById('logout-btn')?.addEventListener('click', logout);
 
 let tripData = null;
 let countdownInterval = null;

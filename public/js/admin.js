@@ -5,14 +5,18 @@
 
 // ── Theme (duplicated from app.js:5-16 — this page doesn't load app.js) ──
 (function () {
-  const saved = localStorage.getItem('theme') ||
-    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  let raw = localStorage.getItem('theme');
+  if (raw === 'light') raw = 'terracotta';
+  if (!['carbon', 'terracotta', 'system'].includes(raw)) raw = 'carbon';
+  const resolved = raw === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'terracotta' : 'carbon')
+    : raw;
+  document.documentElement.setAttribute('data-theme', resolved);
 })();
-document.getElementById('theme-toggle').addEventListener('click', () => {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
-  localStorage.setItem('theme', isLight ? 'dark' : 'light');
+document.getElementById('theme-toggle')?.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'terracotta' ? 'carbon' : 'terracotta';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
 });
 
 function _formatTimestamp(iso) {

@@ -183,6 +183,65 @@ function _renderPassportStamp(stay) {
   el.innerHTML = `<span class="passport-stamp-flag">${countryFlag(stay.country)}</span>${stay.country}`;
 }
 
+// Mobile redesign header (≤640px): passport stamp · DÍA n / total ·
+// sync line · progress hairline. Runs for every trip phase; the desktop
+// header (.header-inner) is untouched.
+function _renderMobileHeader(data) {
+  const host = document.getElementById('m-header');
+  if (!host || !data?.trip) return;
+
+  const today = appToday();
+  const inTrip = today >= data.trip.startDate && today <= data.trip.endDate;
+  const preTrip = today < data.trip.startDate;
+  const start = parseLocal(data.trip.startDate);
+  const end = parseLocal(data.trip.endDate);
+  const totalDays = Math.round((end - start) / 86400000) + 1;
+  const dayNum = Math.round((parseLocal(today) - start) / 86400000) + 1;
+
+  const stay = inTrip ? getActiveStay(data.accommodations || [], today) : null;
+  const stampEl = document.getElementById('m-header-stamp');
+  if (stampEl) {
+    if (stay && stay.country) {
+      stampEl.innerHTML = `<span class="m-header-stamp-flag">${countryFlag(stay.country)}</span>${stay.country}`;
+    } else {
+      stampEl.innerHTML = '';
+    }
+  }
+
+  const dayEl = document.getElementById('m-header-day');
+  if (dayEl) {
+    if (inTrip) {
+      dayEl.innerHTML = `${t('header.day', { n: dayNum })}<span class="m-header-day-total"> / ${totalDays}</span>`;
+    } else if (preTrip) {
+      const daysTo = Math.round((start - parseLocal(today)) / 86400000);
+      dayEl.textContent = t('header.daysToGo', { n: daysTo });
+    } else {
+      dayEl.textContent = t('header.tripEnded');
+    }
+  }
+
+  const pct = inTrip ? Math.round((dayNum / totalDays) * 100) : (preTrip ? 0 : 100);
+  host.style.setProperty('--m-header-progress', `${pct}%`);
+
+  _updateHeaderSync();
+
+  // Keep --header-h honest for sticky offsets in later slices.
+  if (isMobileViewport()) {
+    const h = document.querySelector('.app-header')?.offsetHeight;
+    if (h) document.documentElement.style.setProperty('--header-h', `${h}px`);
+  }
+}
+
+// Sync sub-line — mirrors navigator.onLine. offline.js also calls this on
+// the online/offline events.
+function _updateHeaderSync() {
+  const el = document.getElementById('m-header-sync');
+  if (!el) return;
+  const online = navigator.onLine;
+  el.textContent = online ? t('header.synced') : t('header.offline');
+  el.classList.toggle('is-offline', !online);
+}
+
 function renderToday(data) {
   const section = document.getElementById('today-section');
   if (!section || !data?.trip) return;
@@ -190,6 +249,7 @@ function renderToday(data) {
   const today = appToday();
   const inTrip = today >= data.trip.startDate && today <= data.trip.endDate;
   document.body.classList.toggle('today-active', inTrip);
+  _renderMobileHeader(data);
   section.hidden = false;
   if (!inTrip) {
     _renderPassportStamp(null);
