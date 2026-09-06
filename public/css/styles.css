@@ -3838,6 +3838,8 @@ body {
   .ai-panel--m .ai-basis {
     font-size: 11px; color: var(--ink-45); margin-top: -5px; text-wrap: pretty;
   }
+  /* the flex column already spaces rows — drop the chip row's own margin */
+  .ai-panel--m .ai-cat-row { margin-bottom: 0; }
   .ai-panel--m .ai-card5e-list { display: flex; flex-direction: column; gap: 8px; }
   .ai-panel--m .ai-card.ai-card--5e {
     display: flex; align-items: flex-start; gap: 10px;
