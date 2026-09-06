@@ -286,47 +286,63 @@
   <!-- Currency calculator modal (mobile only) -->
   <div class="modal-overlay" id="currency-calc-overlay" hidden>
     <div class="modal">
-      <div class="modal-header">
-        <h3 data-i18n="budget.calc.title">Currency Calculator</h3>
-        <button class="modal-close" id="currency-calc-close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+      <div class="modal-header calc-header">
+        <button class="calc-back" id="currency-calc-close" aria-label="Back">&lsaquo;</button>
+        <span class="calc-header-text">
+          <span class="label calc-header-title" data-i18n="budget.calc.title">Currency Calculator</span>
+          <span class="mono calc-rate-age" id="calc-rate-age"></span>
+        </span>
       </div>
-      <div class="modal-form">
-        <div class="form-row">
-          <label for="calc-amount-from" data-i18n="budget.calc.from">From</label>
-          <input type="number" id="calc-amount-from" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+      <div class="modal-form calc-body">
+        <div class="calc-card">
+          <div class="label calc-card-label" data-i18n="budget.calc.tagPrice">Tag price</div>
+          <div class="calc-input-row">
+            <span class="calc-ccy-chip label mono">
+              <select id="calc-currency-from-select" aria-label="Tag currency"></select>
+              <span class="calc-ccy-caret" aria-hidden="true">&#9662;</span>
+            </span>
+            <input type="text" id="calc-amount-from" class="mono calc-amount" inputmode="decimal"
+                   autocomplete="off" placeholder="0" />
+          </div>
+          <div class="perf-x calc-perf"></div>
+          <div class="calc-result-head">
+            <span class="label" data-i18n="budget.calc.inBudget">In your budget</span>
+            <span class="mono calc-rate-line" id="calc-rate-line"></span>
+          </div>
+          <div class="mono calc-result" id="calc-amount-to">&mdash;</div>
+          <div class="mono calc-result-alt" id="calc-result-alt"></div>
+        </div>
+
+        <div class="calc-actions">
           <input type="file" id="calc-receipt-input" accept="image/*" capture="environment" hidden />
-          <button type="button" class="btn-secondary" id="calc-scan-btn" data-i18n="budget.calc.scanTag">📷 Scan price tag</button>
-          <p class="form-hint" id="calc-scan-status" hidden></p>
-          <div class="type-selector" id="calc-currency-from-selector">
-            <button type="button" class="type-btn" data-currency="USD">USD</button>
-            <button type="button" class="type-btn" data-currency="EUR">EUR</button>
-            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
-            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
-            <button type="button" class="type-btn" id="calc-currency-from-more" data-i18n="budget.entry.currencyMore">More…</button>
+          <button type="button" class="label calc-scan" id="calc-scan-btn" data-i18n="budget.calc.scanTag">Scan price tag</button>
+          <button type="button" class="label calc-swap-btn" id="calc-swap-btn" aria-label="Swap currencies">
+            <span id="calc-swap-label">&#8646;</span>
+          </button>
+        </div>
+        <p class="form-hint calc-scan-status" id="calc-scan-status" hidden></p>
+
+        <div class="calc-ocr" id="calc-ocr" hidden>
+          <div class="label calc-ocr-label" data-i18n="budget.calc.ocrHeading">Tag reading</div>
+          <div class="calc-ocr-box">
+            <div class="calc-ocr-capture">
+              <img id="calc-ocr-img" alt="" />
+              <span class="calc-ocr-crop" aria-hidden="true"></span>
+              <span class="label calc-ocr-conf" id="calc-ocr-conf"></span>
+            </div>
+            <div class="calc-ocr-foot">
+              <span class="calc-ocr-msg" id="calc-ocr-msg"></span>
+              <button type="button" class="label calc-ocr-fix" id="calc-ocr-fix" data-i18n="budget.calc.fix">Fix</button>
+            </div>
           </div>
-          <select id="calc-currency-from-select" class="form-select" hidden></select>
         </div>
 
-        <button type="button" class="calc-swap-btn" id="calc-swap-btn" aria-label="Swap currencies">⇄</button>
-
-        <div class="form-row">
-          <label for="calc-amount-to" data-i18n="budget.calc.to">To</label>
-          <input type="text" id="calc-amount-to" readonly />
-          <div class="type-selector" id="calc-currency-to-selector">
-            <button type="button" class="type-btn" data-currency="USD">USD</button>
-            <button type="button" class="type-btn" data-currency="EUR">EUR</button>
-            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
-            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
-            <button type="button" class="type-btn" id="calc-currency-to-more" data-i18n="budget.entry.currencyMore">More…</button>
-          </div>
-          <select id="calc-currency-to-select" class="form-select" hidden></select>
+        <div class="calc-quickref">
+          <div class="label calc-quickref-label" data-i18n="budget.calc.quickRef">Quick reference</div>
+          <div class="calc-quickref-chips" id="calc-quickref-chips"></div>
         </div>
 
-        <div id="calc-rate-info" class="calc-rate-info"></div>
+        <div class="provisional calc-footer" id="calc-footer"></div>
       </div>
     </div>
   </div>

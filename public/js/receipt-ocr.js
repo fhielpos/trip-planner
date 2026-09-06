@@ -101,7 +101,9 @@ function extractAmountFromReceiptText(text) {
   return best;
 }
 
-async function scanReceiptForAmount(file) {
+// Runs the OCR pass once and returns both the extracted amount and the
+// engine's own confidence (0–100), or null if the scan could not run.
+async function scanReceiptTag(file) {
   if (typeof Tesseract === 'undefined') return null;
   let worker;
   try {
@@ -116,11 +118,19 @@ async function scanReceiptForAmount(file) {
     const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 30000));
     const result = await Promise.race([recognizePromise, timeoutPromise]);
     if (!result) return null;
-    return extractAmountFromReceiptText(result.data.text);
+    return {
+      amount: extractAmountFromReceiptText(result.data.text),
+      confidence: Number.isFinite(result.data.confidence) ? result.data.confidence : 0,
+    };
   } catch (err) {
     console.error('Receipt scan failed:', err);
     return null;
   } finally {
     if (worker) await worker.terminate();
   }
+}
+
+async function scanReceiptForAmount(file) {
+  const reading = await scanReceiptTag(file);
+  return reading ? reading.amount : null;
 }
