@@ -759,7 +759,7 @@ function renderLegend(accommodations, colorMap) {
     item.className = 'legend-item';
     item.innerHTML = `
       <div class="legend-dot" style="background:${colour.accent};"></div>
-      <span>${a.city} <span style="color:var(--text-3)">${formatShort(a.check_in)}–${formatShort(a.check_out)}</span></span>
+      <span>${a.city} <span style="color:var(--ink-45)">${formatShort(a.check_in)}–${formatShort(a.check_out)}</span></span>
     `;
     legend.appendChild(item);
   }

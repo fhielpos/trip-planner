@@ -262,7 +262,7 @@ function renderToday(data) {
   _renderPassportStamp(stay);
   const colour = stay ? (data.colorMap?.[stay.check_in] ?? null) : null;
   section.style.setProperty('--today-accent', colour?.accent || 'var(--accent)');
-  section.style.setProperty('--today-bg', colour?.bg || 'var(--accent-dim)');
+  section.style.setProperty('--today-bg', colour?.bg || 'var(--accent-tint)');
 
   // No active stay only happens on a checkout day with no same-day check-in
   // (the final day of the trip) — fall back to the departing stay's image.
