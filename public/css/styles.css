@@ -2911,83 +2911,300 @@ body {
   .accom-table { font-size: 0.78rem; }
 }
 
-/* ── Journey page: countries visited + transport log ── */
-.journey-countries {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 1.25rem;
+/* =============================================
+   Journey / "La ruta" (redesign 4b)
+   One chronological spine: stays and legs alternating on a single 26px
+   rail. Used on BOTH mobile and desktop — the spine is responsive, not
+   gated on a breakpoint. Canonical tokens; per-theme colour deltas are
+   in the [data-theme] overrides at the end of the block.
+   ============================================= */
+.journey-header {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 10px 14px 0;
 }
-.journey-country-chip {
+.journey-header-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.75rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 999px;
+  gap: 8px;
 }
-.journey-country-flag { font-size: 1rem; line-height: 1; }
-.journey-country-name {
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--text-1);
-}
-.journey-country-nights { font-size: 0.75rem; color: var(--text-3); }
-
-.journey-list {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  overflow: hidden;
-}
-.journey-row {
+.journey-back {
+  flex: none;
+  width: 40px;
+  height: 40px;
   display: grid;
-  grid-template-columns: 2.2fr 1fr 1fr;
-  align-items: center;
-  gap: 0.5rem 1.1rem;
-  padding: 0.7rem 1.1rem;
-  border-left: 3px solid var(--leg-color, var(--border));
-  border-bottom: 1px dashed var(--border-soft);
+  place-items: center;
+  border: 1px solid var(--hairline-card);
+  border-radius: 11px;
+  color: var(--ink-55);
+  font-size: 20px;
+  line-height: 1;
+  text-decoration: none;
 }
-.journey-list .journey-row:last-child { border-bottom: none; }
-.journey-row:hover { background: var(--bg-hover); }
-.journey-row-main { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
-.journey-row-index { font-size: 0.68rem; color: var(--text-3); flex-shrink: 0; }
-.journey-row-icon { flex-shrink: 0; }
-.journey-row-route {
-  font-family: var(--font-display);
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--text-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.journey-back:hover { color: var(--accent-ink); border-color: var(--accent); }
+.journey-header-titles { flex: 1; min-width: 0; }
+.journey-header-title { font-size: 13px; color: var(--ink); }
+.journey-header-sub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--ink-45);
+  text-wrap: pretty;
 }
-.journey-row-figure { display: flex; flex-direction: column; gap: 0.2rem; }
-.journey-row-figure-label {
-  font-family: var(--font-display);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-3);
+.journey-today-btn {
+  flex: none;
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-chip);
+  background: transparent;
+  font-size: 10.5px;
+  color: var(--accent-ink);
+  cursor: pointer;
 }
-.journey-row-figure-val { font-size: 0.85rem; color: var(--text-1); }
+.journey-today-btn:hover { background: var(--accent-tint); }
+.journey-filters {
+  display: flex;
+  gap: 7px;
+  padding: 11px 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.journey-filters::-webkit-scrollbar { display: none; }
+.journey-chip {
+  flex: none;
+  padding: 6px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline-card);
+  background: transparent;
+  font-size: 10.5px;
+  color: var(--ink-55);
+  cursor: pointer;
+}
+.journey-chip.is-active {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
 
-@media (max-width: 640px) {
-  .journey-row {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas: "main main" "date distance";
-    row-gap: 0.4rem;
-  }
-  .journey-row-main               { grid-area: main; }
-  .journey-row-figure:nth-child(2) { grid-area: date; }
-  .journey-row-figure:nth-child(3) { grid-area: distance; }
+.app-main.journey-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 14px 120px;
 }
+
+/* completeness banner */
+.journey-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px 12px;
+  border-radius: var(--r-row);
+  background: rgba(226, 194, 122, .06);
+  border: 1px solid rgba(226, 194, 122, .28);
+}
+.journey-banner--ok {
+  background: color-mix(in oklab, var(--positive) 8%, transparent);
+  border-color: color-mix(in oklab, var(--positive) 32%, transparent);
+}
+.journey-banner-glyph {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  background: rgba(226, 194, 122, .14);
+  border: 1px solid rgba(226, 194, 122, .5);
+  color: var(--warning);
+}
+.journey-banner--ok .journey-banner-glyph {
+  background: color-mix(in oklab, var(--positive) 16%, transparent);
+  border-color: color-mix(in oklab, var(--positive) 48%, transparent);
+  color: var(--positive);
+}
+.journey-banner-text { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-70); }
+.journey-banner-action {
+  flex: none;
+  font-size: 10px;
+  color: var(--accent-ink);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* the spine */
+.journey-spine { padding-top: 4px; }
+.journey-empty { padding: 28px 4px; font-size: 13px; color: var(--ink-55); font-style: italic; }
+.journey-row { display: flex; gap: 11px; }
+
+.journey-rail {
+  flex: none;
+  width: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.journey-rail-stub { flex: none; width: 1px; height: 8px; background: rgba(212, 168, 124, .22); }
+.journey-rail-line { flex: 1; width: 1px; background: rgba(212, 168, 124, .22); }
+.journey-row--future .journey-rail-stub,
+.journey-row--future .journey-rail-line {
+  background: repeating-linear-gradient(180deg, rgba(212, 168, 124, .25) 0 4px, transparent 4px 9px);
+}
+.journey-row.is-first .journey-rail-stub { visibility: hidden; }
+.journey-row.is-last .journey-rail-line { display: none; }
+
+.journey-node {
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.journey-node--bookend { width: 11px; height: 11px; margin-top: 4px; background: rgba(240, 235, 228, .28); }
+.journey-node--stay {
+  width: 13px;
+  height: 13px;
+  margin-top: 3px;
+  background: rgba(212, 168, 124, .2);
+  border: 1.5px solid rgba(212, 168, 124, .6);
+}
+.journey-node--current {
+  width: 15px;
+  height: 15px;
+  margin-top: 3px;
+  background: var(--accent-tint);
+  border: 2px solid var(--accent);
+  box-shadow: var(--glow-current);
+}
+.journey-node--leg { width: 20px; height: 20px; font-size: 9px; }
+.journey-node--flight {
+  background: color-mix(in oklab, var(--cat-transport) 14%, transparent);
+  border: 1px solid var(--cat-transport);
+  color: var(--cat-transport);
+}
+.journey-node--train {
+  background: color-mix(in oklab, var(--cat-culture) 14%, transparent);
+  border: 1px solid var(--cat-culture);
+  color: var(--cat-culture);
+}
+.journey-node--issue {
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in oklab, var(--alert) 14%, transparent);
+  border: 1px solid var(--alert);
+  color: var(--alert);
+}
+.journey-row--future .journey-node--leg { opacity: .62; }
+
+.journey-content { flex: 1; min-width: 0; padding-bottom: 12px; }
+
+/* bookend — a bare node, no card */
+.journey-bookend-head { display: flex; align-items: center; gap: 8px; }
+.journey-bookend-flag { flex: none; font-size: 14px; line-height: 1; }
+.journey-bookend-city { font-size: 12px; color: var(--ink-70); }
+.journey-bookend-meta { font-size: 11.5px; color: var(--ink-45); }
+.journey-row--future .journey-bookend-city,
+.journey-row--future .journey-bookend-meta { color: var(--ink-45); }
+
+/* leg card */
+.journey-leg {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: var(--r-row);
+}
+.journey-leg--flight {
+  background: color-mix(in oklab, var(--cat-transport) 6%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cat-transport) 22%, transparent);
+}
+.journey-leg--train {
+  background: color-mix(in oklab, var(--cat-culture) 6%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cat-culture) 22%, transparent);
+}
+.journey-row--future .journey-leg { background: var(--bg-sunken); }
+.journey-leg-seq { flex: none; font-size: 10px; color: var(--ink-45); }
+.journey-leg-body { flex: 1; min-width: 0; }
+.journey-leg-route { font-size: 13px; font-weight: 600; color: var(--ink); }
+.journey-leg-detail { margin-top: 3px; font-size: 11px; color: var(--ink-45); }
+.journey-row--future .journey-leg-route { color: var(--ink-55); }
+
+/* stay card */
+.journey-stay {
+  border: 1px solid var(--hairline-card);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background: var(--bg-raised);
+}
+.journey-row--current .journey-stay { border-color: var(--accent); background: var(--accent-wash); }
+.journey-row--future .journey-stay { background: var(--bg-sunken); border-color: var(--hairline-soft); }
+.journey-stay-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border-bottom: 1px dashed var(--hairline-card);
+}
+.journey-row--current .journey-stay-head { border-bottom-color: rgba(212, 168, 124, .28); }
+.journey-stay-flag { flex: none; font-size: 14px; line-height: 1; }
+.journey-stay-city { font-size: 12px; color: var(--accent-ink); }
+.journey-row--future .journey-stay-city { color: var(--ink-70); }
+.journey-stay-dates { margin-left: auto; font-size: 11px; color: var(--ink-45); }
+.journey-row--current .journey-stay-dates { color: var(--ink-55); }
+.journey-stay-here {
+  flex: none;
+  font-size: 9.5px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--bg-app);
+}
+.journey-stay-body { display: flex; align-items: center; gap: 10px; padding: 11px 12px; }
+.journey-stay-main { flex: 1; min-width: 0; }
+.journey-stay-name { font-size: 13.5px; color: var(--ink); }
+.journey-stay-name--empty { color: var(--ink-55); font-style: italic; }
+.journey-row--future .journey-stay-name { color: var(--ink-55); }
+.journey-stay-sub { margin-top: 3px; font-size: 11px; color: var(--ink-45); }
+.journey-stay-chev { flex: none; color: rgba(212, 168, 124, .5); }
+.journey-row--current .journey-stay-chev { color: rgba(212, 168, 124, .7); }
+.journey-stay-add { flex: none; font-size: 10px; color: var(--accent-ink); background: none; border: 0; cursor: pointer; }
+
+/* inline gap / overlap marker */
+.journey-issue {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-radius: var(--r-row);
+  background: color-mix(in oklab, var(--alert) 6%, transparent);
+  border: 1px solid color-mix(in oklab, var(--alert) 24%, transparent);
+}
+.journey-issue-text { flex: 1; min-width: 0; font-size: 12px; color: var(--ink-70); }
+.journey-issue-action { flex: none; font-size: 10px; color: var(--accent-ink); background: none; border: 0; cursor: pointer; }
+
+/* per-theme colour deltas — the rails/bookend read off a dark-only tan
+   alpha; on cream they need the hairline token instead. */
+[data-theme="terracotta"] .journey-rail-stub,
+[data-theme="light"] .journey-rail-stub,
+[data-theme="terracotta"] .journey-rail-line,
+[data-theme="light"] .journey-rail-line { background: var(--hairline-card); }
+[data-theme="terracotta"] .journey-row--future .journey-rail-stub,
+[data-theme="light"] .journey-row--future .journey-rail-stub,
+[data-theme="terracotta"] .journey-row--future .journey-rail-line,
+[data-theme="light"] .journey-row--future .journey-rail-line {
+  background: repeating-linear-gradient(180deg, rgba(156, 81, 51, .3) 0 4px, transparent 4px 9px);
+}
+[data-theme="terracotta"] .journey-node--bookend,
+[data-theme="light"] .journey-node--bookend { background: var(--ink-45); }
+[data-theme="terracotta"] .journey-node--stay,
+[data-theme="light"] .journey-node--stay {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+[data-theme="terracotta"] .journey-stay-chev,
+[data-theme="light"] .journey-stay-chev { color: var(--accent-ink); }
 
 /* =============================================
    Itinerary Page — printable boarding passes
