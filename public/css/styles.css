@@ -988,7 +988,6 @@ body {
 
 .today-recs-toggle:focus-visible,
 .today-ai-toggle:focus-visible,
-.mtoday-ai-toggle:focus-visible,
 .rec-card-add:focus-visible,
 .ai-card-dismiss:focus-visible,
 .ai-refresh:focus-visible {
@@ -3636,7 +3635,10 @@ body {
   .daysheet-freeday-title { font-size: 17px; font-weight: 600; color: var(--ink); margin-top: 14px; }
   .daysheet-freeday-body { font-size: 13.5px; color: var(--ink-55); margin: 7px auto 0; max-width: 270px; text-wrap: pretty; }
 
-  .daysheet-ai .daysheet-ai-row {
+  /* ── AI "suggest things to do" trigger (5e) — shared by the Day sheet
+     and the Today tab. One markup (aiTriggerHtml), one styling. ── */
+  .ai-trigger-wrap { display: flex; flex-direction: column; }
+  .ai-trigger {
     all: unset; box-sizing: border-box; width: 100%; cursor: pointer;
     display: flex; align-items: center; gap: 11px;
     padding: 13px 14px;
@@ -3644,27 +3646,72 @@ body {
     border: 1px solid var(--hairline-card);
     border-radius: var(--r-card);
   }
-  .daysheet-ai .daysheet-ai-row--off {
+  .ai-trigger--off {
     cursor: default;
     background: var(--accent-wash);
     border: 1px dashed var(--hairline-card);
   }
-  .daysheet-ai-glyph {
+  .ai-trigger-glyph {
     flex: none; width: 28px; height: 28px; border-radius: var(--r-chip);
     background: var(--accent-tint); color: var(--accent);
     display: grid; place-items: center; font-size: 13px;
   }
-  .daysheet-ai-glyph--off { background: var(--bg-sunken); color: var(--ink-45); }
-  .daysheet-ai-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .daysheet-ai-title { font-size: 11.5px; color: var(--accent-ink); }
-  .daysheet-ai-title--off { color: var(--ink-45); }
-  .daysheet-ai-ctx { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-45); }
-  .daysheet-ai-ctx--off { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-55); text-wrap: pretty; }
-  .daysheet-ai-settings {
+  .ai-trigger-glyph--off { background: var(--bg-sunken); color: var(--ink-45); }
+  .ai-trigger-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .ai-trigger-title { font-size: 11.5px; color: var(--accent-ink); }
+  .ai-trigger-title--off { color: var(--ink-45); }
+  .ai-trigger-ctx { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-45); }
+  .ai-trigger-ctx--off { font-family: var(--font-body); font-size: 12.5px; color: var(--ink-55); text-wrap: pretty; }
+  .ai-trigger-chev { flex: none; color: var(--accent-ink); font-size: 15px; }
+  .ai-trigger-settings {
     all: unset; box-sizing: border-box; cursor: pointer;
     display: inline-block; margin-top: 11px; font-size: 10.5px; color: var(--accent-ink);
   }
-  .daysheet-ai-panel { margin-top: 8px; }
+
+  /* Redesigned (5e) results panel — mobile only. */
+  .ai-panel--m { margin-top: 8px; display: flex; flex-direction: column; gap: 12px; }
+  .ai-panel--m .ai-results-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 9px;
+  }
+  .ai-panel--m .ai-results-title { font-size: 11px; color: var(--accent-ink); }
+  .ai-panel--m .ai-again {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    flex: none; font-size: 10px; color: var(--ink-45);
+  }
+  .ai-panel--m .ai-basis {
+    font-size: 11px; color: var(--ink-45); margin-top: -5px; text-wrap: pretty;
+  }
+  .ai-panel--m .ai-card5e-list { display: flex; flex-direction: column; gap: 8px; }
+  .ai-panel--m .ai-card.ai-card--5e {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 13px 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--hairline-card);
+    border-radius: 11px;
+  }
+  .ai-panel--m .ai-card5e-main { flex: 1; min-width: 0; }
+  .ai-panel--m .ai-card5e-title { font-size: 15px; font-weight: 600; line-height: 1.25; color: var(--ink); }
+  .ai-panel--m .ai-card5e-meta {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 6px; font-size: 10.5px; color: var(--ink-55);
+  }
+  .ai-panel--m .ai-card5e-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; }
+  .ai-panel--m .ai-card5e-reason {
+    font-size: 12.5px; color: var(--ink-55); margin-top: 7px; text-wrap: pretty;
+  }
+  .ai-panel--m .ai-card5e-add {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    flex: none; font-size: 10px; padding: 7px 10px;
+    border: 1px solid var(--accent); border-radius: 7px; color: var(--accent-ink);
+  }
+  .ai-panel--m .ai-card5e-add:disabled { border-color: var(--hairline-card); color: var(--ink-45); cursor: default; }
+  .ai-panel--m .ai-card--added { opacity: .6; }
+  .ai-panel--m .ai-disclaimer {
+    padding: 11px; text-align: center;
+    border: 1px dashed var(--hairline-card); border-radius: var(--r-row);
+    font-size: 10.5px; color: var(--ink-45);
+  }
+  .ai-panel--m .ai-panel-msg { font-size: 13px; color: var(--ink-55); }
 
   .daysheet-actions { display: flex; gap: 8px; padding: 20px 0 0; }
   .daysheet-act {
@@ -3678,8 +3725,10 @@ body {
   }
   .daysheet-row--btn:focus-visible,
   .daysheet-doc:focus-visible,
-  .daysheet-ai-row:focus-visible,
-  .daysheet-ai-settings:focus-visible,
+  .ai-trigger:focus-visible,
+  .ai-trigger-settings:focus-visible,
+  .ai-again:focus-visible,
+  .ai-card5e-add:focus-visible,
   .daysheet-act:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
   }
@@ -3902,18 +3951,6 @@ body {
   .mtoday-link { all: unset; cursor: pointer; font-size: 11px; color: var(--accent); }
 
   .mtoday-ai-block { gap: 0; }
-  .mtoday-ai-toggle {
-    all: unset; box-sizing: border-box; cursor: pointer;
-    width: 100%; min-height: 44px; display: flex; align-items: center;
-    font-family: var(--font-display); font-size: 13px; font-weight: 600;
-    letter-spacing: .04em; color: var(--accent);
-  }
-  .mtoday-ai-panel { margin-top: 4px; }
-  .mtoday-ai-panel .ai-card-name { font-size: 14px; }
-  .mtoday-ai-panel .ai-card-reason { font-size: 12px; }
-  .mtoday-ai-panel .ai-cat-chip { font-size: 11px; padding: 5px 10px; }
-  .mtoday-ai-panel .ai-cat-row { gap: 5px; margin-bottom: 10px; }
-  .mtoday-ai-panel .ai-panel-msg { font-size: 13px; }
 
   .mtoday-doc-row {
     all: unset; box-sizing: border-box; cursor: pointer;

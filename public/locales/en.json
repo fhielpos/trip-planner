@@ -387,5 +387,8 @@
   "budget.calc.rateAgeToday": "saved rate · today",
   "budget.calc.rateAgeUnknown": "no saved rate",
   "budget.calc.confidence": "confidence {n}%",
-  "budget.calc.ocrRead": "Read {ccy} {amount}. If it's wrong, tap the number and fix it."
+  "budget.calc.ocrRead": "Read {ccy} {amount}. If it's wrong, tap the number and fix it.",
+  "aiSuggestions.triggerTitle": "Suggest things to do",
+  "aiSuggestions.again": "Again",
+  "aiSuggestions.disclaimer": "AI-generated · double-check times and prices."
 }

@@ -290,27 +290,9 @@ function _daySheetHtml(date, data) {
   const aiContext = w && typeof w.tempMax === 'number'
     ? t('daySheet.aiContext', { city: cityLabel, temp: w.tempMax, n: planCount })
     : t('daySheet.aiContextNoTemp', { city: cityLabel, n: planCount });
-  const aiBlock = aiEnabled ? `
+  const aiBlock = `
     <div class="daysheet-sec daysheet-ai">
-      <button type="button" class="daysheet-ai-row" id="daysheet-ai-toggle">
-        <span class="daysheet-ai-glyph">✦</span>
-        <span class="daysheet-ai-text">
-          <span class="label daysheet-ai-title">${t('aiSuggestions.seeLink')}</span>
-          <span class="mono daysheet-ai-ctx">${_escHtml(aiContext)}</span>
-        </span>
-        <span class="daysheet-chev daysheet-chev--accent">›</span>
-      </button>
-      <div class="daysheet-ai-panel" id="daysheet-ai-panel" hidden></div>
-    </div>` : `
-    <div class="daysheet-sec daysheet-ai">
-      <div class="daysheet-ai-row daysheet-ai-row--off">
-        <span class="daysheet-ai-glyph daysheet-ai-glyph--off">✦</span>
-        <span class="daysheet-ai-text">
-          <span class="label daysheet-ai-title daysheet-ai-title--off">${t('aiSuggestions.seeLink')}</span>
-          <span class="daysheet-ai-ctx daysheet-ai-ctx--off">${t('daySheet.aiUnkeyed')}</span>
-        </span>
-      </div>
-      <button type="button" class="label daysheet-ai-settings" data-daysheet-settings>${t('daySheet.goToSettings')} ›</button>
+      ${aiTriggerHtml({ idPrefix: 'daysheet', enabled: aiEnabled, context: aiContext })}
     </div>`;
 
   const freeDayBlock = hasAgenda ? '' : `
@@ -398,7 +380,7 @@ function openDaySheet(date, data) {
       if (typeof setType === 'function') setType('accommodation');
     }
   });
-  body.querySelector('[data-daysheet-settings]')?.addEventListener('click', () => {
+  body.querySelector('[data-ai-open-settings]')?.addEventListener('click', () => {
     closeSheet();
     if (typeof openSettingsSheet === 'function') openSettingsSheet();
   });
@@ -406,7 +388,8 @@ function openDaySheet(date, data) {
   const aiToggle = body.querySelector('#daysheet-ai-toggle');
   const aiPanel = body.querySelector('#daysheet-ai-panel');
   if (aiToggle && aiPanel && typeof _wireAiToggle === 'function') {
-    _wireAiToggle(aiToggle, aiPanel, date);
+    const aiCtx = body.querySelector('.ai-trigger-ctx')?.textContent || '';
+    _wireAiToggle(aiToggle, aiPanel, date, aiCtx);
   }
 
   backdrop.hidden = false;

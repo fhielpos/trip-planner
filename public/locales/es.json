@@ -387,5 +387,8 @@
   "budget.calc.rateAgeToday": "tasa guardada hoy",
   "budget.calc.rateAgeUnknown": "sin tasa guardada",
   "budget.calc.confidence": "confianza {n}%",
-  "budget.calc.ocrRead": "Leí {ccy} {amount}. Si está mal, tocá el número y corregilo."
+  "budget.calc.ocrRead": "Leí {ccy} {amount}. Si está mal, tocá el número y corregilo.",
+  "aiSuggestions.triggerTitle": "Sugerir cosas que hacer",
+  "aiSuggestions.again": "Otra vez",
+  "aiSuggestions.disclaimer": "Sugerencias generadas · revisá horarios y precios."
 }

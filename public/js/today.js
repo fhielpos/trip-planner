@@ -601,10 +601,16 @@ function renderTodayMobileInTrip(section, data, ctx) {
         </button>`).join('')}
     </div>` : '';
 
-  const aiBlock = (stay && data.config?.aiSuggestionsEnabled) ? `
+  // AI "suggest things to do" trigger — always shown on a stay day, keyed
+  // or (when there's no API key) the quiet unkeyed card. Shares markup +
+  // styling + panel renderer with the Day sheet (see aiTriggerHtml).
+  const aiEnabled = Boolean(data.config?.aiSuggestionsEnabled);
+  const aiCtx = (w && typeof w.tempMax === 'number')
+    ? t('daySheet.aiContext', { city: stay ? stay.city : '', temp: w.tempMax, n: acts.length })
+    : t('daySheet.aiContextNoTemp', { city: stay ? stay.city : '', n: acts.length });
+  const aiBlock = stay ? `
     <div class="mtoday-week-sec mtoday-ai-block">
-      <button type="button" class="mtoday-ai-toggle" id="mtoday-ai-toggle">${t('aiSuggestions.seeLink')}</button>
-      <div class="mtoday-ai-panel" id="mtoday-ai-panel" hidden></div>
+      ${aiTriggerHtml({ idPrefix: 'mtoday', enabled: aiEnabled, context: aiCtx })}
     </div>` : '';
 
   section.innerHTML = `
@@ -647,19 +653,22 @@ function renderTodayMobileInTrip(section, data, ctx) {
   section.querySelectorAll('[data-doc-id]').forEach(btn => btn.addEventListener('click', () => {
     window.open(`/api/documents/${btn.dataset.docId}/file`, '_blank', 'noopener');
   }));
-  _wireAiToggle(section.querySelector('#mtoday-ai-toggle'), section.querySelector('#mtoday-ai-panel'), today);
+  _wireAiToggle(section.querySelector('#mtoday-ai-toggle'), section.querySelector('#mtoday-ai-panel'), today, aiCtx);
+  section.querySelector('[data-ai-open-settings]')?.addEventListener('click', () => {
+    if (typeof openSettingsSheet === 'function') openSettingsSheet();
+  });
 }
 
 // Shared toggle wiring for the "Suggest things to do" panel — desktop
 // Today, mobile Today, both call this. Lazy: the API request only fires
 // the first time the panel is opened.
-function _wireAiToggle(toggle, panel, date) {
+function _wireAiToggle(toggle, panel, date, context) {
   toggle?.addEventListener('click', () => {
     const opening = panel.hidden;
     panel.hidden = !opening;
     if (opening && !panel.dataset.loaded) {
       panel.dataset.loaded = '1';
-      renderAiSuggestions(panel, date);
+      renderAiSuggestions(panel, date, context);
     }
   });
 }
