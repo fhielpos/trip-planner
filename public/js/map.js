@@ -37,7 +37,9 @@ function _applyFitView(coords) {
   }
 }
 
-const _ResetViewControl = L.Control.extend({
+// Guarded so map.js still evaluates (filter bar, stays timeline, inline
+// itinerary) when Leaflet failed to load — offline install or blocked CDN.
+const _ResetViewControl = typeof L !== 'undefined' && L.Control.extend({
   options: { position: 'topleft' },
   onAdd() {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
@@ -52,7 +54,7 @@ const _ResetViewControl = L.Control.extend({
   },
 });
 
-const _TodayControl = L.Control.extend({
+const _TodayControl = typeof L !== 'undefined' && L.Control.extend({
   options: { position: 'bottomleft' },
   initialize(target) {
     this._target = target;
@@ -94,8 +96,14 @@ function renderMap(flights, trains, accommodations, airports, calendarEntries) {
   _buildMap(flights, trains, accommodations, airports, calendarEntries);
 }
 
+// TODO(redesign): 4a calls for an offline base (self-hosted vector land/sea
+// for the trip bbox, or install-time-cached raster tiles) so the map works
+// in plane mode and never prints "API KEY REQUIRED". Out of scope for this
+// slice — CARTO dark_all/light_all is keyless and themes correctly, so it
+// stays until the offline-base infra lands.
 function _tileUrl() {
-  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const theme = document.documentElement.getAttribute('data-theme');
+  const isDark = theme !== 'light' && theme !== 'terracotta';
   return isDark
     ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
     : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
@@ -231,6 +239,121 @@ function _groupStaysByCoord(accommodations) {
   return [...exact, ...Object.values(groups)];
 }
 
+// ── Stay clustering + circle markers (4a) ──────
+// No marker-cluster library is vendored and adding one needs npm/CDN, so
+// nearby stays are grouped by a fixed lat/lon distance threshold instead —
+// enough to fold the Paris and Alpine repeat-visit piles into one circle
+// while keeping distinct cities apart.
+const _CLUSTER_THRESHOLD_DEG = 1.15;
+
+function _clusterStayGroups(groups) {
+  const clusters = [];
+  for (const g of groups) {
+    let host = clusters.find(c =>
+      Math.abs(c.lat - g.lat) < _CLUSTER_THRESHOLD_DEG &&
+      Math.abs(c.lon - g.lon) < _CLUSTER_THRESHOLD_DEG);
+    if (!host) { host = { members: [], _latSum: 0, _lonSum: 0, lat: g.lat, lon: g.lon }; clusters.push(host); }
+    host.members.push(g);
+    host._latSum += g.lat; host._lonSum += g.lon;
+    host.lat = host._latSum / host.members.length;
+    host.lon = host._lonSum / host.members.length;
+  }
+  return clusters;
+}
+
+function _stayNights(stays) {
+  return stays.reduce((sum, s) =>
+    sum + Math.round((parseLocal(s.check_out) - parseLocal(s.check_in)) / 86400000), 0);
+}
+
+// 20–32px, scaled by nights; current stay pinned at 32px + glow.
+function _stayCircleIcon(nights, isCurrent, isPast) {
+  const size = isCurrent ? 32 : Math.max(20, Math.min(32, Math.round(18 + nights * 1.7)));
+  const cls = 'map-stay-circle'
+    + (isCurrent ? ' map-stay-circle--current' : '')
+    + (isPast ? ' map-stay-circle--past' : '');
+  return L.divIcon({
+    className: '',
+    html: `<div class="${cls}" style="width:${size}px;height:${size}px"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Pick the most relevant visit from a coordinate group (repeat visits share
+// one marker): the one covering today, else the next upcoming, else the last.
+function _pickStay(group, today) {
+  const sorted = [...group.stays].sort((a, b) => a.check_in.localeCompare(b.check_in));
+  return sorted.find(s => s.check_in <= today && s.check_out > today)
+      || sorted.find(s => s.check_in >= today)
+      || sorted[sorted.length - 1];
+}
+
+function _openStayFromGroup(group, accommodations) {
+  if (typeof openStaySheet !== 'function') return;
+  openStaySheet(_pickStay(group, appToday()), accommodations);
+}
+
+// Bottom sheet shown on a stay pin (or stays-timeline segment) tap.
+function openStaySheet(stay, accommodations) {
+  const sheet = document.getElementById('day-sheet');
+  const backdrop = document.getElementById('day-sheet-backdrop');
+  const body = document.getElementById('day-sheet-body');
+  if (!sheet || !backdrop || !body || !stay) return;
+
+  const all = [...(accommodations || _lastAccommodations || [])]
+    .sort((a, b) => a.check_in.localeCompare(b.check_in));
+  const idx = all.findIndex(s => s.id === stay.id);
+  const total = all.length;
+  const today = appToday();
+  const nights = Math.round((parseLocal(stay.check_out) - parseLocal(stay.check_in)) / 86400000);
+  const isCurrent = stay.check_in <= today && stay.check_out > today;
+  const range = `${fmtDate(stay.check_in, { year: false })} – ${fmtDate(stay.check_out, { year: false })}`;
+  const places = (_lastCalendar || []).filter(e =>
+    e.type !== 'accommodation' && e.date >= stay.check_in && e.date < stay.check_out).length;
+  const flag = typeof countryFlag === 'function' ? countryFlag(stay.country) : '';
+
+  const metaLine = `${range} · ${t('map.nightsCount', { n: nights })}`
+    + (idx >= 0 ? ` · ${t('map.stayIndex', { i: idx + 1, total })}` : '');
+
+  sheet.classList.remove('sheet--day');
+  sheet.classList.add('sheet--stay');
+  const titleEl = document.getElementById('day-sheet-title');
+  if (titleEl) titleEl.textContent = stay.city;
+
+  body.innerHTML = `
+    <div class="mmap-staysheet">
+      <div class="mmap-staysheet-head">
+        <span class="mmap-staysheet-circle">${flag}</span>
+        <span class="mmap-staysheet-city">${_escHtml(stay.city)}</span>
+        ${isCurrent ? `<span class="mmap-staysheet-here label">${t('map.staySheetHere')}</span>` : ''}
+      </div>
+      <div class="mmap-staysheet-meta mono">${metaLine}</div>
+      <div class="mmap-staysheet-actions">
+        <button type="button" class="label mmap-staysheet-act" data-stay-day>${t('map.staySheetDay')} ›</button>
+        <button type="button" class="label mmap-staysheet-act" data-stay-places>${t('map.staySheetPlaces', { n: places })} ›</button>
+        <a class="label mmap-staysheet-act" href="/journey.html" data-stay-route>${t('map.staySheetRoute')} ›</a>
+      </div>
+    </div>`;
+
+  const close = () => {
+    sheet.hidden = true; backdrop.hidden = true;
+    sheet.classList.remove('sheet--stay');
+  };
+  body.querySelector('[data-stay-day]')?.addEventListener('click', () => {
+    close();
+    if (typeof openDaySheet === 'function' && typeof tripData !== 'undefined') openDaySheet(stay.check_in, tripData);
+    else if (typeof setMobileTab === 'function') setMobileTab('calendar');
+  });
+  body.querySelector('[data-stay-places]')?.addEventListener('click', () => {
+    close();
+    if (typeof setMobileTab === 'function') setMobileTab('calendar');
+  });
+
+  backdrop.hidden = false;
+  sheet.hidden = false;
+}
+
 // ── Filter bar ──────────────────────────────────
 
 function _chip(kind, value, activeMap, contentHtml) {
@@ -280,15 +403,23 @@ function _buildFilterBar() {
 
 function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   const container = document.getElementById('trip-map');
-  if (!container || typeof L === 'undefined') return;
+  if (!container) return;
 
   _buildFilterBar();
   if (isMobileViewport()) {
     _buildInlineItinerary(flights, trains);
+    if (typeof renderStaysTimeline === 'function' && typeof tripData !== 'undefined') {
+      renderStaysTimeline(tripData);
+    }
     registerMobileRerender(() => _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar));
   } else {
     document.getElementById('mmap-itinerary').innerHTML = '';
   }
+
+  // Leaflet is CDN-loaded; when it fails to load (offline install, blocked
+  // network) the chrome above still renders — only the interactive canvas
+  // below is skipped.
+  if (typeof L === 'undefined') return;
 
   // Filter toggles (and the theme-toggle repaint) rebuild the whole map —
   // preserve whatever the user was already looking at instead of re-fitting
@@ -323,13 +454,19 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
 
   const accentColor = _cssVar('--accent', '#d49258');
   const trainColor  = _cssVar('--c-train', '#5fa88e');
+  // Arc colours follow the legend swatches (tan flights / green trains),
+  // one scheme across the whole map.
+  const flightLineColor = _cssVar('--map-flight-line', '#d4a87c');
+  const trainLineColor  = _cssVar('--map-train-line', '#86c9a4');
   const windows = _legWindows(flights || []);
   const labels  = _airportLabels(flights || []);
 
   const allCoords = [];   // for fitBounds
 
-  // ── Stay markers ────────────────────────────────
-  if (_filters.types.stay) {
+  // ── Stay markers ───────────────────────────────
+  // Mobile Mapa tab (4a): clustered circles sized by nights, current stay
+  // glowing, tap opens the stay sheet. Desktop keeps its labelled pin+popup.
+  if (_filters.types.stay && !isMobileViewport()) {
     for (const group of _groupStaysByCoord(accommodations || [])) {
       const leg = _legFor(group.stays[0].check_in, windows);
       if (!_filters.legs[leg]) continue;
@@ -345,6 +482,48 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
           <div class="map-popup-sub">${group.stays.map(s => `${s.check_in} → ${s.check_out}`).join('<br>')}</div>
         `));
       allCoords.push([group.lat, group.lon]);
+    }
+  } else if (_filters.types.stay) {
+    const visibleGroups = _groupStaysByCoord(accommodations || [])
+      .filter(g => _filters.legs[_legFor(g.stays[0].check_in, windows)]);
+    const activeStay = getActiveStay(accommodations || [], today);
+    const isActiveGroup = g => activeStay && g.stays.some(s => s.id === activeStay.id);
+    const current = visibleGroups.filter(isActiveGroup);
+    const rest    = visibleGroups.filter(g => !isActiveGroup(g));
+
+    for (const cluster of _clusterStayGroups(rest)) {
+      const members = cluster.members;
+      const stays = members.flatMap(m => m.stays);
+      const isPast = stays.every(s => s.check_out <= today);
+      allCoords.push(...members.map(m => [m.lat, m.lon]));
+
+      if (members.length === 1) {
+        const g = members[0];
+        L.marker([g.lat, g.lon], { icon: _stayCircleIcon(_stayNights(g.stays), false, isPast) })
+          .addTo(_map)
+          .on('click', () => _openStayFromGroup(g, accommodations));
+        continue;
+      }
+
+      const label = `${_escHtml(stays[0].city)} · ${t('map.clusterStays', { n: stays.length })}`;
+      L.marker([cluster.lat, cluster.lon], {
+        icon: L.divIcon({
+          className: '',
+          html: `<div class="map-cluster${isPast ? ' map-cluster--past' : ''}">`
+              + `<span class="map-cluster-count mono">${stays.length}</span>`
+              + `<span class="map-cluster-label label mono">${label}</span></div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        }),
+      }).addTo(_map).on('click', () =>
+        _map.fitBounds(L.latLngBounds(members.map(m => [m.lat, m.lon])).pad(0.4)));
+    }
+
+    for (const g of current) {
+      L.marker([g.lat, g.lon], { icon: _stayCircleIcon(_stayNights(g.stays), true, false) })
+        .addTo(_map)
+        .on('click', () => _openStayFromGroup(g, accommodations));
+      allCoords.push([g.lat, g.lon]);
     }
   }
 
@@ -362,14 +541,14 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       const restOpacity = isPastFlight ? 0.3 : 0.5;
       const hoverOpacity = isPastFlight ? 0.6 : 0.85;
       const flightLine = L.polyline(_curvedPoints(dep.lat, dep.lon, arr.lat, arr.lon, 60, curveDown), {
-        color: accentColor,
-        weight: 2,
+        color: flightLineColor,
+        weight: 1.5,
         opacity: restOpacity,
-        dashArray: '8, 6',
+        dashArray: '6 5',
         className: isPastFlight ? 'route-line--past' : '',
       }).addTo(_map);
-      flightLine.on('mouseover', () => flightLine.setStyle({ opacity: hoverOpacity, weight: 3 }));
-      flightLine.on('mouseout',  () => flightLine.setStyle({ opacity: restOpacity,  weight: 2 }));
+      flightLine.on('mouseover', () => flightLine.setStyle({ opacity: hoverOpacity, weight: 2.5 }));
+      flightLine.on('mouseout',  () => flightLine.setStyle({ opacity: restOpacity,  weight: 1.5 }));
 
       allCoords.push([dep.lat, dep.lon], [arr.lat, arr.lon]);
       for (const code of [f.from, f.to]) {
@@ -405,14 +584,14 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
       const trainRestOpacity = isPastTrain ? 0.3 : 0.5;
       const trainHoverOpacity = isPastTrain ? 0.6 : 0.85;
       const trainLine = L.polyline(_trainPoints(tr.fromLat, tr.fromLon, tr.toLat, tr.toLon, 30), {
-        color: trainColor,
-        weight: 2,
+        color: trainLineColor,
+        weight: 1.5,
         opacity: trainRestOpacity,
-        dashArray: '3, 6',
+        dashArray: '6 5',
         className: isPastTrain ? 'route-line--past' : '',
       }).addTo(_map);
-      trainLine.on('mouseover', () => trainLine.setStyle({ opacity: trainHoverOpacity, weight: 3 }));
-      trainLine.on('mouseout',  () => trainLine.setStyle({ opacity: trainRestOpacity,  weight: 2 }));
+      trainLine.on('mouseover', () => trainLine.setStyle({ opacity: trainHoverOpacity, weight: 2.5 }));
+      trainLine.on('mouseout',  () => trainLine.setStyle({ opacity: trainRestOpacity,  weight: 1.5 }));
 
       allCoords.push([tr.fromLat, tr.fromLon], [tr.toLat, tr.toLon]);
       for (const [city, lat, lon] of [
@@ -532,21 +711,32 @@ document.addEventListener('DOMContentLoaded', () => {
 function _buildInlineItinerary(flights, trains) {
   const el = document.getElementById('mmap-itinerary');
   if (!el) return;
+  const fmtT = v => (typeof formatTime24 === 'function' ? formatTime24(v) : formatTime(v));
   const legs = [
-    ...(flights || []).map(f => ({ date: f.departureDate, from: f.fromCity, to: f.toCity, detail: `${f.flightNumber} · ${formatTime(f.departureTime)}`, icon: '✈', kind: 'flight' })),
-    ...(trains || []).map(tr => ({ date: tr.departureDate, from: tr.fromCity, to: tr.toCity, detail: tr.departureTime ? formatTime(tr.departureTime) : '', icon: '🚆', kind: 'train' })),
+    ...(flights || []).map(f => ({
+      date: f.departureDate, from: f.fromCity, to: f.toCity, kind: 'flight', icon: '✈',
+      detail: f.departureTime ? `${f.flightNumber} · ${fmtT(f.departureTime)}` : `${f.flightNumber} · ${t('map.noSchedule')}`,
+    })),
+    ...(trains || []).map(tr => ({
+      date: tr.departureDate, from: tr.fromCity, to: tr.toCity, kind: 'train', icon: '⇢',
+      detail: `${t('map.trainLower')} · ${tr.departureTime ? fmtT(tr.departureTime) : t('map.noSchedule')}`,
+    })),
   ].sort((a, b) => a.date.localeCompare(b.date));
+
+  const today = appToday();
+  let upcoming = legs.map((l, i) => ({ ...l, n: i + 1 })).filter(l => l.date >= today).slice(0, 2);
+  if (!upcoming.length) upcoming = legs.map((l, i) => ({ ...l, n: i + 1 })).slice(-2);
 
   el.innerHTML = `
     <div class="mtoday-block-header" style="padding:6px 0 8px">
-      <h3 class="mtoday-block-title">${t('itinerary.title')}</h3>
-      <a class="mtoday-link" href="/itinerary.html">${t('map.viewAll')} ›</a>
+      <h3 class="mtoday-block-title">${t('map.upcomingLegs')}</h3>
+      <a class="mtoday-link" href="/journey.html">${t('map.seeCount', { n: legs.length })} ›</a>
     </div>
-    ${legs.map((l, i) => `
+    ${upcoming.map(l => `
       <div class="mmap-leg-card mmap-leg-card--${l.kind}">
-        <div class="mmap-leg-top"><span>${i + 1}/${legs.length}</span><span>${fmtDate(l.date, { year: false })}</span></div>
+        <div class="mmap-leg-top"><span class="mono">${l.n}/${legs.length}</span><span class="mono">${fmtDate(l.date, { year: false })}</span></div>
         <div class="mmap-leg-route"><span>${l.icon}</span><span class="mmap-leg-route-text">${_escHtml(l.from)} → ${_escHtml(l.to)}</span></div>
-        <div class="mmap-leg-detail">${l.detail}</div>
+        <div class="mmap-leg-detail mono">${_escHtml(l.detail)}</div>
       </div>
     `).join('')}
   `;

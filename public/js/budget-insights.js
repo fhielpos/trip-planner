@@ -1,22 +1,25 @@
 /* =============================================
    Budget Insights Page
-   Read-only deeper-dive on top of the main page's Budget section: overall
-   budget/spent/remaining context, a "right now" per-stay spending
-   allowance, spend by city (with a per-category breakdown per city), and
-   a cumulative-spend-vs-pace chart with an explicit budget cap and a
-   projected-finish line.
+   Read-only deeper-dive on top of the main page's Budget section: a
+   pace card (spend-per-day vs. the budget's daily plan, projected
+   total, and the date the budget runs out), a category breakdown, a
+   by-country breakdown, and a caveated callout for the standout finding.
    ============================================= */
 
 // ── Theme (duplicated from app.js:5-16 — this page doesn't load app.js) ──
 (function () {
-  const saved = localStorage.getItem('theme') ||
-    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  let raw = localStorage.getItem('theme');
+  if (raw === 'light') raw = 'terracotta';
+  if (!['carbon', 'terracotta', 'system'].includes(raw)) raw = 'carbon';
+  const resolved = raw === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'terracotta' : 'carbon')
+    : raw;
+  document.documentElement.setAttribute('data-theme', resolved);
 })();
-document.getElementById('theme-toggle').addEventListener('click', () => {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
-  localStorage.setItem('theme', isLight ? 'dark' : 'light');
+document.getElementById('theme-toggle')?.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'terracotta' ? 'carbon' : 'terracotta';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
 });
 
 let _biBudget = null;
@@ -34,8 +37,8 @@ function _parseLocal(str) {
   return new Date(y, m - 1, d);
 }
 
-function _nightsFor(stay) {
-  return Math.round((_parseLocal(stay.check_out) - _parseLocal(stay.check_in)) / 86400000);
+function _isoLocal(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 // Duplicated from app.js's getActiveStay — this page doesn't load app.js.
@@ -64,104 +67,17 @@ function _biToday() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// ── Overall budget context ─────────────────────
-// One hero card instead of two stacked boxes: leads with the "Remaining"
-// figure (the actionable number) plus the same progress bar the main
-// page's stats grid uses, Budget/Spent as smaller supporting figures, and
-// the "right now" city allowance folded in as a small inline line (a
-// stay-color dot, not a competing full-width border) rather than its own
-// card fighting for attention.
-function _renderHero() {
-  const el = document.getElementById('bi-hero');
-  const initialBudget = toUSD(_biBudget.initialBudget, _biBudget.initialBudgetCurrency);
-  if (!initialBudget) {
-    el.innerHTML = `<p class="budget-empty">${t('budgetInsights.noBudget')}</p>`;
-    return;
-  }
-
-  const totalSpent = _biTotalSpent();
-  const remaining = initialBudget - totalSpent;
-  const pctSpent = Math.min(110, (totalSpent / initialBudget) * 100);
-  const barColor = pctSpent < 75 ? 'var(--c-stay)' : pctSpent < 100 ? 'var(--accent)' : 'var(--c-danger)';
-
-  // "Right now": how much of the remaining budget's daily share is left
-  // for the stay you're currently in — same dailyBudgetLeft formula
-  // budget.js's _computeStats uses, applied to just the current stay's
-  // remaining nights instead of the whole trip's remaining days.
-  let allowanceHtml = '';
-  const today = _biToday();
-  const stay = _getActiveStay(today);
-  if (stay) {
-    const tripStart = _parseLocal(_biTrip.trip.startDate);
-    const tripEnd = _parseLocal(_biTrip.trip.endDate);
-    const todayDate = _parseLocal(today);
-    const daysRemaining = todayDate < tripStart
-      ? _tripTotalDays()
-      : Math.max(0, Math.round((tripEnd - todayDate) / 86400000));
-    if (daysRemaining > 0) {
-      const dailyBudgetLeft = remaining / daysRemaining;
-      const nightsLeftInStay = Math.max(1, Math.round((_parseLocal(stay.check_out) - todayDate) / 86400000));
-      const allowance = dailyBudgetLeft * nightsLeftInStay;
-      allowanceHtml = `
-        <div class="bi-hero-allowance">
-          <span class="bi-hero-city-dot" style="background:${_escHtml(stay.color || 'var(--accent)')}"></span>
-          <span class="bi-hero-allowance-text${allowance < 0 ? ' budget-val--negative' : ''}">${t('budgetInsights.cityAllowance', {
-            amount: `<span class="accom-mono bi-hero-allowance-amt">${formatCurrency(allowance)}</span>`,
-            city: _escHtml(stay.city),
-          })}</span>
-        </div>`;
-    }
-  }
-
-  el.innerHTML = `
-    <div class="bi-hero-card">
-      <span class="bi-hero-label">${t('budget.stats.remaining')}</span>
-      <span class="bi-hero-remaining accom-mono${remaining < 0 ? ' budget-val--negative' : ''}">${formatCurrency(remaining)}</span>
-      <div class="budget-progress-track bi-hero-progress">
-        <div class="budget-progress-fill" style="width:${pctSpent.toFixed(1)}%; background:${barColor}"></div>
-      </div>
-      <div class="bi-hero-sub">
-        <div class="bi-hero-sub-item">
-          <span class="bi-hero-sub-label">${t('budget.stats.budget')}</span>
-          <span class="bi-hero-sub-val accom-mono">${formatCurrency(initialBudget)}</span>
-        </div>
-        <div class="bi-hero-sub-item">
-          <span class="bi-hero-sub-label">${t('budget.stats.spent')}</span>
-          <span class="bi-hero-sub-val accom-mono">${formatCurrency(totalSpent)}</span>
-        </div>
-      </div>
-      ${allowanceHtml}
-    </div>`;
+function _tripTotalDays() {
+  const { startDate, endDate } = _biTrip.trip;
+  return Math.round((_parseLocal(endDate) - _parseLocal(startDate)) / 86400000) + 1;
 }
 
-// ── Section 1: spend by city ───────────────────
-
-function _cityTotals(entries) {
-  const totals = {};
-  for (const e of entries) {
-    const usd = toUSD(e.amount, e.currency, e.rate);
-    const city = (e.city || '').trim();
-    const key = city || '\0unassigned';
-    if (!totals[key]) totals[key] = { city, amount: 0, count: 0, catTotals: {} };
-    totals[key].amount += usd;
-    totals[key].count += 1;
-    totals[key].catTotals[e.category] = (totals[key].catTotals[e.category] || 0) + usd;
-  }
-  return Object.values(totals);
+function _dayIndexForDate(dateStr) {
+  const start = _parseLocal(_biTrip.trip.startDate);
+  return Math.round((_parseLocal(dateStr) - start) / 86400000) + 1;
 }
 
-function _nightsByCity() {
-  const nights = {};
-  for (const a of _biAccommodations) {
-    nights[a.city] = (nights[a.city] || 0) + _nightsFor(a);
-  }
-  return nights;
-}
-
-function _colorForCity(city) {
-  return _biAccommodations.find(a => a.city === city)?.color || '';
-}
-
+// ── Category names / colours ───────────────────
 // Duplicated from budget.js's BUDGET_CATEGORIES/BUDGET_CAT_COLORS/_catName/_catColor
 // — this page doesn't load budget.js (see the file header comment).
 const BI_BUDGET_CATEGORIES = ['food', 'transport', 'accommodation', 'activities', 'shopping', 'other'];
@@ -172,6 +88,15 @@ const BI_BUDGET_CAT_COLORS = {
   activities:    '#bea8d8',
   shopping:      '#e8a0a0',
   other:         '#b0a898',
+};
+
+// Built-in categories map onto the redesign's category tokens; custom
+// categories keep their own stored colour.
+const BI_CAT_TOKEN = {
+  food:      '--cat-food',
+  shopping:  '--cat-shopping',
+  transport: '--cat-transport',
+  activities: '--cat-culture',
 };
 
 function _biCatName(id) {
@@ -186,198 +111,301 @@ function _biCatColor(id) {
   return BI_BUDGET_CAT_COLORS[id] || '#9a9080';
 }
 
-const _biExpandedCities = new Set();
+function _biCatSwatch(id) {
+  return BI_CAT_TOKEN[id] ? `var(${BI_CAT_TOKEN[id]})` : _biCatColor(id);
+}
 
-function _renderCityList() {
-  const el = document.getElementById('bi-city-list');
+// ── Country names / flags ──────────────────────
+// Place names, not translatable UI strings: a small map gives the Spanish
+// exonym + flag; anything unlisted falls back to the raw (English) name.
+const BI_COUNTRY = {
+  Argentina:        { es: 'Argentina',      flag: '🇦🇷' },
+  France:           { es: 'Francia',        flag: '🇫🇷' },
+  Greece:           { es: 'Grecia',         flag: '🇬🇷' },
+  Austria:          { es: 'Austria',        flag: '🇦🇹' },
+  Germany:          { es: 'Alemania',       flag: '🇩🇪' },
+  Switzerland:      { es: 'Suiza',          flag: '🇨🇭' },
+  Netherlands:      { es: 'Países Bajos',   flag: '🇳🇱' },
+  Belgium:          { es: 'Bélgica',        flag: '🇧🇪' },
+  Italy:            { es: 'Italia',         flag: '🇮🇹' },
+  Spain:            { es: 'España',         flag: '🇪🇸' },
+  Portugal:         { es: 'Portugal',       flag: '🇵🇹' },
+  'United Kingdom': { es: 'Reino Unido',    flag: '🇬🇧' },
+  'Czech Republic': { es: 'República Checa', flag: '🇨🇿' },
+};
+
+function _biCountryName(c) {
+  const e = BI_COUNTRY[c];
+  return e && getDateLocale() === 'es-ES' ? e.es : c;
+}
+
+function _biCountryFlag(c) {
+  return (BI_COUNTRY[c] && BI_COUNTRY[c].flag) || '🏳️';
+}
+
+function _cityCountryMap() {
+  const m = {};
+  for (const a of _biAccommodations) {
+    if (a.city && a.country) m[a.city.trim().toLowerCase()] = a.country;
+  }
+  return m;
+}
+
+// Distinct nights per country (a night is keyed by the date you sleep it),
+// plus the trip's distinct-night total — dedupes any overlapping bookings.
+function _nightSetByCountry() {
+  const map = {};
+  const all = new Set();
+  for (const a of _biAccommodations) {
+    if (!a.country) continue;
+    let d = _parseLocal(a.check_in);
+    const end = _parseLocal(a.check_out);
+    while (d < end) {
+      const k = _isoLocal(d);
+      (map[a.country] = map[a.country] || new Set()).add(k);
+      all.add(k);
+      d = new Date(d.getTime() + 86400000);
+    }
+  }
+  return { map, total: all.size };
+}
+
+// ── Context line ───────────────────────────────
+
+function _renderContext() {
+  const el = document.getElementById('bi-context');
+  if (!el) return;
+  const total = _tripTotalDays();
+  const day = Math.min(total, Math.max(1, _dayIndexForDate(_biToday())));
+  el.textContent = `${t('budget.stats.dayOf', { day, total })} · ${t('budgetInsights.meta.loaded', { amount: formatCurrency(_biTotalSpent()) })}`;
+}
+
+// ── Pace card ──────────────────────────────────
+// Every figure derives from one basis: the plan is budget ÷ trip days
+// (NOT the go-forward daily allowance on Today/Budget), pace is spend ÷
+// days elapsed, projection is pace × trip days, and the crossover date
+// is remaining ÷ pace days from today.
+function _paceStats() {
+  const budget = toUSD(_biBudget.initialBudget, _biBudget.initialBudgetCurrency);
+  const totalDays = _tripTotalDays();
+  const totalSpent = _biTotalSpent();
+  const tripStart = _parseLocal(_biTrip.trip.startDate);
+  const tripEnd = _parseLocal(_biTrip.trip.endDate);
+  const todayDate = _parseLocal(_biToday());
+  const cappedToday = todayDate < tripStart ? tripStart : todayDate > tripEnd ? tripEnd : todayDate;
+  const daysElapsed = Math.max(1, Math.round((cappedToday - tripStart) / 86400000) + 1);
+
+  const plan = totalDays > 0 ? budget / totalDays : 0;
+  const pace = totalSpent / daysElapsed;
+  const pacePct = plan > 0 ? (pace / plan) * 100 : 0;
+  const projection = pace * totalDays;
+  const remaining = budget - totalSpent;
+
+  let crossoverIso = null;
+  let crossoverCity = null;
+  let crossoverBeyondTrip = false;
+  if (pace > 0 && remaining > 0) {
+    const days = remaining / pace;
+    const cross = new Date(todayDate.getTime() + Math.round(days) * 86400000);
+    crossoverIso = _isoLocal(cross);
+    crossoverBeyondTrip = cross > tripEnd;
+    const stay = _getActiveStay(crossoverIso);
+    crossoverCity = stay ? stay.city : null;
+  }
+
+  return {
+    budget, totalDays, totalSpent, daysElapsed,
+    plan, pace, pacePct, projection, remaining,
+    crossoverIso, crossoverCity, crossoverBeyondTrip,
+  };
+}
+
+function _renderPace() {
+  const el = document.getElementById('bi-pace');
+  const s = _paceStats();
+  if (!s.budget) {
+    el.innerHTML = `<p class="budget-empty">${t('budgetInsights.noBudget')}</p>`;
+    return;
+  }
+
+  const over = s.pacePct > 100;
+  const figColor = over ? 'var(--warning)' : 'var(--positive)';
+  const fillPct = Math.max(0, Math.min(100, s.pacePct / 2)); // 0–200% scale, plan tick at 50%
+  const pctLabel = Math.round(s.pacePct);
+
+  const dateSpan = s.crossoverIso
+    ? `<span class="mono bi-pace-date">${fmtDate(s.crossoverIso, { year: false })}</span>`
+    : '';
+  let consequence;
+  if (s.remaining <= 0) {
+    consequence = t('budgetInsights.pace.exhausted');
+  } else if (!s.crossoverIso || s.crossoverBeyondTrip) {
+    consequence = t('budgetInsights.pace.crossoverSafe');
+  } else if (s.crossoverCity) {
+    consequence = t('budgetInsights.pace.crossover', { date: dateSpan, city: _escHtml(s.crossoverCity) });
+  } else {
+    consequence = t('budgetInsights.pace.crossoverNoCity', { date: dateSpan });
+  }
+
+  el.innerHTML = `
+    <div class="bi-pace-card">
+      <span class="label bi-pace-label">${t('budgetInsights.pace.label')}</span>
+      <div class="bi-pace-headline">
+        <span class="mono bi-pace-figure" style="color:${figColor}">${formatCurrency(s.pace)}</span>
+        <span class="bi-pace-sub">${t('budgetInsights.pace.perDayPlan', { pct: pctLabel })}</span>
+      </div>
+      <div class="bi-pace-bar">
+        <div class="bi-pace-bar-fill" style="width:${fillPct.toFixed(1)}%; background:${figColor}"></div>
+        <div class="bi-pace-bar-tick"></div>
+      </div>
+      <div class="mono bi-pace-row">
+        <span>${t('budgetInsights.pace.planPerDay', { amount: formatCurrency(s.plan) })}</span>
+        <span>${t('budgetInsights.pace.projection', { amount: formatCurrency(s.projection) })}</span>
+      </div>
+      <p class="bi-pace-consequence">${consequence}</p>
+      <p class="mono bi-pace-deriv">${t('budgetInsights.pace.derivation', {
+        spent: formatCurrency(s.totalSpent),
+        days: s.daysElapsed,
+        plan: formatCurrency(s.budget),
+        total: s.totalDays,
+      })}</p>
+    </div>`;
+}
+
+// ── By category ────────────────────────────────
+
+function _renderCategories() {
+  const el = document.getElementById('bi-categories');
   const entries = _biBudget.entries || [];
   if (!entries.length) {
     el.innerHTML = `<p class="budget-empty">${t('budget.entries.empty')}</p>`;
     return;
   }
 
-  const nightsByCity = _nightsByCity();
-  const grandTotal = entries.reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
-  const rows = _cityTotals(entries).sort((a, b) => b.amount - a.amount);
+  const totals = {};
+  for (const e of entries) {
+    totals[e.category] = (totals[e.category] || 0) + toUSD(e.amount, e.currency, e.rate);
+  }
+  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  const grand = rows.reduce((sum, [, v]) => sum + v, 0);
 
-  el.innerHTML = rows.map(row => {
-    const isUnassigned = !row.city;
-    const key = isUnassigned ? '\0unassigned' : row.city;
-    const name = isUnassigned ? t('budgetInsights.unassigned') : row.city;
-    const color = isUnassigned ? '' : _colorForCity(row.city);
-    const nights = isUnassigned ? 0 : (nightsByCity[row.city] || 0);
-    const perDay = nights > 0 ? row.amount / nights : null;
-    const pct = grandTotal > 0 ? (row.amount / grandTotal) * 100 : 0;
-    const entryLabel = t(row.count === 1 ? 'budgetInsights.entry' : 'budgetInsights.entries');
-    const expanded = _biExpandedCities.has(key);
+  const bar = rows.map(([cat, amt]) =>
+    `<div class="bi-stack-seg" style="flex:${Math.max(1, Math.round(amt))}; background:${_biCatSwatch(cat)}"></div>`
+  ).join('');
 
-    const catRows = Object.entries(row.catTotals)
-      .sort((a, b) => b[1] - a[1])
-      .map(([cat, amt]) => `
-        <div class="bi-cat-row">
-          <span class="bi-cat-dot" style="background:${_biCatColor(cat)}"></span>
-          <span class="bi-cat-name">${_escHtml(_biCatName(cat))}</span>
-          <span class="bi-cat-amt accom-mono">${formatCurrency(amt)}</span>
-        </div>`).join('');
+  const list = rows.map(([cat, amt]) => `
+    <div class="bi-brk-row">
+      <span class="bi-brk-dot" style="background:${_biCatSwatch(cat)}"></span>
+      <span class="bi-brk-name">${_escHtml(_biCatName(cat))}</span>
+      <span class="mono bi-brk-pct">${grand > 0 ? Math.round((amt / grand) * 100) : 0}%</span>
+      <span class="mono bi-brk-amt">${formatCurrency(amt)}</span>
+    </div>`).join('');
 
-    return `
-      <div class="bi-city-item">
-        <div class="bi-city-row" style="--stay-color:${_escHtml(color)}">
-          <button type="button" class="bi-city-toggle${expanded ? ' is-expanded' : ''}" data-key="${_escHtml(key)}" aria-label="${t('budgetInsights.categoryBreakdown')}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 6 15 12 9 18"/></svg>
-          </button>
-          <div class="bi-city-main">
-            <span class="bi-city-name">${_escHtml(name)}</span>
-            <span class="bi-city-count">${row.count} ${entryLabel}</span>
-          </div>
-          <div class="budget-cat-track bi-city-track">
-            <div class="budget-cat-fill" style="width:${pct.toFixed(1)}%; background:${color || 'var(--accent)'}"></div>
-          </div>
-          <div class="bi-city-figure">
-            <span class="accom-row-figure-label">${t('budgetInsights.total')}</span>
-            <span class="accom-row-figure-val accom-mono">${formatCurrency(row.amount)}</span>
-          </div>
-          <div class="bi-city-figure">
-            <span class="accom-row-figure-label">${t('budgetInsights.perDay')}</span>
-            ${perDay !== null
-              ? `<span class="accom-row-figure-val accom-row-figure-val--accent accom-mono">${formatCurrency(perDay)}</span>`
-              : `<span class="accom-row-figure-val accom-no-price">—</span>`}
-          </div>
-        </div>
-        <div class="bi-city-breakdown"${expanded ? '' : ' hidden'} data-key="${_escHtml(key)}">${catRows}</div>
-      </div>`;
-  }).join('');
-
-  el.querySelectorAll('.bi-city-toggle').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.key;
-      const panel = el.querySelector(`.bi-city-breakdown[data-key="${CSS.escape(key)}"]`);
-      const nowExpanded = panel.hidden;
-      panel.hidden = !nowExpanded;
-      btn.classList.toggle('is-expanded', nowExpanded);
-      if (nowExpanded) _biExpandedCities.add(key); else _biExpandedCities.delete(key);
-    });
-  });
+  el.innerHTML = `<div class="bi-stack">${bar}</div><div class="bi-brk-list">${list}</div>`;
 }
 
-// ── Section 2: spend trend (cumulative vs. even pace) ─────────────────
+// ── By country ─────────────────────────────────
 
-function _tripTotalDays() {
-  const { startDate, endDate } = _biTrip.trip;
-  return Math.round((_parseLocal(endDate) - _parseLocal(startDate)) / 86400000) + 1;
-}
+function _renderCountries() {
+  const el = document.getElementById('bi-countries');
+  const caveatEl = document.getElementById('bi-country-caveat');
+  const entries = _biBudget.entries || [];
+  const cc = _cityCountryMap();
+  const today = _biToday();
 
-function _dayIndexForDate(dateStr) {
-  const start = _parseLocal(_biTrip.trip.startDate);
-  return Math.round((_parseLocal(dateStr) - start) / 86400000) + 1;
-}
+  const totals = {};
+  let anyFuture = false;
+  for (const e of entries) {
+    const usd = toUSD(e.amount, e.currency, e.rate);
+    const key = cc[(e.city || '').trim().toLowerCase()] || '\0unknown';
+    if (!totals[key]) totals[key] = { amount: 0 };
+    totals[key].amount += usd;
+    if (e.date > today) anyFuture = true;
+  }
+  if (caveatEl) caveatEl.hidden = !anyFuture;
 
-function _renderTrend() {
-  const el = document.getElementById('bi-trend');
-  const initialBudget = toUSD(_biBudget.initialBudget, _biBudget.initialBudgetCurrency);
-  if (!initialBudget) {
-    el.innerHTML = `<p class="budget-empty">${t('budgetInsights.noBudget')}</p>`;
+  const rows = Object.entries(totals).sort((a, b) => b[1].amount - a[1].amount);
+  if (!rows.length) {
+    el.innerHTML = `<p class="budget-empty">${t('budget.entries.empty')}</p>`;
     return;
   }
+  const max = rows[0][1].amount || 1;
 
-  const totalDays = _tripTotalDays();
+  el.innerHTML = rows.map(([key, v]) => {
+    const known = key !== '\0unknown';
+    const name = known ? _biCountryName(key) : t('budgetInsights.unassigned');
+    const flag = known ? _biCountryFlag(key) : '🏳️';
+    return `
+      <div class="bi-country-row">
+        <span class="bi-country-flag" role="img" aria-label="${_escHtml(name)}">${flag}</span>
+        <span class="bi-country-bar"><span class="bi-country-bar-fill" style="width:${((v.amount / max) * 100).toFixed(1)}%"></span></span>
+        <span class="mono bi-country-amt">${formatCurrency(v.amount)}</span>
+      </div>`;
+  }).join('');
+}
+
+// ── Callout — the standout finding, stated with its caveat ──────────────
+
+function _renderCallout() {
+  const el = document.getElementById('bi-callout');
+  const entries = _biBudget.entries || [];
+  const cc = _cityCountryMap();
   const today = _biToday();
-  const todayIdx = Math.min(totalDays, Math.max(1, _dayIndexForDate(today)));
+  if (!entries.length) { el.innerHTML = ''; return; }
 
-  const sorted = [...(_biBudget.entries || [])].sort((a, b) => a.date.localeCompare(b.date));
-  const actualPoints = [{ day: 1, amt: 0 }];
-  let running = 0;
-  for (const e of sorted) {
-    const day = Math.min(totalDays, Math.max(1, _dayIndexForDate(e.date)));
-    running += toUSD(e.amount, e.currency, e.rate);
-    actualPoints.push({ day, amt: running });
+  const byCountry = {};
+  let grand = 0;
+  for (const e of entries) {
+    const usd = toUSD(e.amount, e.currency, e.rate);
+    grand += usd;
+    const country = cc[(e.city || '').trim().toLowerCase()];
+    if (!country) continue;
+    if (!byCountry[country]) byCountry[country] = { amount: 0, future: 0, futureDates: [] };
+    byCountry[country].amount += usd;
+    if (e.date > today) {
+      byCountry[country].future += usd;
+      byCountry[country].futureDates.push(e.date);
+    }
   }
-  if (actualPoints[actualPoints.length - 1].day < todayIdx) {
-    actualPoints.push({ day: todayIdx, amt: running });
+
+  const top = Object.entries(byCountry).sort((a, b) => b[1].amount - a[1].amount)[0];
+  if (!top || grand <= 0) { el.innerHTML = ''; return; }
+
+  const [country, v] = top;
+  const pct = Math.round((v.amount / grand) * 100);
+  const { map: nightMap, total: totalNights } = _nightSetByCountry();
+  const nights = (nightMap[country] && nightMap[country].size) || 0;
+
+  let future = '';
+  if (v.future > 0 && v.futureDates.length) {
+    const sorted = [...v.futureDates].sort();
+    const range = sorted[0] === sorted[sorted.length - 1]
+      ? fmtDate(sorted[0], { year: false })
+      : `${fmtDate(sorted[0], { year: false })}–${fmtDate(sorted[sorted.length - 1], { year: false })}`;
+    const frac = v.future / v.amount >= 0.5
+      ? t('budgetInsights.callout.fracMost')
+      : t('budgetInsights.callout.fracSome');
+    future = t('budgetInsights.callout.future', { frac, range });
   }
-
-  // Same daysElapsed/projectedTotal formula as budget.js's _computeStats,
-  // duplicated here — this page doesn't load budget.js.
-  const tripStart = _parseLocal(_biTrip.trip.startDate);
-  const tripEnd = _parseLocal(_biTrip.trip.endDate);
-  const todayDate = _parseLocal(today);
-  const cappedToday = todayDate < tripStart ? tripStart : todayDate > tripEnd ? tripEnd : todayDate;
-  const daysElapsed = Math.max(1, Math.round((cappedToday - tripStart) / 86400000) + 1);
-  const dailyAvg = running > 0 ? running / daysElapsed : 0;
-  const projectedTotal = dailyAvg > 0 ? dailyAvg * totalDays : 0;
-  const showProjection = projectedTotal > 0 && todayIdx < totalDays;
-
-  // Cap how far a runaway projection can stretch the chart's scale — past
-  // 2x budget it stops adding useful detail and just crushes the actual/
-  // pace lines into a sliver at the bottom. The projection line itself is
-  // clamped to the same ceiling, with a marker showing it's a floor, not
-  // the literal projected figure (which is still in its tooltip/aria text).
-  const paceMax = initialBudget;
-  const projectionCap = initialBudget * 2;
-  const projectionCapped = projectedTotal > projectionCap;
-  const projectedForChart = Math.min(projectedTotal, projectionCap);
-  const maxAmt = Math.max(paceMax, running, projectedForChart, 1);
-
-  const W = 640, H = 220, PAD_X = 8, PAD_TOP = 16, PAD_BOTTOM = 32;
-  const xFor = day => totalDays > 1
-    ? PAD_X + ((day - 1) / (totalDays - 1)) * (W - 2 * PAD_X)
-    : W / 2;
-  const yFor = amt => H - PAD_BOTTOM - (amt / maxAmt) * (H - PAD_TOP - PAD_BOTTOM);
-
-  const actualPath = actualPoints.map((p, i) =>
-    `${i === 0 ? 'M' : 'L'}${xFor(p.day).toFixed(1)},${yFor(p.amt).toFixed(1)}`
-  ).join(' ');
-  const pacePath = `M${xFor(1).toFixed(1)},${yFor(0).toFixed(1)} L${xFor(totalDays).toFixed(1)},${yFor(paceMax).toFixed(1)}`;
-  const capY = yFor(initialBudget);
-  const capPath = `M${xFor(1).toFixed(1)},${capY.toFixed(1)} L${xFor(totalDays).toFixed(1)},${capY.toFixed(1)}`;
-  const projectionEndX = xFor(totalDays);
-  const projectionEndY = yFor(projectedForChart);
-  const projectionPath = showProjection
-    ? `M${xFor(todayIdx).toFixed(1)},${yFor(running).toFixed(1)} L${projectionEndX.toFixed(1)},${projectionEndY.toFixed(1)}`
-    : '';
-
-  const last = actualPoints[actualPoints.length - 1];
-  const pinX = xFor(last.day);
-  const pinY = yFor(last.amt);
-
-  const axisY = H - PAD_BOTTOM + 16;
-  const startLabel = fmtDate(_biTrip.trip.startDate, { year: false });
-  const endLabel = fmtDate(_biTrip.trip.endDate, { year: false });
-  const capLabel = `${t('budget.stats.budget')}: ${formatCurrency(initialBudget)}`;
-
-  // Danger zone: the region above the budget cap, shaded faintly — turns
-  // what would otherwise be dead empty space (the chart's scale has to
-  // fit the cap even when actual spend is still low) into the one thing
-  // a pacing chart should say at a glance: are you in overspend territory.
-  const dangerZoneHeight = Math.max(0, capY - PAD_TOP);
 
   el.innerHTML = `
-    <svg class="bi-trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${t('budgetInsights.trendTitle')}">
-      ${dangerZoneHeight > 0.5 ? `<rect x="${PAD_X}" y="${PAD_TOP}" width="${W - 2 * PAD_X}" height="${dangerZoneHeight.toFixed(1)}" class="bi-trend-danger-zone" />` : ''}
-      <path d="${capPath}" class="bi-trend-cap" fill="none" />
-      <path d="${pacePath}" class="bi-trend-pace" fill="none" />
-      ${showProjection ? `<path d="${projectionPath}" class="bi-trend-projection" fill="none" />` : ''}
-      ${showProjection && projectionCapped ? `<text x="${projectionEndX.toFixed(1)}" y="${(projectionEndY - 5).toFixed(1)}" class="bi-trend-projection-capped" text-anchor="middle">▲<title>${_escHtml(formatCurrency(projectedTotal))}</title></text>` : ''}
-      <path d="${actualPath}" class="bi-trend-actual" fill="none" />
-      <text x="${xFor(1)}" y="${(capY - 6).toFixed(1)}" class="bi-trend-cap-label" text-anchor="start">${_escHtml(capLabel)}</text>
-      <text x="${pinX}" y="${(pinY - 10).toFixed(1)}" class="bi-trend-pin" text-anchor="middle">📍</text>
-      <text x="${xFor(1)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="start">${_escHtml(startLabel)}</text>
-      ${todayIdx > 1 && todayIdx < totalDays ? `<text x="${xFor(todayIdx)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="middle">${t('budgetInsights.axisToday')}</text>` : ''}
-      <text x="${xFor(totalDays)}" y="${axisY}" class="bi-trend-axis-label" text-anchor="end">${_escHtml(endLabel)}</text>
-    </svg>
-    <div class="bi-trend-legend">
-      <span class="bi-legend-item"><span class="bi-legend-swatch bi-legend-swatch--actual"></span>${t('budgetInsights.legendActual')}</span>
-      <span class="bi-legend-item"><span class="bi-legend-swatch bi-legend-swatch--pace"></span>${t('budgetInsights.legendPace')}</span>
-      ${showProjection ? `<span class="bi-legend-item"><span class="bi-legend-swatch bi-legend-swatch--projection"></span>${t('budgetInsights.legendProjected')}</span>` : ''}
+    <div class="bi-callout">
+      <span class="bi-callout-icon" aria-hidden="true">!</span>
+      <p class="bi-callout-text">${t('budgetInsights.callout.text', {
+        country: _escHtml(_biCountryName(country)),
+        pct, nights, totalNights, future,
+      })}</p>
     </div>`;
 }
 
 // ── Init ────────────────────────────────────────
 
 function _renderAll() {
-  _renderHero();
-  _renderCityList();
-  _renderTrend();
+  _renderContext();
+  _renderPace();
+  _renderCategories();
+  _renderCountries();
+  _renderCallout();
 }
 
 document.addEventListener('langchange', () => {

@@ -269,12 +269,31 @@ function _renderStats() {
   const remClass  = s.remaining >= 0 ? 'positive' : 'negative';
 
   if (isMobileViewport()) {
+    // Handoff 2b: one hero card — remaining is the number that changes a
+    // decision; budget and spent are context. Category breakdown moves to
+    // Insights (the "Por categoría" chip).
+    const pct = Math.max(0, Math.min(100, s.pctSpent));
     el.innerHTML = `
-      <div class="mbudget-stats">
-        <div class="mbudget-stat mbudget-stat--accent"><div class="mbudget-stat-label">${t('budget.stats.budget')}</div><div class="mbudget-stat-val">${formatCurrency(s.initialBudget)}</div></div>
-        <div class="mbudget-stat"><div class="mbudget-stat-label">${t('budget.stats.spent')}</div><div class="mbudget-stat-val">${formatCurrency(s.totalSpent)}</div></div>
-        <div class="mbudget-stat mbudget-stat--${remClass}"><div class="mbudget-stat-label">${t('budget.stats.remaining')}</div><div class="mbudget-stat-val mbudget-stat-val--${remClass}">${formatCurrency(s.remaining)}</div></div>
+      <div class="mbudget-hero">
+        <span class="label mbudget-hero-lbl">${t('budget.stats.remaining')} · ${t('budget.stats.nDays', { n: s.daysRemaining })}</span>
+        <div class="mbudget-hero-figure">
+          <span class="mono mbudget-hero-big mbudget-hero-big--${remClass}">${formatCurrency(s.remaining)}</span>
+          ${s.dailyBudgetLeft !== null ? `<span class="mono mbudget-hero-perday">${t('budget.stats.perDay', { amount: formatCurrency(s.dailyBudgetLeft) })}</span>` : ''}
+        </div>
+        <div class="mbudget-hero-bar"><span style="width:${pct.toFixed(1)}%"></span></div>
+        <div class="mono mbudget-hero-row">
+          <span>${t('budget.stats.spentAmount', { amount: formatCurrency(s.totalSpent) })}</span>
+          <span>${t('budget.stats.totalAmount', { amount: formatCurrency(s.initialBudget) })}</span>
+        </div>
+      </div>
+      <div class="mbudget-chips">
+        <button type="button" class="mbudget-chip" id="mbudget-chip-cats"><span>${t('budgetInsights.byCategory')}</span> ›</button>
+        <button type="button" class="mbudget-chip" id="mbudget-chip-calc"><span>${t('budget.calc.title')}</span> ›</button>
       </div>`;
+    el.querySelector('#mbudget-chip-cats')?.addEventListener('click', () => { window.location.href = '/budget-insights.html'; });
+    el.querySelector('#mbudget-chip-calc')?.addEventListener('click', () => {
+      document.getElementById('mbudget-convert-btn')?.click();
+    });
     registerMobileRerender(() => _renderStats());
     return;
   }
@@ -493,20 +512,34 @@ function _renderEntries() {
       </button>
     </div>`;
 
+  const budgetCur = typeof getBudgetCurrency === 'function' ? getBudgetCurrency() : 'USD';
+  const arsMode = (typeof Prefs !== 'undefined' && Prefs.get('arsDisplay', 'tap')) || 'tap';
+
   const rows = groups.map(g => {
     const collapsed = _collapsedGroups.has(g.key);
-    const eRows = g.entries.map(e => `
-      <div class="budget-entry${e.pending ? ' is-pending' : ''}" data-id="${e.id}">
+    const eRows = g.entries.map(e => {
+      const usd = toUSD(e.amount, e.currency, e.rate);
+      const convBudget = e.currency !== budgetCur ? formatMoney(typeof convertAmount === 'function' ? (convertAmount(e.amount, e.currency, budgetCur) ?? usd) : usd, budgetCur) : '';
+      let arsLine = '';
+      if (arsMode !== 'never' && e.currency !== 'ARS' && budgetCur !== 'ARS') {
+        const ars = toARS(usd);
+        if (ars !== null) arsLine = `<span class="budget-entry-ars mono">ARS ${Math.round(ars).toLocaleString(getDateLocale())}</span>`;
+      }
+      const meta = [e.city, _catName(e.category)].filter(Boolean).join(' · ');
+      return `
+      <div class="budget-entry${e.pending ? ' is-pending' : ''}${arsMode === 'always' ? ' is-ars' : ''}" data-id="${e.id}">
         <span class="budget-entry-dot" style="background:${_catColor(e.category)}"></span>
         <div class="budget-entry-info">
           <span class="budget-entry-desc">${e.description || _catName(e.category)}</span>
-          ${e.city ? `<span class="budget-entry-city">${e.city}</span>` : ''}
+          ${meta ? `<span class="budget-entry-city">${meta}</span>` : ''}
         </div>
         <div class="budget-entry-amount-col">
           <span class="budget-entry-amount">${formatMoney(e.amount, e.currency)}${e.rate ? `<span class="rate-chip" title="${t('budget.entry.customRateTooltip', { rate: e.rate })}">@${e.rate}</span>` : ''}</span>
-          ${conversionLine(e.amount, e.currency, e.rate)}
+          ${convBudget ? `<span class="budget-entry-conv mono">${convBudget}</span>` : ''}
+          ${arsLine}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     return `
       <div class="budget-day-group">
@@ -529,6 +562,16 @@ function _renderEntries() {
     </div>`;
 
   el.querySelectorAll('.budget-entry').forEach(row => {
+    // On mobile the amount column reveals the ARS + rate line (handoff 2b:
+    // ARS is an exchange-rate curiosity, on-tap by default); the rest of
+    // the row still opens the editor.
+    if (arsMode === 'tap') {
+      row.querySelector('.budget-entry-amount-col')?.addEventListener('click', ev => {
+        if (!isMobileViewport()) return;
+        ev.stopPropagation();
+        row.classList.toggle('is-ars');
+      });
+    }
     row.addEventListener('click', () => {
       if (row.classList.contains('is-pending')) { alert(t('offline.pendingEntry')); return; }
       _openExpenseModal(row.dataset.id);
@@ -914,9 +957,17 @@ function getTodayBudget() {
   const spentToday = _budget.entries
     .filter(e => e.date === today)
     .reduce((sum, e) => sum + toUSD(e.amount, e.currency, e.rate), 0);
+  const dayAllowance = s.dailyBudgetLeft !== null ? s.dailyBudgetLeft + spentToday : null;
   return {
     spent: formatCurrency(spentToday),
     dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,
+    // raw USD numbers for the redesigned Today budget card (2a)
+    spentTodayUSD: spentToday,
+    dailyLeftUSD: s.dailyBudgetLeft,
+    dayAllowanceUSD: dayAllowance,
+    remainingUSD: s.remaining,
+    remainingLabel: formatCurrency(s.remaining),
+    dayAllowanceLabel: dayAllowance !== null ? formatCurrency(dayAllowance) : null,
   };
 }
 
@@ -934,4 +985,25 @@ function getRecentBudgetEntries(n) {
       color: _catColor(e.category),
       amountLabel: formatMoney(e.amount, e.currency),
     }));
+}
+
+// Pre-formatted expenses for one day — the Day sheet's "Gastos del día"
+// section (mirrors getRecentBudgetEntries). `totalUSD` is the sum of the
+// same rows so the section header figure always equals the list.
+function getDayExpenses(date) {
+  const rows = (_budget?.entries || []).filter(e => e.date === date);
+  const totalUSD = rows.reduce((s, e) => s + toUSD(e.amount, e.currency, e.rate), 0);
+  return {
+    entries: rows
+      .sort((a, b) => (b.id || '').localeCompare(a.id || ''))
+      .map(e => ({
+        id: e.id,
+        label: e.description || _catName(e.category),
+        color: _catColor(e.category),
+        amountLabel: formatMoney(e.amount, e.currency),
+      })),
+    count: rows.length,
+    totalUSD,
+    totalLabel: formatCurrency(totalUSD),
+  };
 }

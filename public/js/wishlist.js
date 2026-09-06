@@ -77,33 +77,24 @@ function _renderWishlist() {
   const allImpactClass = allImpact === null ? '' : allImpact >= 0 ? 'positive' : 'negative';
   const countLabel = `${items.length} ${t(items.length === 1 ? 'wishlist.item' : 'wishlist.items')}`;
 
+  // Handoff 5f-left: one hero card carrying the consequence of buying
+  // everything. All figures computed from the rows.
+  const pctOfBalance = (remaining && remaining > 0) ? (total / remaining) * 100 : 0;
+  const heroPctFill = remaining && remaining > 0 ? Math.max(0, Math.min(100, 100 - pctOfBalance)) : 100;
   const summaryHtml = `
-    <div class="wishlist-summary">
-      <div class="wishlist-sum-item">
-        <span class="wishlist-sum-label">${t('wishlist.total')}</span>
-        <span class="wishlist-sum-val">${formatCurrency(total)}</span>
+    <div class="wishlist-hero">
+      <span class="label wishlist-hero-lbl">${t('wishlist.ifAllBought')}</span>
+      <div class="wishlist-hero-figure">
+        <span class="mono wishlist-hero-big wishlist-hero-big--${allImpactClass || 'positive'}">${allImpact !== null ? formatCurrency(allImpact) : formatCurrency(total)}</span>
+        ${remaining !== null ? `<span class="mono wishlist-hero-of">${t('today.ofAmount', { amount: formatCurrency(remaining) })}</span>` : ''}
       </div>
-      ${allImpact !== null ? `
-      <div class="wishlist-sum-item">
-        <span class="wishlist-sum-label">${t('wishlist.ifAllBought')}</span>
-        <span class="wishlist-sum-val wishlist-impact--${allImpactClass}">${formatCurrency(allImpact)}</span>
-      </div>` : ''}
-      <span class="wishlist-sum-count">${countLabel}</span>
+      <div class="wishlist-hero-bar"><span style="width:${heroPctFill.toFixed(1)}%"></span></div>
+      <div class="mono wishlist-hero-row">
+        <span>${t('wishlist.listSums', { amount: formatCurrency(total) })}</span>
+        <span>${countLabel}${remaining && remaining > 0 ? ` · ${pctOfBalance.toFixed(1)}%` : ''}</span>
+      </div>
     </div>`;
-
-  let impactBarHtml = '';
-  if (remaining !== null && total > 0) {
-    const over = total > remaining;
-    const pctCost = remaining > 0 ? Math.min(100, (total / remaining) * 100) : 100;
-    const pctSafe = Math.max(0, 100 - pctCost);
-    impactBarHtml = `
-      <div class="wishlist-budget-bar">
-        <div class="wishlist-budget-bar-track">
-          <div class="wishlist-budget-bar-safe" style="width:${pctSafe.toFixed(1)}%"></div>
-          <div class="wishlist-budget-bar-cost${over ? ' wishlist-budget-bar-cost--over' : ''}" style="width:${pctCost.toFixed(1)}%"></div>
-        </div>
-      </div>`;
-  }
+  const impactBarHtml = '';
 
   const sortDefs = [
     ['default',    t('wishlist.sortDefault')],
@@ -147,16 +138,18 @@ function _renderWishlist() {
             <span class="wishlist-item-price">${item.price > 0 ? formatMoney(item.price, item.currency) : '—'}</span>
             ${item.price > 0 ? conversionLine(item.price, item.currency) : ''}
           </div>
-          <button class="wishlist-buy-btn" data-id="${item.id}" title="${t('wishlist.markBought')}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          </button>
-          <button class="wishlist-delete-btn" data-id="${item.id}" title="${t('modal.delete')}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          <div class="wishlist-item-btns">
+            <button class="wishlist-buy-btn" data-id="${item.id}" title="${t('wishlist.markBought')}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+            <button class="wishlist-delete-btn" data-id="${item.id}" title="${t('modal.delete')}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>`;
   }).join('');

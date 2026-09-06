@@ -14,17 +14,14 @@
 <body>
 
   <header class="app-header">
-    <div class="header-inner">
-      <div class="header-title">
-        <a href="/index.html" class="accom-back-link">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-          <span data-i18n="accom.back">Back</span>
-        </a>
-        <h1 data-i18n="journey.title">Journey</h1>
-      </div>
-      <div class="header-right">
+    <div class="journey-header">
+      <div class="journey-header-row">
+        <a href="/index.html" class="journey-back" aria-label="Back" data-i18n-title="accom.back">&lsaquo;</a>
+        <div class="journey-header-titles">
+          <div class="label journey-header-title" data-i18n="journey.routeTitle">Route</div>
+          <div class="mono journey-header-sub" id="journey-summary"></div>
+        </div>
+        <button class="journey-today-btn label" id="journey-today-btn" data-i18n="journey.goToday">Go to today</button>
         <span class="offline-indicator" id="offline-indicator" data-i18n="offline.indicator" hidden></span>
         <button class="lang-toggle" id="lang-toggle" title="Switch language" aria-label="Switch language">EN</button>
         <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle theme">
@@ -40,17 +37,18 @@
           </svg>
         </button>
       </div>
+      <div class="journey-filters" id="journey-filters">
+        <button class="journey-chip label is-active" data-filter="all" data-i18n="journey.filter.all">All</button>
+        <button class="journey-chip label" data-filter="stay" data-i18n="journey.filter.stays">Accommodation</button>
+        <button class="journey-chip label" data-filter="flight" data-i18n="journey.filter.flights">Flights</button>
+        <button class="journey-chip label" data-filter="train" data-i18n="journey.filter.trains">Trains</button>
+      </div>
     </div>
   </header>
 
-  <main class="app-main accom-main">
-
-    <div id="journey-stats-grid" class="accom-manifest-strip"></div>
-
-    <div class="journey-countries" id="journey-countries"></div>
-
-    <div class="journey-list" id="journey-list"></div>
-
+  <main class="app-main journey-main">
+    <div class="journey-banner" id="journey-banner" hidden></div>
+    <div class="journey-spine" id="journey-spine"></div>
   </main>
 
   <footer class="app-footer">

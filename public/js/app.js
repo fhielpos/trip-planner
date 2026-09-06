@@ -3,19 +3,58 @@
    ============================================= */
 
 // ── Theme ──────────────────────────────────────
-(function () {
-  const saved = localStorage.getItem('theme') ||
-    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
-})();
+// The <head> inline script has already resolved and applied the theme
+// before first paint (and migrated legacy 'dark'/'light'). This is the
+// runtime layer: the setter used by Settings, keeping <system> live, and
+// the desktop toggle button.
+const THEME_VALUES = ['carbon', 'terracotta', 'system'];
+const META_THEME_COLOR = { carbon: '#181614', terracotta: '#faf4ea' };
+let _systemThemeMql = null;
 
-document.getElementById('theme-toggle').addEventListener('click', () => {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
-  localStorage.setItem('theme', isLight ? 'dark' : 'light');
+function getTheme() {
+  const raw = localStorage.getItem('theme');
+  return THEME_VALUES.includes(raw) ? raw : 'carbon';
+}
+
+function resolveTheme(value) {
+  if (value === 'system') {
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'terracotta' : 'carbon';
+  }
+  return value === 'terracotta' ? 'terracotta' : 'carbon';
+}
+
+function _applyResolvedTheme(value) {
+  const resolved = resolveTheme(value);
+  document.documentElement.setAttribute('data-theme', resolved);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', META_THEME_COLOR[resolved]);
+}
+
+function setTheme(value) {
+  const next = THEME_VALUES.includes(value) ? value : 'carbon';
+  localStorage.setItem('theme', next);
+  _applyResolvedTheme(next);
+  // Only track the OS setting while the user has actually chosen "system".
+  if (next === 'system') {
+    if (!_systemThemeMql) {
+      _systemThemeMql = window.matchMedia('(prefers-color-scheme: light)');
+      _systemThemeMql.addEventListener('change', () => {
+        if (getTheme() === 'system') _applyResolvedTheme('system');
+      });
+    }
+  }
+  document.dispatchEvent(new CustomEvent('themechange', { detail: { theme: next } }));
+}
+
+// Re-sync the meta colour on load and start the listener if already on "system".
+setTheme(getTheme());
+
+// Desktop header keeps a plain light/dark toggle (no "system" step).
+document.getElementById('theme-toggle')?.addEventListener('click', () => {
+  setTheme(resolveTheme(getTheme()) === 'terracotta' ? 'carbon' : 'terracotta');
 });
 
-document.getElementById('logout-btn').addEventListener('click', async () => {
+async function logout() {
   await fetch('/api/logout', { method: 'POST' });
   // Clear the service worker's caches (shell + cached /api/trip-style data)
   // and unregister it before navigating — otherwise the next load of '/'
@@ -32,7 +71,9 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
     await reg?.unregister();
   } catch { /* best-effort */ }
   window.location.href = '/login';
-});
+}
+
+document.getElementById('logout-btn')?.addEventListener('click', logout);
 
 let tripData = null;
 let countdownInterval = null;
@@ -81,6 +122,14 @@ function sundayOf(dateStr) {
 function formatTime(str) {
   const [h, m] = str.split(':').map(Number);
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+// 24-hour "HH:MM" — the mobile redesign shows times mono in 24h (handoff
+// typography). Desktop keeps formatTime's 12h until it's restyled.
+function formatTime24(str) {
+  if (!str) return '';
+  const [h, m] = str.split(':');
+  return `${String(Number(h)).padStart(2, '0')}:${String(Number(m || 0)).padStart(2, '0')}`;
 }
 
 function formatShort(str) {
@@ -608,8 +657,12 @@ function renderPlannerMobile(data) {
     const key = stay ? stay.city + stay.check_in : 'transit';
     if (key !== lastStayKey && stay) {
       const colour = data.colorMap[stay.check_in];
-      html += `<div class="mcal-group-header" style="color:${colour?.accent || 'var(--accent)'}">
-        ${countryFlag(stay.country)} ${stay.city} · ${fmtDate(stay.check_in, { year: false })}–${fmtDate(stay.check_out, { year: false })}
+      const nights = Math.round((parseLocal(stay.check_out) - parseLocal(stay.check_in)) / 86400000);
+      html += `<div class="mcal-group-header" style="--mcal-group-accent:${colour?.accent || 'var(--accent)'}">
+        <span class="mcal-group-flag">${countryFlag(stay.country)}</span>
+        <span class="label mcal-group-city">${_escHtml(stay.city)}</span>
+        <span class="mono mcal-group-range">${fmtDate(stay.check_in, { year: false })} – ${fmtDate(stay.check_out, { year: false })}</span>
+        <span class="label mono mcal-group-nights">${nights} n</span>
       </div>`;
       lastStayKey = key;
     }
@@ -625,54 +678,69 @@ function renderPlannerMobile(data) {
     // pick silently dropped every event but the first. The subtitle instead
     // joins every remaining item with " · "; CSS ellipsis handles overflow,
     // and the full list is always one tap away via the Day Sheet.
+    // Activities carry the row's weight; flights/trains follow; check-in/out
+    // is demoted to a meta line (see handoff 3a). `travelEvents` = same-day
+    // flights/trains (excludes the 🛏 check-in and 🧳 check-out rows).
     const acts = collectTodayActivities(data.calendar, d.date).map(a => a.main);
     const events = dayEvents(d.date, data).filter(r => r.icon !== '◦' && r.icon !== '↻');
-    const travelEvents = events.filter(r => r.icon !== '🛏');
-    let title, sub;
-    if (d.isFirstOfStay) {
-      title = t('chip.checkin', { city: stay.city });
-      const subParts = travelEvents.length ? travelEvents.map(e => e.title) : (acts[0] ? [acts[0].title] : []);
-      sub = subParts.length ? subParts.join(' · ') : null;
-    } else if (acts[0]) {
-      title = acts[0].title;
-      const subParts = events.length ? events.map(e => e.title) : (acts[1] ? [acts[1].title] : []);
-      sub = subParts.length ? subParts.join(' · ') : null;
-    } else if (events[0]) {
-      title = events[0].title;
-      const subParts = events.slice(1).map(e => e.title);
-      sub = subParts.length ? subParts.join(' · ') : null;
+    const travelEvents = events.filter(r => r.icon !== '🛏' && r.icon !== '🧳');
+    const checkOutStay = (data.accommodations || []).find(a => a.check_out === d.date);
+
+    const actTitle = m => `${_escHtml(m.title)}${m.startTime ? ` <span class="mono mcal-time">${_escHtml(formatTime24(m.startTime))}</span>` : ''}`;
+
+    const checkParts = [];
+    if (d.isFirstOfStay) checkParts.push(t('cal.checkinCity', { city: stay.city }));
+    if (checkOutStay) checkParts.push(t('cal.checkoutCity', { city: checkOutStay.city }));
+
+    // Title priority: activity → same-day flight/train → the check-in/out
+    // itself (an arrival/departure day is not a "free day") → free day.
+    let titleHtml, freeDay = false;
+    if (acts[0]) {
+      titleHtml = actTitle(acts[0]);
+    } else if (travelEvents[0]) {
+      titleHtml = _escHtml(travelEvents[0].title);
+    } else if (checkParts.length) {
+      const line = checkParts.join(' · ');
+      titleHtml = _escHtml(line.charAt(0).toUpperCase() + line.slice(1));
+      checkParts.length = 0;
     } else {
-      title = stay ? stay.city : t('today.transit');
-      sub = null;
+      titleHtml = t('today.freeDay');
+      freeDay = true;
     }
+    const subParts = [
+      ...acts.slice(1).map(m => m.title),
+      ...(acts[0] ? travelEvents.map(e => e.title) : travelEvents.slice(1).map(e => e.title)),
+    ];
+    const sub = subParts.length ? subParts.join(' · ') : null;
 
     const isToday = d.date === today;
-    const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--text-3)';
+    const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--ink-45)';
     html += `
-      <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${rowColor}">
-        <div class="mcal-date"><span class="mcal-num">${d.num}</span><span class="mcal-dow">${d.dow}</span></div>
+      <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${isToday ? 'var(--accent)' : rowColor}">
+        <div class="mcal-date"><span class="mono mcal-num">${d.num}</span><span class="label mcal-dow">${d.dow}</span></div>
         <div class="mcal-content">
-          <div class="mcal-title" style="color:${rowColor}">${_escHtml(title)}</div>
+          <div class="mcal-title${freeDay ? ' mcal-title--free' : ''}">${titleHtml}${isToday ? ` <span class="label mcal-hoy">${t('today.hoyChip') || 'Hoy'}</span>` : ''}</div>
           ${sub ? `<div class="mcal-sub">${_escHtml(sub)}</div>` : ''}
+          ${checkParts.length ? `<div class="mcal-check"><span class="mcal-check-dot"></span>${_escHtml(checkParts.join(' · '))}</div>` : ''}
         </div>
       </button>`;
   }
 
+  const rangeLabel = `${parseLocal(data.trip.startDate).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })} – ${parseLocal(data.trip.endDate).toLocaleDateString(getDateLocale(), { day: 'numeric', month: 'short' })}`;
   grid.innerHTML = `
     <div class="mcal-header">
-      <button type="button" class="mcal-back" data-goto-tab="today">‹ ${t('tabs.today')}</button>
-      <span class="mcal-title-bar">${t('tabs.calendar')}</span>
-      <button type="button" class="mcal-jump" id="mcal-jump-today">${t('calendar.jumpToday')}</button>
+      <div class="mcal-header-titles">
+        <span class="label mcal-title-bar">${t('tabs.calendar')}</span>
+        <span class="mono mcal-header-range">${rangeLabel}</span>
+      </div>
+      <button type="button" class="label mcal-jump" id="mcal-jump-today">${t('calendar.jumpToday')}</button>
     </div>
     ${html}
   `;
 
   grid.querySelectorAll('[data-goto-tab]').forEach(btn => btn.addEventListener('click', () => setMobileTab(btn.dataset.gotoTab)));
   grid.querySelectorAll('.mcal-row').forEach(row => row.addEventListener('click', () => {
-    const date = row.dataset.date;
-    const s = getActiveStay(data.accommodations, date);
-    const rows = dayEvents(date, data);
-    openSheet({ title: `${s ? s.city : t('today.transit')} · ${fmtDate(date, { year: false })}`, color: s ? (data.colorMap[s.check_in]?.accent || 'var(--accent)') : null, rows, empty: rows.length === 0 });
+    openDaySheet(row.dataset.date, data);
   }));
   document.getElementById('mcal-jump-today')?.addEventListener('click', () => {
     const row = grid.querySelector('.mcal-row.is-today');
@@ -698,7 +766,7 @@ function renderLegend(accommodations, colorMap) {
     item.className = 'legend-item';
     item.innerHTML = `
       <div class="legend-dot" style="background:${colour.accent};"></div>
-      <span>${a.city} <span style="color:var(--text-3)">${formatShort(a.check_in)}–${formatShort(a.check_out)}</span></span>
+      <span>${a.city} <span style="color:var(--ink-45)">${formatShort(a.check_in)}–${formatShort(a.check_out)}</span></span>
     `;
     legend.appendChild(item);
   }
@@ -726,6 +794,8 @@ const modal = {
   url:        $('entry-url'),
   address:    $('entry-address'),
   notes:      $('entry-notes'),
+  dateStay:   $('entry-date-stay'),
+  slotRow:    $('time-slot-row'),
   singleRow:  $('single-date-row'),
   multiRow:   $('multi-date-row'),
   timeRow:    $('time-row'),
@@ -771,6 +841,39 @@ modal.typeSel.addEventListener('click', e => {
   if (btn) setType(btn.dataset.type);
 });
 
+// Mobile (5d) — the part-of-day slot chips under the time pair. Presentational
+// only: nothing about the slot is persisted. An activity with no start time
+// already renders under «Durante el día» via the untimed-slot rule; the
+// Mañana/Tarde/Noche buckets are a UI hint, not stored.
+function setSlot(slot) {
+  if (!modal.slotRow) return;
+  modal.slotRow.querySelectorAll('.slot-chip').forEach(b =>
+    b.classList.toggle('active', !!slot && b.dataset.slot === slot)
+  );
+}
+
+// Fills the inline flag + city beside the date field from the stay the picked
+// date falls within (empty in transit).
+function updateDateStay() {
+  if (!modal.dateStay) return;
+  const day = modal.date.value;
+  const stay = day && typeof tripData !== 'undefined' && tripData && tripData.accommodations
+    ? getActiveStay(tripData.accommodations, day) : null;
+  const flag = stay && typeof countryFlag === 'function' ? countryFlag(stay.country) : '';
+  modal.dateStay.textContent = stay ? `${flag ? flag + ' ' : ''}${stay.city}` : '';
+}
+
+if (modal.slotRow) {
+  modal.slotRow.addEventListener('click', e => {
+    const b = e.target.closest('.slot-chip');
+    if (b) setSlot(b.dataset.slot);
+  });
+}
+modal.date.addEventListener('change', updateDateStay);
+[modal.startTime, modal.endTime].forEach(el =>
+  el && el.addEventListener('input', () => setSlot(modal.startTime.value ? null : 'day'))
+);
+
 function openAddModal(defaultDate, prefill) {
   modal.form.reset();
   modal.id.value = '';
@@ -779,7 +882,9 @@ function openAddModal(defaultDate, prefill) {
   modal.deleteBtn.hidden = true;
   lockTypeButtons('');
   setType('activity');
+  setSlot('day');
   if (defaultDate) modal.date.value = defaultDate;
+  updateDateStay();
   if (prefill) {
     modal.title.value   = prefill.title || '';
     modal.address.value = prefill.address || '';
@@ -787,6 +892,7 @@ function openAddModal(defaultDate, prefill) {
     modal.startTime.value = prefill.startTime || '';
     modal.lat.value      = prefill.lat ?? '';
     modal.lon.value      = prefill.lon ?? '';
+    if (prefill.startTime) setSlot(null);
   }
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
@@ -811,6 +917,8 @@ function openEditModal(id) {
   modal.endTime.value   = e.endTime || '';
   modal.lat.value        = e.lat ?? '';
   modal.lon.value        = e.lon ?? '';
+  setSlot(e.startTime ? null : 'day');
+  updateDateStay();
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);
@@ -830,6 +938,7 @@ function openStayModal(id) {
   modal.startDate.value = a.check_in || '';
   modal.endDate.value   = a.check_out || '';
   modal.url.value       = a.url || '';
+  updateDateStay();
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
   modal.overlay.hidden = false;
   setTimeout(() => modal.title.focus(), 50);

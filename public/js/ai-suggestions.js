@@ -16,6 +16,13 @@
 const AI_CATS = ['sightseeing', 'culture', 'outdoors', 'food', 'nightlife', 'shopping', 'daytrip'];
 const AI_CATS_LS_KEY = 'tp_ai_categories';
 
+// Category → dot colour token for the redesigned (5e) result cards.
+const AI_CAT_DOT = {
+  culture: '--cat-culture', sightseeing: '--cat-culture', outdoors: '--cat-culture',
+  food: '--cat-food', nightlife: '--cat-shopping', shopping: '--cat-shopping',
+  daytrip: '--cat-transport',
+};
+
 function _aiEscHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, ch => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -77,6 +84,38 @@ function _aiFmtDuration(h) {
   return `${h}h`;
 }
 
+// The always-present "Suggest things to do" trigger row (handoff §13 / 5e).
+// One markup for both mobile surfaces — the Day sheet and the Today tab.
+// `idPrefix` namespaces the toggle/panel ids; `enabled` picks the keyed row
+// vs. the quiet unkeyed card; `context` is the Mono basis line.
+function aiTriggerHtml({ idPrefix, enabled, context }) {
+  if (enabled) {
+    return `
+    <div class="ai-trigger-wrap">
+      <button type="button" class="ai-trigger" id="${idPrefix}-ai-toggle">
+        <span class="ai-trigger-glyph">✦</span>
+        <span class="ai-trigger-text">
+          <span class="label ai-trigger-title">${t('aiSuggestions.triggerTitle')}</span>
+          <span class="mono ai-trigger-ctx">${_aiEscHtml(context || '')}</span>
+        </span>
+        <span class="ai-trigger-chev">›</span>
+      </button>
+      <div class="ai-panel ai-panel--m" id="${idPrefix}-ai-panel" hidden></div>
+    </div>`;
+  }
+  return `
+    <div class="ai-trigger-wrap">
+      <div class="ai-trigger ai-trigger--off">
+        <span class="ai-trigger-glyph ai-trigger-glyph--off">✦</span>
+        <span class="ai-trigger-text">
+          <span class="label ai-trigger-title ai-trigger-title--off">${t('aiSuggestions.triggerTitle')}</span>
+          <span class="ai-trigger-ctx ai-trigger-ctx--off">${t('daySheet.aiUnkeyed')}</span>
+        </span>
+      </div>
+      <button type="button" class="label ai-trigger-settings" data-ai-open-settings>${t('daySheet.goToSettings')} ›</button>
+    </div>`;
+}
+
 function _aiMsgEl(text) {
   const el = document.createElement('div');
   el.className = 'ai-panel-msg';
@@ -105,6 +144,120 @@ function _aiEyebrow() {
   el.className = 'today-block-title ai-panel-eyebrow';
   el.textContent = t('aiSuggestions.eyebrow');
   return el;
+}
+
+// ---- redesigned (5e) results surface: header, basis line, cards ----
+
+// Header row: ✦ Sugerir cosas que hacer  +  Otra vez › (refresh, when a
+// refresh is still available for the day).
+function _aiResultsHead(container, date) {
+  const el = document.createElement('div');
+  el.className = 'ai-results-head';
+  const left = document.createElement('span');
+  left.className = 'label ai-results-title';
+  left.textContent = '✦ ' + t('aiSuggestions.triggerTitle');
+  el.appendChild(left);
+  if (typeof _aiEntry(date).refreshesLeft === 'number' && _aiEntry(date).refreshesLeft > 0) {
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'label ai-again';
+    again.textContent = t('aiSuggestions.again') + ' ›';
+    again.addEventListener('click', e => { e.stopPropagation(); _aiFetch(container, date, { refresh: true }); });
+    el.appendChild(again);
+  }
+  return el;
+}
+
+// Mono line stating what the suggestions are based on — the same city ·
+// temp · plan-count string the trigger row shows, handed in via the
+// panel's data-ai-ctx (only the mobile surfaces set it).
+function _aiBasisEl(text) {
+  const el = document.createElement('div');
+  el.className = 'mono ai-basis';
+  el.textContent = text;
+  return el;
+}
+
+function _aiDisclaimerEl() {
+  const el = document.createElement('div');
+  el.className = 'label ai-disclaimer';
+  el.textContent = t('aiSuggestions.disclaimer');
+  return el;
+}
+
+// Post an untimed activity straight to the calendar (no add modal), the
+// way app.js's #modal-form submit does — so it lands under "Durante el
+// día". The card confirms inline, then the panel re-renders it away.
+async function _aiAddUntimed(s, date, card, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const r = await fetch('/api/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'activity',
+        title: s.name,
+        address: s.address || '',
+        notes: s.reason || '',
+        date,
+        startTime: '',
+        endTime: '',
+        lat: null,
+        lon: null,
+      }),
+    });
+    if (!r.ok) throw new Error(String(r.status));
+    const created = await r.json();
+    if (typeof tripData !== 'undefined' && Array.isArray(tripData.calendar)) tripData.calendar.push(created);
+    card.classList.add('ai-card--added');
+    btn.textContent = t('aiSuggestions.added');
+    if (typeof renderPlanner === 'function') renderPlanner();
+    if (typeof renderInfoBar === 'function') renderInfoBar();
+    if (typeof renderMap === 'function') {
+      renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports, tripData.calendar);
+    }
+    setTimeout(() => {
+      if (typeof renderToday === 'function') renderToday(tripData);
+      if (typeof refreshOpenAiPanels === 'function') refreshOpenAiPanels();
+    }, 900);
+  } catch (e) {
+    console.error('[ai-suggestions] add failed:', e);
+    btn.disabled = false;
+    btn.textContent = t('aiSuggestions.add');
+    card.appendChild(_aiMsgEl(t('modal.saveFailed')));
+  }
+}
+
+// A 5e result card: title 15/600, .label meta line with a category dot,
+// a reason tied to trip data, and an Agregar button.
+function _aiCard5e(s, date) {
+  const added = _aiAlreadyAdded(s.name, date);
+  const meta = [
+    t('aiSuggestions.cat.' + s.category),
+    _aiFmtDuration(s.durationHours),
+    s.suggestedStartTime || '',
+  ].filter(Boolean).join(' · ');
+  const dotVar = AI_CAT_DOT[s.category] || '--accent';
+
+  const card = document.createElement('div');
+  card.className = 'ai-card ai-card--5e' + (added ? ' ai-card--added' : '');
+  card.innerHTML = `
+    <div class="ai-card5e-main">
+      <div class="ai-card5e-title">${_aiEscHtml(s.name)}</div>
+      ${meta ? `<div class="label ai-card5e-meta"><span class="ai-card5e-dot" style="background:var(${dotVar})"></span>${_aiEscHtml(meta)}</div>` : ''}
+      ${s.reason ? `<div class="ai-card5e-reason">${_aiEscHtml(s.reason)}</div>` : ''}
+    </div>
+    <button type="button" class="label ai-card5e-add"${added ? ' disabled' : ''}>${added ? t('aiSuggestions.added') : t('aiSuggestions.add')}</button>`;
+
+  if (!added) {
+    const btn = card.querySelector('.ai-card5e-add');
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      _aiAddUntimed(s, date, card, btn);
+    });
+  }
+  return card;
 }
 
 function _aiCard(s, date) {
@@ -192,10 +345,21 @@ function _aiRenderPanel(container, date) {
   const err = entry.error;
   const locked = entry.locked === true;
 
+  // The mobile surfaces (Day sheet, Today tab) hand in a basis string on
+  // the panel and get the redesigned 5e layout: a header, that Mono basis
+  // line, addable cards, a disclaimer — no category chips.
+  const basis = container.dataset.aiCtx || '';
+  const mobile = Boolean(basis);
+
   container.dataset.aiDate = date; // lets refreshOpenAiPanels() re-render this one
   container.textContent = '';
-  container.appendChild(_aiEyebrow());
-  container.appendChild(_aiCatChips(container, date));
+  if (mobile) {
+    container.appendChild(_aiResultsHead(container, date));
+    container.appendChild(_aiBasisEl(basis));
+  } else {
+    container.appendChild(_aiEyebrow());
+    container.appendChild(_aiCatChips(container, date));
+  }
 
   // Drop anything dismissed or already on the calendar. app.js calls
   // refreshOpenAiPanels() after a calendar add, so an accepted suggestion
@@ -228,8 +392,18 @@ function _aiRenderPanel(container, date) {
         container.appendChild(retry);
       }
     }
+  } else if (mobile) {
+    const list = document.createElement('div');
+    list.className = 'ai-card5e-list';
+    shown.slice(0, 6).forEach(s => list.appendChild(_aiCard5e(s, date)));
+    container.appendChild(list);
   } else {
     shown.slice(0, 6).forEach(s => container.appendChild(_aiCard(s, date)));
+  }
+
+  if (mobile) {
+    container.appendChild(_aiDisclaimerEl());
+    return;
   }
 
   // "Get more of X" — a thin filtered result with a category filter on.
@@ -313,8 +487,11 @@ async function _aiFetch(container, date, { refresh = false, more = false } = {})
 // Entry point — called by the Today toggles and the day-card button
 // every time a panel opens. Serves the session cache with no network;
 // only the very first open of a date fetches.
-function renderAiSuggestions(container, date) {
+function renderAiSuggestions(container, date, context) {
   container.classList.add('rec-panel', 'ai-panel');
+  // A basis string means a mobile surface (Day sheet / Today tab) → the
+  // redesigned 5e layout; desktop passes nothing and keeps the eyebrow list.
+  if (context) container.dataset.aiCtx = context;
   // Day cards own a click-to-expand handler; keep panel clicks from reaching it.
   if (!container.dataset.clickTrapped) {
     container.dataset.clickTrapped = '1';

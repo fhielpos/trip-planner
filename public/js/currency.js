@@ -30,6 +30,11 @@ async function refreshCurrency() {
   _rates = await _fetchRates();
 }
 
+// ISO timestamp the cached rates were last fetched (null if never / offline).
+function getRatesFetchedAt() {
+  return _rates?.fetchedAt || null;
+}
+
 function _effectiveRate(currency) {
   if (!currency || currency === 'USD') return 1;
   return _rates.rates?.[currency]?.effective ?? null;

@@ -7,8 +7,24 @@
   <title>Trip Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css" />
+  <script>
+    /* Resolve the theme before first paint. Three states: carbon | terracotta
+       | system. Migrates the legacy 'dark'/'light' values. Kept in <head>
+       inline so there's no flash; the runtime toggle lives in app.js. */
+    (function () {
+      var raw = null;
+      try { raw = localStorage.getItem('theme'); } catch (e) {}
+      if (raw === 'light') raw = 'terracotta';
+      if (raw !== 'carbon' && raw !== 'terracotta' && raw !== 'system') raw = 'carbon';
+      try { localStorage.setItem('theme', raw); } catch (e) {}
+      var resolved = raw === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'terracotta' : 'carbon')
+        : raw;
+      document.documentElement.setAttribute('data-theme', resolved);
+    })();
+  </script>
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <meta name="theme-color" content="#181614" />
@@ -17,6 +33,18 @@
 <body>
 
   <header class="app-header">
+    <!-- Mobile redesign header (≤640px); desktop uses .header-inner below -->
+    <div class="m-header" id="m-header">
+      <div class="m-header-row">
+        <span class="m-header-stamp" id="m-header-stamp"></span>
+        <div class="m-header-status">
+          <div class="m-header-day mono" id="m-header-day"></div>
+          <div class="m-header-sync label" id="m-header-sync" aria-live="polite"></div>
+        </div>
+        <button type="button" class="m-header-menu" id="m-header-menu" aria-label="Ajustes" aria-haspopup="dialog">···</button>
+      </div>
+      <div class="m-header-progress"><span id="m-header-progress-fill"></span></div>
+    </div>
     <div class="header-inner">
       <div class="header-title">
         <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -139,6 +167,11 @@
           <a class="btn-secondary stays-details-link" href="/accommodations.html" data-i18n="stays.viewDetails">View details</a>
         </div>
       </div>
+      <div class="mmap-seg" role="tablist" aria-label="Map views">
+        <span class="mmap-seg-item is-active" role="tab" aria-selected="true" data-i18n="map.segMap">Map</span>
+        <a class="mmap-seg-item" role="tab" href="/journey.html" data-i18n="map.segRoute">Route</a>
+        <a class="mmap-seg-item" role="tab" href="/accommodations.html" data-i18n="map.segDetails">Details</a>
+      </div>
       <div id="trip-map"></div>
       <div id="stays-timeline"></div>
       <div id="stays-issues"></div>
@@ -258,47 +291,63 @@
   <!-- Currency calculator modal (mobile only) -->
   <div class="modal-overlay" id="currency-calc-overlay" hidden>
     <div class="modal">
-      <div class="modal-header">
-        <h3 data-i18n="budget.calc.title">Currency Calculator</h3>
-        <button class="modal-close" id="currency-calc-close">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
+      <div class="modal-header calc-header">
+        <button class="calc-back" id="currency-calc-close" aria-label="Back">&lsaquo;</button>
+        <span class="calc-header-text">
+          <span class="label calc-header-title" data-i18n="budget.calc.title">Currency Calculator</span>
+          <span class="mono calc-rate-age" id="calc-rate-age"></span>
+        </span>
       </div>
-      <div class="modal-form">
-        <div class="form-row">
-          <label for="calc-amount-from" data-i18n="budget.calc.from">From</label>
-          <input type="number" id="calc-amount-from" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+      <div class="modal-form calc-body">
+        <div class="calc-card">
+          <div class="label calc-card-label" data-i18n="budget.calc.tagPrice">Tag price</div>
+          <div class="calc-input-row">
+            <span class="calc-ccy-chip label mono">
+              <select id="calc-currency-from-select" aria-label="Tag currency"></select>
+              <span class="calc-ccy-caret" aria-hidden="true">&#9662;</span>
+            </span>
+            <input type="text" id="calc-amount-from" class="mono calc-amount" inputmode="decimal"
+                   autocomplete="off" placeholder="0" />
+          </div>
+          <div class="perf-x calc-perf"></div>
+          <div class="calc-result-head">
+            <span class="label" data-i18n="budget.calc.inBudget">In your budget</span>
+            <span class="mono calc-rate-line" id="calc-rate-line"></span>
+          </div>
+          <div class="mono calc-result" id="calc-amount-to">&mdash;</div>
+          <div class="mono calc-result-alt" id="calc-result-alt"></div>
+        </div>
+
+        <div class="calc-actions">
           <input type="file" id="calc-receipt-input" accept="image/*" capture="environment" hidden />
-          <button type="button" class="btn-secondary" id="calc-scan-btn" data-i18n="budget.calc.scanTag">📷 Scan price tag</button>
-          <p class="form-hint" id="calc-scan-status" hidden></p>
-          <div class="type-selector" id="calc-currency-from-selector">
-            <button type="button" class="type-btn" data-currency="USD">USD</button>
-            <button type="button" class="type-btn" data-currency="EUR">EUR</button>
-            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
-            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
-            <button type="button" class="type-btn" id="calc-currency-from-more" data-i18n="budget.entry.currencyMore">More…</button>
+          <button type="button" class="label calc-scan" id="calc-scan-btn" data-i18n="budget.calc.scanTag">Scan price tag</button>
+          <button type="button" class="label calc-swap-btn" id="calc-swap-btn" aria-label="Swap currencies">
+            <span id="calc-swap-label">&#8646;</span>
+          </button>
+        </div>
+        <p class="form-hint calc-scan-status" id="calc-scan-status" hidden></p>
+
+        <div class="calc-ocr" id="calc-ocr" hidden>
+          <div class="label calc-ocr-label" data-i18n="budget.calc.ocrHeading">Tag reading</div>
+          <div class="calc-ocr-box">
+            <div class="calc-ocr-capture">
+              <img id="calc-ocr-img" alt="" />
+              <span class="calc-ocr-crop" aria-hidden="true"></span>
+              <span class="label calc-ocr-conf" id="calc-ocr-conf"></span>
+            </div>
+            <div class="calc-ocr-foot">
+              <span class="calc-ocr-msg" id="calc-ocr-msg"></span>
+              <button type="button" class="label calc-ocr-fix" id="calc-ocr-fix" data-i18n="budget.calc.fix">Fix</button>
+            </div>
           </div>
-          <select id="calc-currency-from-select" class="form-select" hidden></select>
         </div>
 
-        <button type="button" class="calc-swap-btn" id="calc-swap-btn" aria-label="Swap currencies">⇄</button>
-
-        <div class="form-row">
-          <label for="calc-amount-to" data-i18n="budget.calc.to">To</label>
-          <input type="text" id="calc-amount-to" readonly />
-          <div class="type-selector" id="calc-currency-to-selector">
-            <button type="button" class="type-btn" data-currency="USD">USD</button>
-            <button type="button" class="type-btn" data-currency="EUR">EUR</button>
-            <button type="button" class="type-btn" data-currency="CHF">CHF</button>
-            <button type="button" class="type-btn" data-currency="ARS">ARS</button>
-            <button type="button" class="type-btn" id="calc-currency-to-more" data-i18n="budget.entry.currencyMore">More…</button>
-          </div>
-          <select id="calc-currency-to-select" class="form-select" hidden></select>
+        <div class="calc-quickref">
+          <div class="label calc-quickref-label" data-i18n="budget.calc.quickRef">Quick reference</div>
+          <div class="calc-quickref-chips" id="calc-quickref-chips"></div>
         </div>
 
-        <div id="calc-rate-info" class="calc-rate-info"></div>
+        <div class="provisional calc-footer" id="calc-footer"></div>
       </div>
     </div>
   </div>
@@ -354,6 +403,7 @@
   <!-- Modal -->
   <div class="modal-overlay" id="modal-overlay" hidden>
     <div class="modal">
+      <div class="modal-grab" aria-hidden="true"></div>
       <div class="modal-header">
         <h3 id="modal-title">Add Activity</h3>
         <button class="modal-close" id="modal-close">
@@ -380,7 +430,10 @@
         </div>
         <div class="form-row" id="single-date-row">
           <label for="entry-date"><span data-i18n="modal.dateLabel">Date</span> <span class="required">*</span></label>
-          <input type="date" id="entry-date" required />
+          <div class="date-field">
+            <input type="date" id="entry-date" required />
+            <span class="date-field-stay" id="entry-date-stay" aria-hidden="true"></span>
+          </div>
         </div>
         <div class="form-row" id="multi-date-row" hidden>
           <label><span data-i18n="modal.datesLabel">Dates</span> <span class="required">*</span></label>
@@ -397,6 +450,13 @@
             <span data-i18n="modal.rangeTo">to</span>
             <input type="time" id="entry-end-time" />
           </div>
+          <div class="time-slot-row" id="time-slot-row">
+            <button type="button" class="slot-chip active" data-slot="day" data-i18n="modal.slotDay">All day</button>
+            <button type="button" class="slot-chip" data-slot="morning" data-i18n="modal.slotMorning">Morning</button>
+            <button type="button" class="slot-chip" data-slot="afternoon" data-i18n="modal.slotAfternoon">Afternoon</button>
+            <button type="button" class="slot-chip" data-slot="evening" data-i18n="modal.slotEvening">Evening</button>
+          </div>
+          <p class="time-slot-hint" id="time-slot-hint" data-i18n="modal.slotHint">No time set: appears under “During the day,” above timed events.</p>
         </div>
         <div class="form-row" id="url-row" hidden>
           <label for="entry-url" data-i18n="modal.urlLabel">Booking link</label>
@@ -555,9 +615,56 @@
     <div class="sheet-body" id="day-sheet-body"></div>
   </div>
 
+  <!-- Mobile add FAB + type-picker fan (≤640px) -->
+  <div class="m-fab-scrim" id="m-fab-scrim"></div>
+  <div class="m-fab-menu" id="m-fab-menu" role="menu" aria-label="Añadir" hidden>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="activity">
+      <span class="m-fab-item-glyph">◈</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.activity">Actividad</span>
+        <span class="m-fab-item-ctx" id="m-fab-ctx-activity"></span>
+      </span>
+    </button>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="expense">
+      <span class="m-fab-item-glyph">⊜</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.expense">Gasto</span>
+        <span class="m-fab-item-ctx" id="m-fab-ctx-expense"></span>
+      </span>
+    </button>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="stay">
+      <span class="m-fab-item-glyph">⌂</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.stay">Alojamiento</span>
+        <span class="m-fab-item-ctx" id="m-fab-ctx-stay"></span>
+      </span>
+    </button>
+    <button type="button" class="m-fab-item" role="menuitem" data-add="wishlist">
+      <span class="m-fab-item-glyph">☰</span>
+      <span class="m-fab-item-body">
+        <span class="m-fab-item-name" data-i18n="fab.wishlist">A la lista de deseos</span>
+      </span>
+    </button>
+  </div>
+  <button type="button" class="m-fab" id="m-fab" aria-label="Añadir" aria-expanded="false">+</button>
+
+  <!-- Settings sheet (≤640px) — everything moved out of the header -->
+  <div class="settings-sheet" id="settings-sheet" hidden>
+    <div class="settings-sheet-panel" role="dialog" aria-modal="true" aria-label="Ajustes">
+      <div class="settings-sheet-handle"></div>
+      <div class="settings-sheet-titles">
+        <h2 data-i18n="settings.title">Ajustes</h2>
+        <span class="settings-sheet-ver mono" id="settings-version">offline</span>
+        <button type="button" class="settings-sheet-done" id="settings-done" data-i18n="settings.done">Listo</button>
+      </div>
+      <div class="settings-sheet-body" id="settings-sheet-body"></div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="mobile-toast" id="mobile-toast" hidden></div>
 
+  <script src="/js/prefs.js"></script>
   <script src="/js/i18n.js"></script>
   <script src="/js/mobile-nav.js"></script>
   <script src="/js/currency.js"></script>
@@ -574,6 +681,7 @@
   <script src="/js/budget.js"></script>
   <script src="/js/currency-calc.js"></script>
   <script src="/js/wishlist.js"></script>
+  <script src="/js/settings.js"></script>
   <script>
     fetch('/api/version').then(r => r.json()).then(({ commit }) => {
       document.getElementById('app-version').textContent = commit.slice(0, 8);
