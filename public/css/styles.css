@@ -3677,7 +3677,7 @@ body {
   /* Swipe-down-to-dismiss: the grab zones must not also scroll the page,
      and the slide-up entrance animation must not fight the drag transform. */
   .sheet-handle,
-  .sheet--day .sheet-header,
+  .sheet-header,
   .daysheet-titleblock { touch-action: none; }
   .sheet.sheet-dragging { animation: none; will-change: transform; }
   .sheet-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
