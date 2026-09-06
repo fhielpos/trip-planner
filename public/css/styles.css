@@ -3445,226 +3445,163 @@ body {
 }
 
 /* =============================================
-   Budget Insights Page
-   Read-only deeper dive: spend-by-city rows (ticket-stub layout borrowed
-   from the accommodations page, with an inline proportion bar borrowed from
-   the main Budget section's category breakdown) plus a cumulative-spend-vs-
-   pace line chart styled as a flat progress strip — no gridlines or area
-   fill, matching the app's existing restraint.
+   Insights page — 5f (right)
+   A computed pace card (spend/day vs. the budget's daily plan, projected
+   total, and the crossover date), a category stacked bar + rows, a
+   by-country breakdown carrying a future-dated caveat, and a caveated
+   callout for the standout finding. Mobile + desktop — token-driven, so
+   both themes follow automatically.
    ============================================= */
-.bi-main { max-width: 900px; }
-.bi-block { margin-bottom: 2rem; }
+.bi-main { max-width: 720px; }
+.bi-block { margin-bottom: 1.75rem; }
+.bi-block:last-of-type { margin-bottom: 1.25rem; }
 .bi-block .page-section-title { margin-bottom: 0.75rem; }
 
-#bi-city-list {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-card);
-  overflow: hidden;
-}
-.bi-city-item { border-bottom: 1px dashed var(--border-soft); }
-#bi-city-list .bi-city-item:last-child { border-bottom: none; }
-
-.bi-city-row {
-  display: grid;
-  grid-template-columns: auto 1.4fr 1fr auto auto;
-  align-items: center;
-  gap: 0.5rem 1.1rem;
-  padding: 0.65rem 0.9rem;
-  border-left: 3px solid var(--stay-color, var(--border));
+.bi-context {
+  font-size: 11px;
+  color: var(--ink-45);
+  margin: 0 0 1rem;
 }
 
-.bi-city-toggle {
-  background: none;
-  border: none;
-  color: var(--text-3);
-  cursor: pointer;
-  padding: 0.2rem;
-  display: inline-flex;
-  align-items: center;
-  transition: color var(--trans), transform var(--trans);
+/* Pace card */
+.bi-pace-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--hairline-card);
+  border-radius: var(--r-card, 12px);
+  padding: 14px;
 }
-.bi-city-toggle:hover { color: var(--accent); }
-.bi-city-toggle svg { width: 15px; height: 15px; }
-.bi-city-toggle.is-expanded { transform: rotate(90deg); }
-
-.bi-city-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
-.bi-city-name {
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--text-1);
-}
-.bi-city-count { font-size: 0.72rem; color: var(--text-3); }
-.bi-city-track { min-width: 4rem; height: 3px; opacity: 0.85; }
-.bi-city-figure { display: flex; flex-direction: column; gap: 0.15rem; }
-
-.bi-city-breakdown {
-  padding: 0.6rem 0.9rem 0.75rem 2.6rem;
-  background: var(--bg-hover);
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-.bi-cat-row { display: flex; align-items: center; gap: 0.55rem; }
-.bi-cat-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.bi-cat-name { font-size: 0.78rem; color: var(--text-2); flex: 1; min-width: 0; }
-.bi-cat-amt { font-size: 0.78rem; color: var(--text-1); }
-
-@media (max-width: 640px) {
-  .bi-city-row {
-    grid-template-columns: auto 1fr 1fr;
-    grid-template-areas:
-      "toggle main main"
-      ". track track"
-      ". total perday";
-  }
-  .bi-city-toggle { grid-area: toggle; }
-  .bi-city-main   { grid-area: main; }
-  .bi-city-track  { grid-area: track; }
-  .bi-city-figure:nth-of-type(1) { grid-area: total; }
-  .bi-city-figure:nth-of-type(2) { grid-area: perday; }
-  .bi-city-breakdown { padding-left: 0.9rem; }
-}
-
-/* Hero card: leads with "Remaining" (the actionable figure) + the same
-   progress bar the main page's stats grid uses, Budget/Spent as smaller
-   supporting figures, and the "right now" city allowance folded in as a
-   quiet inline line instead of a second competing card. */
-.bi-hero-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--accent);
-  border-radius: var(--radius-lg);
-  padding: 1.1rem 1.25rem 1.25rem;
-  margin-bottom: 1.5rem;
-}
-.bi-hero-label {
-  font-family: var(--font-display);
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.bi-hero-remaining {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 2.1rem;
-  font-weight: 700;
-  color: var(--text-1);
-  line-height: 1.15;
-  margin: 0.1rem 0 0.7rem;
-}
-.bi-hero-progress { margin-bottom: 0.9rem; }
-.bi-hero-sub {
-  display: flex;
-  gap: 1.75rem;
-  padding-bottom: 0.9rem;
-}
-.bi-hero-sub-item { display: flex; flex-direction: column; gap: 0.15rem; }
-.bi-hero-sub-label {
-  font-family: var(--font-display);
-  font-size: 0.6rem;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-.bi-hero-sub-val { font-size: 0.85rem; color: var(--text-2); }
-.bi-hero-allowance {
+.bi-pace-label { display: block; font-size: 10.5px; color: var(--ink-55); }
+.bi-pace-headline {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
-  padding-top: 0.85rem;
-  border-top: 1px dashed var(--border-soft);
-  font-size: 0.85rem;
-  color: var(--text-2);
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
-.bi-hero-city-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transform: translateY(-1px);
+.bi-pace-figure { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.bi-pace-sub { font-size: 12.5px; color: var(--ink-55); }
+.bi-pace-bar {
+  position: relative;
+  height: 6px;
+  margin-top: 14px;
+  border-radius: 3px;
+  background: var(--hairline-soft);
+  overflow: hidden;
 }
-.bi-hero-allowance-amt { font-weight: 600; color: var(--accent); }
-.bi-hero-allowance-text.budget-val--negative .bi-hero-allowance-amt { color: var(--c-danger); }
-
-/* Trend chart */
-.bi-trend-svg {
-  width: 100%;
-  height: auto;
-  display: block;
+.bi-pace-bar-fill { height: 100%; border-radius: 3px; }
+.bi-pace-bar-tick {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  width: 1px;
+  height: 14px;
+  background: var(--ink-55);
 }
-.bi-trend-danger-zone {
-  fill: var(--c-danger);
-  opacity: 0.07;
-}
-.bi-trend-cap {
-  stroke: var(--text-2);
-  stroke-width: 1.5;
-}
-.bi-trend-cap-label {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 9px;
-  fill: var(--text-2);
-}
-.bi-trend-pace {
-  stroke: var(--text-3);
-  stroke-width: 1.5;
-  stroke-dasharray: 5 4;
-}
-.bi-trend-projection {
-  stroke: var(--c-activity);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 1.5 4;
-  opacity: 0.85;
-}
-.bi-trend-projection-capped {
-  font-size: 11px;
-  fill: var(--c-activity);
-  opacity: 0.9;
-}
-.bi-trend-actual {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.bi-trend-pin { font-size: 15px; }
-.bi-trend-axis-label {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 9px;
-  fill: var(--text-3);
-}
-.bi-trend-legend {
+.bi-pace-row {
   display: flex;
-  gap: 1.25rem;
-  margin-top: 0.5rem;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--ink-45);
 }
-.bi-legend-item {
+.bi-pace-consequence {
+  margin: 11px 0 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--hairline);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink-70);
+  text-wrap: pretty;
+}
+.bi-pace-date { color: var(--warning); }
+.bi-pace-deriv { margin: 8px 0 0; font-size: 10.5px; color: var(--ink-45); }
+
+/* Category stacked bar + rows */
+.bi-stack {
+  display: flex;
+  height: 11px;
+  gap: 1px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bi-stack-seg { min-width: 2px; }
+.bi-brk-list { margin-top: 13px; }
+.bi-brk-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  color: var(--text-2);
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--hairline-soft);
 }
-.bi-legend-swatch {
-  width: 16px;
-  height: 2px;
-  border-radius: 1px;
+.bi-brk-row:first-child { border-top: none; }
+.bi-brk-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.bi-brk-name { flex: 1; min-width: 0; font-size: 14px; color: var(--ink); }
+.bi-brk-pct { flex: none; width: 52px; text-align: right; font-size: 11.5px; color: var(--ink-45); }
+.bi-brk-amt { flex: none; width: 76px; text-align: right; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+
+/* By country */
+.bi-country-title { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bi-country-caveat {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--warning);
 }
-.bi-legend-swatch--actual { background: var(--accent); }
-.bi-legend-swatch--pace {
-  background: repeating-linear-gradient(to right, var(--text-3) 0 4px, transparent 4px 7px);
+#bi-countries { display: flex; flex-direction: column; gap: 9px; }
+.bi-country-row { display: flex; align-items: center; gap: 10px; }
+.bi-country-flag { flex: none; font-size: 14px; line-height: 1; }
+.bi-country-bar {
+  flex: 1;
+  min-width: 0;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--hairline-card);
+  overflow: hidden;
 }
-.bi-legend-swatch--projection {
-  background: repeating-linear-gradient(to right, var(--c-activity) 0 2px, transparent 2px 4.5px);
-  opacity: 0.85;
+.bi-country-bar-fill { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+.bi-country-amt { flex: none; width: 76px; text-align: right; font-size: 13px; font-weight: 700; color: var(--ink); }
+
+/* Callout */
+.bi-callout {
+  margin-top: 20px;
+  padding: 13px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 11px;
+  background: color-mix(in oklab, var(--warning) 6%, transparent);
+  border: 1px solid color-mix(in oklab, var(--warning) 32%, transparent);
+}
+.bi-callout-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--warning);
+  background: color-mix(in oklab, var(--warning) 16%, transparent);
+  border: 1px solid color-mix(in oklab, var(--warning) 50%, transparent);
+}
+.bi-callout-text {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink-70);
+  text-wrap: pretty;
+}
+
+@media (min-width: 641px) {
+  .bi-pace-card { padding: 18px 20px; }
+  .bi-pace-figure { font-size: 32px; }
+  .bi-pace-sub { font-size: 13px; }
 }
 
 /* =============================================

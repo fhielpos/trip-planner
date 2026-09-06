@@ -419,5 +419,21 @@
   "journey.bookend.arrive": "llegada {date}",
   "journey.empty": "Sin tramos ni estadías para mostrar.",
   "journey.issue.overlapSame": "Solape · dos reservas de {city} · {range}",
-  "journey.banner.conflicts": "Alojamiento cargado · revisar {n} conflicto(s) de fechas"
+  "journey.banner.conflicts": "Alojamiento cargado · revisar {n} conflicto(s) de fechas",
+  "budgetInsights.meta.loaded": "{amount} cargado",
+  "budgetInsights.byCountry": "Por país",
+  "budgetInsights.country.futureCaveat": "incluye gastos con fecha futura",
+  "budgetInsights.pace.label": "Ritmo",
+  "budgetInsights.pace.perDayPlan": "por día · {pct}% del plan",
+  "budgetInsights.pace.planPerDay": "plan {amount}/día",
+  "budgetInsights.pace.projection": "proyección {amount}",
+  "budgetInsights.pace.crossover": "A este ritmo agotás el saldo alrededor del {date}, en {city}.",
+  "budgetInsights.pace.crossoverNoCity": "A este ritmo agotás el saldo alrededor del {date}.",
+  "budgetInsights.pace.crossoverSafe": "A este ritmo el saldo alcanza hasta el final del viaje.",
+  "budgetInsights.pace.exhausted": "El gasto cargado ya superó el presupuesto.",
+  "budgetInsights.pace.derivation": "{spent} en {days} días · plan {plan} / {total} días",
+  "budgetInsights.callout.text": "{country} es el {pct}% del gasto cargado, con {nights} de {totalNights} noches{future}.",
+  "budgetInsights.callout.future": " — {frac} con fecha futura ({range})",
+  "budgetInsights.callout.fracMost": "la mayoría",
+  "budgetInsights.callout.fracSome": "una parte"
 }
