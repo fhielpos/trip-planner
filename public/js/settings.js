@@ -212,6 +212,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // click on the scrim (the sheet element itself), not the panel
     if (e.target.id === 'settings-sheet') closeSettingsSheet();
   });
+
+  const settingsPanel = document.querySelector('#settings-sheet .settings-sheet-panel');
+  if (settingsPanel && typeof attachSheetDrag === 'function') {
+    attachSheetDrag(settingsPanel, {
+      zoneSelector: '.settings-sheet-handle, .settings-sheet-titles',
+      onClose: closeSettingsSheet,
+    });
+  }
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && _settingsOpen) closeSettingsSheet();
   });
