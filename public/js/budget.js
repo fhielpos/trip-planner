@@ -269,28 +269,36 @@ function _renderStats() {
   const remClass  = s.remaining >= 0 ? 'positive' : 'negative';
 
   if (isMobileViewport()) {
-    // Handoff 2b: one hero card — remaining is the number that changes a
-    // decision; budget and spent are context. Category breakdown moves to
-    // Insights (the "Por categoría" chip).
+    // Aligns with redesign/07-budget.png: three stat cards (budget / spent /
+    // remaining), then a proportional progress track. The by-category
+    // breakdown renders inline below (_renderCategories, no longer hidden on
+    // the budget tab); the currency calculator stays reachable via a chip.
     const pct = Math.max(0, Math.min(100, s.pctSpent));
     el.innerHTML = `
-      <div class="mbudget-hero">
-        <span class="label mbudget-hero-lbl">${t('budget.stats.remaining')} · ${t('budget.stats.nDays', { n: s.daysRemaining })}</span>
-        <div class="mbudget-hero-figure">
-          <span class="mono mbudget-hero-big mbudget-hero-big--${remClass}">${formatCurrency(s.remaining)}</span>
-          ${s.dailyBudgetLeft !== null ? `<span class="mono mbudget-hero-perday">${t('budget.stats.perDay', { amount: formatCurrency(s.dailyBudgetLeft) })}</span>` : ''}
+      <div class="budget-stats-main mbudget-stats-3">
+        <div class="budget-stat-card budget-stat-card--accent">
+          <span class="budget-stat-label">${t('budget.stats.budget')}</span>
+          <span class="mono budget-stat-val">${formatCurrency(s.initialBudget)}</span>
         </div>
-        <div class="mbudget-hero-bar"><span style="width:${pct.toFixed(1)}%"></span></div>
-        <div class="mono mbudget-hero-row">
-          <span>${t('budget.stats.spentAmount', { amount: formatCurrency(s.totalSpent) })}</span>
-          <span>${t('budget.stats.totalAmount', { amount: formatCurrency(s.initialBudget) })}</span>
+        <div class="budget-stat-card">
+          <span class="budget-stat-label">${t('budget.stats.spent')}</span>
+          <span class="mono budget-stat-val">${formatCurrency(s.totalSpent)}</span>
+        </div>
+        <div class="budget-stat-card budget-stat-card--${remClass}">
+          <span class="budget-stat-label">${t('budget.stats.remaining')}</span>
+          <span class="mono budget-stat-val budget-val--${remClass}">${formatCurrency(s.remaining)}</span>
         </div>
       </div>
-      <div class="mbudget-chips">
-        <button type="button" class="mbudget-chip" id="mbudget-chip-cats"><span>${t('budgetInsights.byCategory')}</span> ›</button>
+      <div class="budget-progress-track mbudget-progress">
+        <div class="budget-progress-fill" style="width:${pct.toFixed(1)}%"></div>
+      </div>
+      <div class="mono mbudget-progress-row">
+        <span>${s.dailyBudgetLeft !== null ? t('budget.stats.perDay', { amount: formatCurrency(s.dailyBudgetLeft) }) : ''}</span>
+        <span>${t('budget.stats.nDays', { n: s.daysRemaining })}</span>
+      </div>
+      <div class="mbudget-chips mbudget-chips--1">
         <button type="button" class="mbudget-chip" id="mbudget-chip-calc"><span>${t('budget.calc.title')}</span> ›</button>
       </div>`;
-    el.querySelector('#mbudget-chip-cats')?.addEventListener('click', () => { window.location.href = '/budget-insights.html'; });
     el.querySelector('#mbudget-chip-calc')?.addEventListener('click', () => {
       document.getElementById('mbudget-convert-btn')?.click();
     });
