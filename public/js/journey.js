@@ -432,7 +432,6 @@ async function _init() {
     fetch('/api/trip'),
     fetch('/api/accommodations'),
     fetch('/api/flights'),
-    fetch('/api/documents').catch(() => null),
   ]);
   const trip = await tripRes.json();
   const accommodations = await accomRes.json();

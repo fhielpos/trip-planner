@@ -438,7 +438,7 @@ function _slotCell(time, fallbackKey) {
 }
 
 function renderTodayMobileInTrip(section, data, ctx) {
-  const { stay, today, w, lastNight, heroCity, acts, activeDocs, budget } = ctx;
+  const { stay, today, w, lastNight, acts, activeDocs, budget } = ctx;
 
   // ---- hero pill: night N of M ----
   let nightPill = '';
@@ -617,7 +617,7 @@ function renderTodayMobileInTrip(section, data, ctx) {
     <div class="mtoday-hero">
       <div class="mtoday-hero-overlay">
         <span class="mtoday-hero-flag">${stay ? countryFlag(stay.country) : ''}</span>
-        <span class="mtoday-city">${_escHtml(heroCity.replace(/^\S+\s/, ''))}</span>
+        <span class="mtoday-city">${_escHtml(stay ? stay.city : t('today.transit'))}</span>
         ${nightPill ? `<span class="label mtoday-hero-pill">${nightPill}</span>` : ''}
       </div>
     </div>
