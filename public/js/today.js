@@ -533,8 +533,11 @@ function renderTodayMobileInTrip(section, data, ctx) {
 
   // ---- today's budget ----
   let budgetCard = '';
-  if (budget && budget.dayAllowanceUSD) {
-    const pct = Math.max(0, Math.min(100, Math.round((budget.spentTodayUSD / budget.dayAllowanceUSD) * 100)));
+  if (budget && budget.dayAllowanceUSD != null) {
+    const denom = budget.dayAllowanceUSD;
+    const pct = denom > 0
+      ? Math.max(0, Math.min(100, Math.round((budget.spentTodayUSD / denom) * 100)))
+      : 100;
     budgetCard = `
       <div class="mtoday-card mtoday-budget">
         <div class="mtoday-card-head">

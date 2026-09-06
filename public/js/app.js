@@ -687,11 +687,22 @@ function renderPlannerMobile(data) {
     const checkOutStay = (data.accommodations || []).find(a => a.check_out === d.date);
 
     const actTitle = m => `${_escHtml(m.title)}${m.startTime ? ` <span class="mono mcal-time">${_escHtml(formatTime24(m.startTime))}</span>` : ''}`;
+
+    const checkParts = [];
+    if (d.isFirstOfStay) checkParts.push(t('cal.checkinCity', { city: stay.city }));
+    if (checkOutStay) checkParts.push(t('cal.checkoutCity', { city: checkOutStay.city }));
+
+    // Title priority: activity → same-day flight/train → the check-in/out
+    // itself (an arrival/departure day is not a "free day") → free day.
     let titleHtml, freeDay = false;
     if (acts[0]) {
       titleHtml = actTitle(acts[0]);
     } else if (travelEvents[0]) {
       titleHtml = _escHtml(travelEvents[0].title);
+    } else if (checkParts.length) {
+      const line = checkParts.join(' · ');
+      titleHtml = _escHtml(line.charAt(0).toUpperCase() + line.slice(1));
+      checkParts.length = 0;
     } else {
       titleHtml = t('today.freeDay');
       freeDay = true;
@@ -701,10 +712,6 @@ function renderPlannerMobile(data) {
       ...(acts[0] ? travelEvents.map(e => e.title) : travelEvents.slice(1).map(e => e.title)),
     ];
     const sub = subParts.length ? subParts.join(' · ') : null;
-
-    const checkParts = [];
-    if (d.isFirstOfStay) checkParts.push(t('cal.checkinCity', { city: stay.city }));
-    if (checkOutStay) checkParts.push(t('cal.checkoutCity', { city: checkOutStay.city }));
 
     const isToday = d.date === today;
     const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--ink-45)';
