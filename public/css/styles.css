@@ -1417,6 +1417,12 @@ body {
 .map-popup-sub     { font-family: var(--font-label); font-size: 0.70rem; color: var(--ink-55); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
 
 /* Map redesign — tile tint + control restyle */
+.leaflet-container {
+  /* Keep Leaflet's internal z-indexes (panes/controls, up to ~1001) from
+     painting over page overlays — the settings sheet and the day/stay
+     bottom sheet both sit at a far lower z-index. */
+  isolation: isolate;
+}
 .leaflet-tile-pane {
   filter: sepia(0.28) saturate(0.85) hue-rotate(-8deg) brightness(1.02);
 }
