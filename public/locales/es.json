@@ -435,5 +435,21 @@
   "budgetInsights.callout.text": "{country} es el {pct}% del gasto cargado, con {nights} de {totalNights} noches{future}.",
   "budgetInsights.callout.future": " — {frac} con fecha futura ({range})",
   "budgetInsights.callout.fracMost": "la mayoría",
-  "budgetInsights.callout.fracSome": "una parte"
+  "budgetInsights.callout.fracSome": "una parte",
+  "map.segMap": "Mapa",
+  "map.segRoute": "Ruta",
+  "map.segDetails": "Detalles",
+  "map.upcomingLegs": "Próximos tramos",
+  "map.seeCount": "Ver los {n}",
+  "map.noSchedule": "sin horario cargado",
+  "map.clusterStays": "{n} estadías",
+  "map.todayMarker": "hoy",
+  "map.chainComplete": "Cadena completa · {stays} estadías, {legs} tramos",
+  "map.nightsCount": "{n} noches",
+  "map.stayIndex": "estadía {i}/{total}",
+  "map.staySheetHere": "Acá",
+  "map.staySheetDay": "Ver el día",
+  "map.staySheetPlaces": "{n} lugares",
+  "map.staySheetRoute": "Ruta",
+  "map.trainLower": "tren"
 }

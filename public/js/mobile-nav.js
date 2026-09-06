@@ -350,6 +350,7 @@ function openDaySheet(date, data) {
   data = data || (typeof tripData !== 'undefined' ? tripData : null);
   if (!data || !data.trip) return;
 
+  sheet.classList.remove('sheet--stay');
   sheet.classList.add('sheet--day');
   const titleEl = document.getElementById('day-sheet-title');
   if (titleEl) { titleEl.textContent = ''; titleEl.style.color = ''; }
@@ -399,7 +400,7 @@ function openDaySheet(date, data) {
 function closeSheet() {
   const sheet = document.getElementById('day-sheet');
   const backdrop = document.getElementById('day-sheet-backdrop');
-  if (sheet) { sheet.hidden = true; sheet.classList.remove('sheet--day'); }
+  if (sheet) { sheet.hidden = true; sheet.classList.remove('sheet--day', 'sheet--stay'); }
   if (backdrop) backdrop.hidden = true;
 }
 

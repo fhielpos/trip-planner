@@ -50,6 +50,8 @@
   --map-base:       #14181c;
   --map-graticule:  rgba(212, 168, 124, .045);
   --map-land:       rgba(94, 106, 94, .2);
+  --map-flight-line: #d4a87c;
+  --map-train-line:  #86c9a4;
 
   /* elevation */
   --shadow-fab:     0 6px 22px rgba(0, 0, 0, .5);
@@ -104,6 +106,8 @@
   --map-base:       #e8dfd0;
   --map-graticule:  rgba(156, 81, 51, .07);
   --map-land:       rgba(150, 158, 132, .28);
+  --map-flight-line: #a8663b;
+  --map-train-line:  #3f7d5c;
 
   --shadow-fab:     0 6px 18px rgba(74, 52, 38, .22);
   --glow-current:   0 0 14px rgba(180, 98, 63, .35);
@@ -4217,41 +4221,156 @@ body {
 @media (max-width: 640px) {
   /* The back button is redundant now the tab bar owns navigation */
   body[data-mobile-tab="map"] .mmap-header { display: none; }
-  body[data-mobile-tab="map"] .stays-section-header { padding: 14px 16px 10px; }
+  body[data-mobile-tab="map"] .stays-section-header { padding: 14px 16px 6px; }
   body[data-mobile-tab="map"] .map-section-title { font-family: var(--font-label); text-transform: uppercase; letter-spacing: var(--label-tracking); font-weight: 600; font-size: 12px; color: var(--ink); margin: 0; }
-  body[data-mobile-tab="map"] .map-section-links { display: flex; gap: 6px; }
-  body[data-mobile-tab="map"] .map-section-links .btn-secondary {
-    font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
-    font-size: 10px; padding: 6px 9px; border: 1px solid var(--accent-tint); border-radius: 7px;
-    color: var(--accent-ink); background: none;
+  /* the segmented control replaces the desktop text links */
+  body[data-mobile-tab="map"] .map-section-links { display: none; }
+
+  /* ---- segmented control: Mapa · Ruta · Detalles ---- */
+  .mmap-seg { display: flex; margin: 0 14px 2px; }
+  .mmap-seg-item {
+    flex: 1; text-align: center; padding: 8px 6px;
+    font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em;
+    font-weight: 600; font-size: 10.5px; text-decoration: none;
+    color: var(--ink-55); background: none;
+    border: 1px solid var(--hairline-card); border-left-width: 0;
   }
+  .mmap-seg-item:first-child { border-left-width: 1px; border-radius: var(--r-chip) 0 0 var(--r-chip); }
+  .mmap-seg-item:last-child { border-radius: 0 var(--r-chip) var(--r-chip) 0; }
+  .mmap-seg-item.is-active { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-ink); }
+
   /* windowed, not full-bleed — the page scrolls beneath it */
   body[data-mobile-tab="map"] #trip-map {
-    height: 330px; margin: 0 14px; border-radius: var(--r-card);
+    height: 330px; margin: 6px 14px 0; border-radius: var(--r-card);
     border: 1px solid var(--hairline-card); overflow: hidden;
+    background: var(--map-base);
   }
   body[data-mobile-tab="map"] .leaflet-control-zoom a {
     width: 34px !important; height: 34px !important; line-height: 34px !important; font-size: 18px !important;
   }
+
+  /* ---- stay circles + clusters (Leaflet divIcons) ---- */
+  .map-stay-circle {
+    border-radius: 50%;
+    background: rgba(212, 168, 124, .18);
+    border: 1.5px solid rgba(212, 168, 124, .6);
+    box-sizing: border-box;
+  }
+  .map-stay-circle--current {
+    background: rgba(212, 168, 124, .32);
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 16px rgba(212, 168, 124, .5);
+  }
+  .map-stay-circle--past { opacity: .5; }
+  .map-cluster {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(212, 168, 124, .22);
+    border: 1.5px solid rgba(212, 168, 124, .7);
+    position: relative;
+  }
+  .map-cluster--past { opacity: .55; }
+  .map-cluster-count { font-size: 11px; font-weight: 700; color: var(--ink); }
+  .map-cluster-label {
+    position: absolute; top: 36px; left: 50%; transform: translateX(-50%);
+    white-space: nowrap; font-size: 10px; color: var(--ink-55);
+  }
+
+  /* ---- legend: two chip rows below the map ---- */
   body[data-mobile-tab="map"] .map-filters {
-    display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 7px; padding: 12px 14px 0; margin: 0;
   }
-  body[data-mobile-tab="map"] .map-filter,
-  body[data-mobile-tab="map"] .map-filters button,
-  body[data-mobile-tab="map"] .map-filters .legend-item {
+  body[data-mobile-tab="map"] .map-filter-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  body[data-mobile-tab="map"] .map-filter-chip {
+    display: flex; align-items: center; gap: 7px;
     font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
-    font-size: 10px; padding: 6px 10px; border: 1px solid var(--hairline-card);
-    border-radius: var(--r-pill); color: var(--ink-55);
+    font-size: 10.5px; padding: 7px 11px; border-radius: var(--r-pill);
+    border: 1px solid var(--hairline-card); color: var(--ink-55); background: none;
   }
-  .mmap-leg-card { border-radius: 10px; border: 1px solid var(--border); padding: 9px 11px; margin-bottom: 8px; }
-  .mmap-leg-card--flight { border-color: var(--c-flight-border); background: var(--c-flight-bg); }
-  .mmap-leg-card--train { border-color: var(--c-train-border); background: var(--c-train-bg); }
-  .mmap-leg-top { display: flex; justify-content: space-between; font-size: 9px; color: var(--text-3); margin-bottom: 2px; }
+  body[data-mobile-tab="map"] .map-filter-row:first-child .map-filter-chip.active {
+    border-color: var(--accent); color: var(--accent-ink); background: var(--accent-tint);
+  }
+  body[data-mobile-tab="map"] .map-filter-row + .map-filter-row .map-filter-chip {
+    border-radius: var(--r-chip); padding: 6px 11px;
+  }
+  body[data-mobile-tab="map"] .map-filter-row + .map-filter-row .map-filter-chip.active {
+    border-color: var(--accent); color: var(--accent-ink); background: var(--accent-tint);
+  }
+  body[data-mobile-tab="map"] .map-filter-chip:not(.active) { opacity: .55; }
+  body[data-mobile-tab="map"] .map-filter-swatch-line--train { color: var(--map-train-line); }
+  body[data-mobile-tab="map"] .map-filter-chip[data-value="train"].active {
+    border-color: var(--map-train-line); color: var(--map-train-line); background: rgba(134, 201, 164, .1);
+  }
+
+  /* ---- stays overlap/gap timeline (4a) ---- */
+  body[data-mobile-tab="map"] #stays-timeline,
+  body[data-mobile-tab="map"] #stays-issues { display: block; }
+  body[data-mobile-tab="map"] #stays-timeline { border: 0; border-radius: 0; overflow: visible; margin: 20px 14px 0; }
+  body[data-mobile-tab="map"] #stays-issues { margin: 0 14px; }
+  .mmap-tl-card { padding: 13px 12px; background: var(--bg-raised); border: 1px solid var(--hairline); border-radius: var(--r-card); }
+  .mmap-tl-bar { display: flex; align-items: center; gap: 2px; height: 20px; }
+  .mmap-tl-seg { all: unset; cursor: pointer; height: 9px; border-radius: 0; flex-basis: 0; min-width: 3px; }
+  .mmap-tl-bar > .mmap-tl-seg:first-child { border-radius: 2px 0 0 2px; }
+  .mmap-tl-bar > .mmap-tl-seg:last-child { border-radius: 0 2px 2px 0; }
+  .mmap-tl-seg--past { background: rgba(212, 168, 124, .5); }
+  .mmap-tl-seg--future { background: rgba(212, 168, 124, .28); }
+  .mmap-tl-seg--current { height: 14px; background: var(--accent); box-shadow: 0 0 10px rgba(212, 168, 124, .45); }
+  .mmap-tl-gap { height: 9px; flex-basis: 0; min-width: 3px; background: repeating-linear-gradient(90deg, var(--alert) 0 3px, transparent 3px 6px); opacity: .5; }
+  .mmap-tl-caption { position: relative; height: 15px; margin-top: 8px; }
+  .mmap-tl-cap-start { position: absolute; left: 0; font-size: 10.5px; color: var(--ink-45); }
+  .mmap-tl-cap-end { position: absolute; right: 0; font-size: 10.5px; color: var(--ink-45); }
+  .mmap-tl-cap-today { position: absolute; transform: translateX(-50%); font-size: 10.5px; color: var(--accent-ink); }
+  .mmap-tl-summary { display: flex; align-items: center; gap: 9px; margin-top: 10px; padding: 11px 12px; background: var(--bg-raised); border: 1px solid var(--hairline); border-radius: var(--r-card); font-size: 12.5px; color: var(--ink-70); }
+  .mmap-tl-summary-mark { flex: none; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; }
+  .mmap-tl-summary.is-ok .mmap-tl-summary-mark { color: var(--positive); background: rgba(134, 201, 164, .14); border: 1px solid rgba(134, 201, 164, .5); }
+  .mmap-tl-summary.is-alert .mmap-tl-summary-mark { color: var(--alert); background: rgba(227, 154, 164, .14); border: 1px solid rgba(227, 154, 164, .5); }
+
+  /* ---- Próximos tramos leg cards (4a) ---- */
+  #mmap-itinerary { margin: 20px 14px 0; }
+  .mmap-leg-card { border-radius: var(--r-row); border: 1px solid var(--hairline); border-left: 2px solid var(--accent); background: var(--bg-raised); padding: 11px 12px; margin-bottom: 8px; }
+  .mmap-leg-card--train { border-left-color: var(--map-train-line); }
+  .mmap-leg-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-45); margin-bottom: 3px; }
   .mmap-leg-route { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
-  .mmap-leg-route-text { font-family: var(--font-display); font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .mmap-leg-card--flight .mmap-leg-route-text { color: var(--c-flight); }
-  .mmap-leg-card--train .mmap-leg-route-text { color: var(--c-train); }
-  .mmap-leg-detail { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+  .mmap-leg-route-text { font-family: var(--font-mono); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+  .mmap-leg-detail { font-size: 11px; color: var(--ink-45); margin-top: 3px; }
+
+  /* ---- stay sheet on pin / segment tap ---- */
+  .sheet--stay:not([hidden]) { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  .sheet--stay .sheet-title { display: none; }
+  .mmap-staysheet-head { display: flex; align-items: center; gap: 9px; }
+  .mmap-staysheet-circle { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; background: rgba(212, 168, 124, .18); border: 1.5px solid rgba(212, 168, 124, .6); }
+  .mmap-staysheet-city { font-size: 16px; font-weight: 600; color: var(--ink); }
+  .mmap-staysheet-here { flex: none; margin-left: auto; font-size: 9.5px; padding: 3px 6px; border-radius: 4px; background: var(--accent); color: #181614; }
+  .mmap-staysheet-meta { font-size: 11.5px; color: var(--ink-55); margin-top: 9px; }
+  .mmap-staysheet-actions { display: flex; gap: 7px; margin-top: 14px; }
+  .mmap-staysheet-act { flex: 1; text-align: center; text-decoration: none; padding: 11px 6px; border: 1px solid var(--hairline-card); border-radius: var(--r-chip); font-family: var(--font-label); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; font-size: 10px; color: var(--accent-ink); background: none; cursor: pointer; }
+
+  /* Per-theme colour: the 4a spec's literal tan tints are dark-theme values;
+     remap the fills/rings to the light accent so they stay legible on the
+     light map base. */
+  [data-theme="terracotta"] .map-stay-circle,
+  [data-theme="light"] .map-stay-circle,
+  [data-theme="terracotta"] .map-cluster,
+  [data-theme="light"] .map-cluster,
+  [data-theme="terracotta"] .mmap-staysheet-circle,
+  [data-theme="light"] .mmap-staysheet-circle {
+    background: var(--accent-tint); border-color: var(--accent);
+  }
+  [data-theme="terracotta"] .map-stay-circle--current,
+  [data-theme="light"] .map-stay-circle--current {
+    background: var(--accent-wash); box-shadow: var(--glow-current);
+  }
+  [data-theme="terracotta"] .mmap-tl-seg--past,
+  [data-theme="light"] .mmap-tl-seg--past { background: var(--accent); opacity: .5; }
+  [data-theme="terracotta"] .mmap-tl-seg--future,
+  [data-theme="light"] .mmap-tl-seg--future { background: var(--accent); opacity: .28; }
+  [data-theme="terracotta"] .mmap-tl-seg--current,
+  [data-theme="light"] .mmap-tl-seg--current { box-shadow: var(--glow-current); }
+}
+
+/* Segmented control + mobile-only Mapa elements never show on desktop */
+@media (min-width: 641px) {
+  .mmap-seg { display: none; }
 }
 
 /* Mobile Presupuesto tab — 3-card stats + bottom-sheet expense form */

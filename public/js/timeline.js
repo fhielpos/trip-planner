@@ -64,6 +64,13 @@ function renderStaysTimeline(data) {
 
   const { overlaps, gaps } = computeStayIssues(stays, rangeStart, rangeEnd);
 
+  // Mobile Mapa tab (4a) — a compact proportional segment bar instead of
+  // the desktop lane layout.
+  if (typeof isMobileViewport === 'function' && isMobileViewport()) {
+    _renderMobileStaysTimeline(track, issues, { data, stays, rangeStart, rangeEnd, totalDays, today, overlaps, gaps });
+    return;
+  }
+
   // Month ticks
   const axis = document.createElement('div');
   axis.className = 'tl-axis';
@@ -166,4 +173,74 @@ function renderStaysTimeline(data) {
     li.textContent = t('stays.gap', { start: formatShort(g.start), end: formatShort(g.end), n: _nights(g.start, g.end) });
     issues.appendChild(li);
   }
+}
+
+// 4a stays overlap/gap timeline — proportional flex segments, one per stay,
+// with gap spacers where nothing is booked. Everything computed from data.
+function _renderMobileStaysTimeline(track, issues, ctx) {
+  const { data, stays, rangeStart, rangeEnd, today, overlaps, gaps } = ctx;
+
+  const bar = document.createElement('div');
+  bar.className = 'mmap-tl-bar';
+
+  let cursor = rangeStart;
+  for (const s of stays) {
+    if (s.check_in > cursor) {
+      const gap = document.createElement('span');
+      gap.className = 'mmap-tl-gap';
+      gap.style.flexGrow = String(Math.max(1, _nights(cursor, s.check_in)));
+      bar.appendChild(gap);
+    }
+    const seg = document.createElement('button');
+    seg.type = 'button';
+    const n = _nights(s.check_in, s.check_out);
+    const isPast = s.check_out <= today;
+    const isCurrent = s.check_in <= today && s.check_out > today;
+    seg.className = 'mmap-tl-seg'
+      + (isCurrent ? ' mmap-tl-seg--current' : isPast ? ' mmap-tl-seg--past' : ' mmap-tl-seg--future');
+    seg.style.flexGrow = String(Math.max(1, n));
+    seg.title = `${s.city} · ${formatShort(s.check_in)} – ${formatShort(s.check_out)} · ${n}n`;
+    seg.addEventListener('click', () => {
+      if (typeof openStaySheet === 'function') openStaySheet(s, data.accommodations);
+    });
+    bar.appendChild(seg);
+    if (s.check_out > cursor) cursor = s.check_out;
+  }
+  if (cursor < rangeEnd) {
+    const gap = document.createElement('span');
+    gap.className = 'mmap-tl-gap';
+    gap.style.flexGrow = String(Math.max(1, _nights(cursor, rangeEnd)));
+    bar.appendChild(gap);
+  }
+
+  const caption = document.createElement('div');
+  caption.className = 'mmap-tl-caption';
+  const elapsed = Math.min(100, Math.max(0, (_nights(rangeStart, today) / _nights(rangeStart, rangeEnd)) * 100));
+  caption.innerHTML =
+    `<span class="mono mmap-tl-cap-start">${fmtDate(rangeStart, { year: false })}</span>`
+    + `<span class="label mono mmap-tl-cap-today" style="left:${elapsed}%">${t('map.todayMarker')}</span>`
+    + `<span class="mono mmap-tl-cap-end">${fmtDate(rangeEnd, { year: false })}</span>`;
+
+  const card = document.createElement('div');
+  card.className = 'mmap-tl-card';
+  card.appendChild(bar);
+  card.appendChild(caption);
+  track.appendChild(card);
+
+  const legCount = (data.flights || []).length + (data.trains || []).length;
+  const summary = document.createElement('div');
+  const clean = !overlaps.length && !gaps.length;
+  summary.className = 'mmap-tl-summary' + (clean ? ' is-ok' : ' is-alert');
+  let msg;
+  if (clean) {
+    msg = t('map.chainComplete', { stays: stays.length, legs: legCount });
+  } else if (gaps.length) {
+    const g = gaps[0];
+    msg = t('stays.gap', { start: formatShort(g.start), end: formatShort(g.end), n: _nights(g.start, g.end) });
+  } else {
+    const o = overlaps[0];
+    msg = t('stays.overlap', { a: o.a.city, b: o.b.city, start: formatShort(o.start), end: formatShort(o.end), n: _nights(o.start, o.end) });
+  }
+  summary.innerHTML = `<span class="mmap-tl-summary-mark">${clean ? '✓' : '!'}</span><span class="mmap-tl-summary-text">${_escHtml(msg)}</span>`;
+  issues.appendChild(summary);
 }
