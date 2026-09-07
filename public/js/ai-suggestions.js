@@ -15,6 +15,7 @@
 
 const AI_CATS = ['sightseeing', 'culture', 'outdoors', 'food', 'nightlife', 'shopping', 'daytrip'];
 const AI_CATS_LS_KEY = 'tp_ai_categories';
+const AI_ADV_LS_KEY = 'tp_ai_advanced_open';
 
 // Category → dot colour token for the redesigned (5e) result cards.
 const AI_CAT_DOT = {
@@ -48,6 +49,20 @@ function _aiDismissedSet(date) {
   return _aiDismissed.get(date);
 }
 
+// Active free-text "advanced" brief, per date — session-only. When set it
+// replaces the category chips: the model is steered by the text and no
+// local category filter is applied. One brief per day (server-enforced).
+const _aiBrief = new Map(); // dateStr -> string
+
+// Whether the collapsible Advanced row is expanded — remembered globally,
+// same pattern as the category / lang / theme prefs.
+function _aiAdvOpen() {
+  try { return localStorage.getItem(AI_ADV_LS_KEY) === '1'; } catch { return false; }
+}
+function _aiSetAdvOpen(v) {
+  try { localStorage.setItem(AI_ADV_LS_KEY, v ? '1' : '0'); } catch { /* private mode */ }
+}
+
 // Per-date suggestion state, kept for the whole session. Survives closing
 // the panel, switching days, adding an event, and any DOM re-render — so
 // re-opening a day's panel shows the same pool with zero network. The
@@ -56,7 +71,7 @@ function _aiDismissedSet(date) {
 const _aiCache = new Map(); // dateStr -> { pool: [] | null, refreshesLeft }
 function _aiEntry(date) {
   if (!_aiCache.has(date)) {
-    _aiCache.set(date, { pool: null, refreshesLeft: undefined, error: null, locked: false, lockedUntil: null });
+    _aiCache.set(date, { pool: null, refreshesLeft: undefined, briefsLeft: undefined, error: null, locked: false, lockedUntil: null });
   }
   return _aiCache.get(date);
 }
@@ -157,7 +172,8 @@ function _aiResultsHead(container, date) {
   left.className = 'label ai-results-title';
   left.textContent = '✦ ' + t('aiSuggestions.triggerTitle');
   el.appendChild(left);
-  if (typeof _aiEntry(date).refreshesLeft === 'number' && _aiEntry(date).refreshesLeft > 0) {
+  // "Otra vez" belongs to the chip view — a brief is a one-shot for the day.
+  if (!_aiBrief.get(date) && typeof _aiEntry(date).refreshesLeft === 'number' && _aiEntry(date).refreshesLeft > 0) {
     const again = document.createElement('button');
     again.type = 'button';
     again.className = 'label ai-again';
@@ -334,13 +350,91 @@ function _aiCatChips(container, date) {
   return row;
 }
 
+// The collapsible "Advanced search" row: a free-text brief that steers the
+// model directly, replacing the category chips for that day. One brief per
+// day — the server enforces the quota and the input locks once it's spent.
+function _aiAdvancedRow(container, date) {
+  const brief = _aiBrief.get(date) || '';
+  const briefsLeft = _aiEntry(date).briefsLeft;
+  const usedUp = !brief && briefsLeft === 0;
+  const open = _aiAdvOpen() || Boolean(brief);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'ai-adv' + (open ? ' is-open' : '');
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'ai-adv-toggle';
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  toggle.innerHTML = `<span class="ai-adv-chev">›</span> ${_aiEscHtml(t('aiSuggestions.advanced'))}`;
+  toggle.addEventListener('click', e => {
+    e.stopPropagation();
+    _aiSetAdvOpen(!open);
+    _aiRenderPanel(container, date);
+  });
+  wrap.appendChild(toggle);
+  if (!open) return wrap;
+
+  const body = document.createElement('div');
+  body.className = 'ai-adv-body';
+
+  if (brief) {
+    const active = document.createElement('div');
+    active.className = 'label ai-adv-active';
+    active.textContent = t('aiSuggestions.briefActive', { q: brief });
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'ai-adv-clear';
+    clear.textContent = t('aiSuggestions.briefClear');
+    clear.addEventListener('click', e => {
+      e.stopPropagation();
+      _aiBrief.delete(date);
+      _aiRenderPanel(container, date); // back to chips + pooled view, no network
+    });
+    active.appendChild(clear);
+    body.appendChild(active);
+  } else {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'ai-adv-input';
+    input.maxLength = 120;
+    input.placeholder = t('aiSuggestions.advancedHint');
+    input.disabled = usedUp;
+    const go = document.createElement('button');
+    go.type = 'button';
+    go.className = 'ai-adv-go';
+    go.textContent = t('aiSuggestions.briefSearch');
+    go.disabled = usedUp;
+    const submit = () => {
+      const q = input.value.replace(/\s+/g, ' ').trim();
+      if (!q) return;
+      _aiBrief.set(date, q);
+      _aiFetch(container, date, { brief: q });
+    };
+    go.addEventListener('click', e => { e.stopPropagation(); submit(); });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); }
+    });
+    const field = document.createElement('div');
+    field.className = 'ai-adv-field';
+    field.append(input, go);
+    body.appendChild(field);
+    if (usedUp) body.appendChild(_aiMsgEl(t('aiSuggestions.briefUsedUp')));
+  }
+
+  wrap.appendChild(body);
+  return wrap;
+}
+
 // Render the panel from the per-date cached pool, filtered by the
-// selected chips. No network here.
+// selected chips (or, with a brief active, the brief's steered results).
+// No network here.
 function _aiRenderPanel(container, date) {
   if (!container) return;
   const entry = _aiEntry(date);
   const pool = entry.pool || [];
-  const selected = _aiSelectedCats();
+  const brief = _aiBrief.get(date) || '';
+  const selected = brief ? [] : _aiSelectedCats();
   const refreshesLeft = entry.refreshesLeft;
   const err = entry.error;
   const locked = entry.locked === true;
@@ -359,7 +453,8 @@ function _aiRenderPanel(container, date) {
   } else {
     container.appendChild(_aiEyebrow());
   }
-  container.appendChild(_aiCatChips(container, date));
+  if (!brief) container.appendChild(_aiCatChips(container, date));
+  container.appendChild(_aiAdvancedRow(container, date));
 
   // Drop anything dismissed or already on the calendar. app.js calls
   // refreshOpenAiPanels() after a calendar add, so an accepted suggestion
@@ -378,7 +473,21 @@ function _aiRenderPanel(container, date) {
       container.appendChild(_aiMsgEl(t(err || 'aiSuggestions.empty')));
       // A retry button right in the empty state. With a category filter on,
       // the "get more {cats}" button below already serves this purpose.
-      if (!selected.length) {
+      // In brief mode only offer a retry when the fetch actually failed —
+      // a genuinely empty brief result has already spent the day's search.
+      if (brief) {
+        if (err) {
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'ai-more';
+          retry.textContent = t('aiSuggestions.retry');
+          retry.addEventListener('click', e => {
+            e.stopPropagation();
+            _aiFetch(container, date, { brief });
+          });
+          container.appendChild(retry);
+        }
+      } else if (!selected.length) {
         const retry = document.createElement('button');
         retry.type = 'button';
         retry.className = 'ai-more';
@@ -423,7 +532,7 @@ function _aiRenderPanel(container, date) {
     return;
   }
 
-  if (shown.length && typeof refreshesLeft === 'number' && refreshesLeft > 0) {
+  if (!brief && shown.length && typeof refreshesLeft === 'number' && refreshesLeft > 0) {
     const foot = document.createElement('div');
     foot.className = 'ai-panel-foot';
     const btn = document.createElement('button');
@@ -443,8 +552,8 @@ function _aiRenderPanel(container, date) {
 // Refresh, or "get more". The server still serves from its own cache
 // unless `refresh` (or a `more` for a not-yet-fetched combo), so most
 // calls here don't reach the model. Updates the per-date cache.
-async function _aiFetch(container, date, { refresh = false, more = false } = {}) {
-  const cats = _aiSelectedCats();
+async function _aiFetch(container, date, { refresh = false, more = false, brief = '' } = {}) {
+  const cats = brief ? [] : _aiSelectedCats();
   container.textContent = '';
   container.appendChild(_aiLoadingEl());
 
@@ -452,12 +561,21 @@ async function _aiFetch(container, date, { refresh = false, more = false } = {})
     const res = await fetch(`/api/ai-suggestions?lang=${_aiLang()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, refresh, more, categories: cats }),
+      // `more` lets the server serve a repeat of the same brief from cache.
+      body: JSON.stringify({ date, refresh, more: more || Boolean(brief), categories: cats, brief }),
     });
 
     const entry = _aiEntry(date);
     if (res.status === 429) {
       const body = await res.json().catch(() => ({}));
+      if (body.scope === 'brief') {
+        // The day's one advanced search is already spent (e.g. used on
+        // another device) — drop back to the chip view and mark it used.
+        entry.briefsLeft = 0;
+        _aiBrief.delete(date);
+        _aiRenderPanel(container, date);
+        return;
+      }
       entry.locked = true;
       entry.lockedUntil = body.lockedUntil || null;
       _aiRenderPanel(container, date);
@@ -474,6 +592,7 @@ async function _aiFetch(container, date, { refresh = false, more = false } = {})
     const payload = await res.json();
     entry.pool = Array.isArray(payload.pool) ? payload.pool : [];
     entry.refreshesLeft = payload.refreshesLeft;
+    if (typeof payload.briefsLeft === 'number') entry.briefsLeft = payload.briefsLeft;
     entry.error = null;
     entry.locked = false;
     _aiRenderPanel(container, date);

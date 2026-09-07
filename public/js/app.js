@@ -715,6 +715,15 @@ function renderPlannerMobile(data) {
 
     const isToday = d.date === today;
     const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--ink-45)';
+    // Per-day weather — same source as the desktop day-cards; historical
+    // averages are marked with a leading ~ (matches the mobile Today bar).
+    const wx = stay ? getWeather(stay.id, d.date) : null;
+    const wxHtml = wx
+      ? `<div class="mcal-wx"${wx.source === 'historical' ? ` title="${_escHtml(t('weather.historicalTooltip'))}"` : ''}>
+          <span class="mcal-wx-hi">${wx.source === 'historical' ? '~' : ''}${weatherIcon(wx.code)} ${wx.tempMax}°</span>
+          <span class="mono mcal-wx-lo">${wx.tempMin}°</span>
+        </div>`
+      : '';
     html += `
       <button type="button" class="mcal-row${isToday ? ' is-today' : ''}" data-date="${d.date}" style="border-left-color:${isToday ? 'var(--accent)' : rowColor}">
         <div class="mcal-date"><span class="mono mcal-num">${d.num}</span><span class="label mcal-dow">${d.dow}</span></div>
@@ -723,6 +732,7 @@ function renderPlannerMobile(data) {
           ${sub ? `<div class="mcal-sub">${_escHtml(sub)}</div>` : ''}
           ${checkParts.length ? `<div class="mcal-check"><span class="mcal-check-dot"></span>${_escHtml(checkParts.join(' · '))}</div>` : ''}
         </div>
+        ${wxHtml}
       </button>`;
   }
 
