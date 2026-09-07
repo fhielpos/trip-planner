@@ -873,6 +873,7 @@ app.get('/api/recommendations/:stayId', async (req, res) => {
 // docs/superpowers/specs/2026-09-02-ai-activity-suggestions-design.md.
 
 const AI_MAX_REFRESHES_PER_DAY = 3;
+const AI_MAX_BRIEFS_PER_DAY = 1; // free-text "advanced" searches, separate from refreshes
 const AI_LOCK_MS = 72 * 60 * 60 * 1000;
 const AI_GLOBAL_LIMIT = 50;
 const AI_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -907,9 +908,18 @@ function aiNormCategories(raw) {
 }
 const aiCatKey = cats => cats.length ? cats.join(',') : 'all';
 
-function aiBuildContext(date, lang, categories) {
+// Cache-combo key for a context. A free-text brief gets its own hashed
+// slot so briefs never collide with each other or with category combos;
+// otherwise it's the sorted category list (or 'all').
+function aiComboKey(ctx) {
+  if (ctx.brief) return 'brief:' + crypto.createHash('sha1').update(ctx.brief.toLowerCase()).digest('hex').slice(0, 8);
+  return aiCatKey(ctx.categories);
+}
+
+function aiBuildContext(date, lang, categories, brief) {
   const stay = aiActiveStay(date);
   if (!stay || !stay.city) return null;
+  const cleanBrief = String(brief ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
   const data = readData();
   const cal = data.calendar || [];
   const todayTitles = cal
@@ -922,7 +932,9 @@ function aiBuildContext(date, lang, categories) {
   return {
     date,
     lang: lang === 'es' ? 'es' : 'en',
-    categories: aiNormCategories(categories),
+    // A brief replaces the category chips — ignore any categories sent with it.
+    categories: cleanBrief ? [] : aiNormCategories(categories),
+    brief: cleanBrief,
     city: stay.city,
     country: stay.country || '',
     weekday: AI_WEEKDAYS[d.getUTCDay()],
@@ -943,6 +955,9 @@ function aiBuildPrompt(ctx) {
       : `Nothing is planned that day yet.`,
     ctx.alreadyPlannedTrip.length
       ? `Already planned elsewhere on this trip: ${ctx.alreadyPlannedTrip.join('; ')}`
+      : null,
+    ctx.brief
+      ? `The traveler is specifically looking for: "${ctx.brief}". Prioritise suggestions that match this. A strong nearby alternative is fine if it clearly fits.`
       : null,
     ctx.categories.length
       ? `Focus on these kinds of activities: ${ctx.categories.join(', ')}. One strong pick outside them is fine if it clearly stands out.`
@@ -1147,13 +1162,14 @@ app.post('/api/ai-suggestions', async (req, res) => {
   if (trip && (date < trip.startDate || date > trip.endDate)) {
     return res.status(400).json({ error: 'Date outside trip' });
   }
-  const ctx = aiBuildContext(date, req.query.lang, req.body.categories);
+  const ctx = aiBuildContext(date, req.query.lang, req.body.categories, req.body.brief);
   if (!ctx) return res.status(400).json({ error: 'No city for this date' });
-  const catKey = aiCatKey(ctx.categories);
+  const catKey = aiComboKey(ctx);
 
   const store = aiSuggestionsStore.read();
   store.cache ||= {}; store.refreshes ||= {};
   const dayCache = store.cache[date] || {};
+  const briefsLeftFor = d => Math.max(0, AI_MAX_BRIEFS_PER_DAY - (store.refreshes[d]?.briefCount || 0));
 
   const respondCached = () => res.json({
     pool: aiPoolForDay(store.cache, date),
@@ -1161,6 +1177,7 @@ app.post('/api/ai-suggestions', async (req, res) => {
       const rec = store.refreshes[date];
       return rec ? Math.max(0, AI_MAX_REFRESHES_PER_DAY - rec.count) : AI_MAX_REFRESHES_PER_DAY;
     })(),
+    briefsLeft: briefsLeftFor(date),
     locked: false, lockedUntil: null,
   });
 
@@ -1168,10 +1185,10 @@ app.post('/api/ai-suggestions', async (req, res) => {
   //  - a plain open: any cached combo for the day is enough (the client
   //    filters the pool locally, and a changed plan / category selection
   //    must not trigger a fetch);
-  //  - a "get more" for a specific category combo: only skip the call if
-  //    that combo is already cached.
+  //  - a "get more" for a specific category combo, or a repeat of the same
+  //    brief: only skip the call if that exact combo is already cached.
   if (!refresh) {
-    const enough = more ? dayCache[catKey] : Object.keys(dayCache).length > 0;
+    const enough = (more || ctx.brief) ? dayCache[catKey] : Object.keys(dayCache).length > 0;
     if (enough) return respondCached();
   }
 
@@ -1185,10 +1202,15 @@ app.post('/api/ai-suggestions', async (req, res) => {
     });
   }
 
-  // Per-day refresh gate (only when the caller asked for a refresh — a
-  // first fetch for a new category combo is a plain miss, not a refresh).
+  // Per-day gate. A free-text brief has its own small daily quota, kept
+  // apart from the Refresh button's — reached here only on a cache miss.
   const rec = store.refreshes[date] || (store.refreshes[date] = { count: 0, lockedUntil: null });
-  if (refresh) {
+  if (ctx.brief) {
+    if ((rec.briefCount || 0) >= AI_MAX_BRIEFS_PER_DAY) {
+      aiSuggestionsStore.write(store);
+      return res.status(429).json({ error: 'Advanced search limit reached', scope: 'brief' });
+    }
+  } else if (refresh) {
     if (rec.lockedUntil && Date.parse(rec.lockedUntil) > Date.now()) {
       aiSuggestionsStore.write(store);
       return res.status(429).json({ error: 'Refresh limit reached', scope: 'day', lockedUntil: rec.lockedUntil });
@@ -1212,9 +1234,10 @@ app.post('/api/ai-suggestions', async (req, res) => {
   const after = aiSuggestionsStore.read();
   after.cache ||= {}; after.refreshes ||= {};
   const recAfter = after.refreshes[date] || (after.refreshes[date] = { count: 0, lockedUntil: null });
-  if (refresh) recAfter.count += 1;
+  if (ctx.brief) recAfter.briefCount = (recAfter.briefCount || 0) + 1;
+  else if (refresh) recAfter.count += 1;
   // A Refresh resets the day to the current plan; a plain fetch / "get
-  // more" merges into whatever is already cached, plan unchanged.
+  // more" / brief merges into whatever is already cached, plan unchanged.
   const dayObj = aiCleanDay(after.cache[date], refresh ? ctx.planHash : null);
   dayObj[catKey] = { planHash: ctx.planHash, suggestions, fetchedAt: new Date().toISOString() };
   after.cache[date] = dayObj;
@@ -1223,6 +1246,7 @@ app.post('/api/ai-suggestions', async (req, res) => {
   res.json({
     pool: aiPoolForDay(after.cache, date),
     refreshesLeft: Math.max(0, AI_MAX_REFRESHES_PER_DAY - recAfter.count),
+    briefsLeft: Math.max(0, AI_MAX_BRIEFS_PER_DAY - (recAfter.briefCount || 0)),
     locked: false, lockedUntil: null,
   });
 });
