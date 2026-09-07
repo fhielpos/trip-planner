@@ -1417,6 +1417,12 @@ body {
 .map-popup-sub     { font-family: var(--font-label); font-size: 0.70rem; color: var(--ink-55); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
 
 /* Map redesign — tile tint + control restyle */
+.leaflet-container {
+  /* Keep Leaflet's internal z-indexes (panes/controls, up to ~1001) from
+     painting over page overlays — the settings sheet and the day/stay
+     bottom sheet both sit at a far lower z-index. */
+  isolation: isolate;
+}
 .leaflet-tile-pane {
   filter: sepia(0.28) saturate(0.85) hue-rotate(-8deg) brightness(1.02);
 }
@@ -3668,6 +3674,12 @@ body {
     animation: sheetSlideUp .2s ease;
   }
   .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--ink-45); margin: 0 auto 12px; }
+  /* Swipe-down-to-dismiss: the grab zones must not also scroll the page,
+     and the slide-up entrance animation must not fight the drag transform. */
+  .sheet-handle,
+  .sheet-header,
+  .daysheet-titleblock { touch-action: none; }
+  .sheet.sheet-dragging { animation: none; will-change: transform; }
   .sheet-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
   .sheet-title { font-family: var(--font-label); font-size: 18px; font-weight: 700; }
   .sheet-close { all: unset; cursor: pointer; color: var(--ink-45); padding: 4px; }
@@ -3826,6 +3838,8 @@ body {
   .ai-panel--m .ai-basis {
     font-size: 11px; color: var(--ink-45); margin-top: -5px; text-wrap: pretty;
   }
+  /* the flex column already spaces rows — drop the chip row's own margin */
+  .ai-panel--m .ai-cat-row { margin-bottom: 0; }
   .ai-panel--m .ai-card5e-list { display: flex; flex-direction: column; gap: 8px; }
   .ai-panel--m .ai-card.ai-card--5e {
     display: flex; align-items: flex-start; gap: 10px;
@@ -4701,7 +4715,6 @@ body {
 /* Mobile — Add / Edit activity form (handoff 5d). Dark fields, .label field
    labels, scrollable Tipo chips, the start–end time pair with the
    part-of-day slot row, and the accent Guardar. Desktop is untouched. */
-.modal-grab { display: none; }
 .date-field-stay { display: none; }
 .time-slot-row,
 .time-slot-hint { display: none; }
@@ -4711,12 +4724,6 @@ body {
     max-height: calc(100dvh - 150px);
     background: var(--bg-app);
     border-color: var(--hairline-card);
-  }
-  #modal-overlay .modal-grab {
-    display: block;
-    width: 38px; height: 4px; border-radius: 2px;
-    background: var(--ink-45);
-    margin: 10px auto 0;
   }
   #modal-overlay .modal-header {
     padding: 14px 16px 0;
@@ -5194,6 +5201,9 @@ body {
     animation: sheetSlideUp var(--dur-sheet) var(--ease-sheet);
   }
   .settings-sheet-handle { width: 38px; height: 4px; border-radius: 2px; background: rgba(240, 235, 228, .2); margin: 10px auto 0; flex: none; }
+  .settings-sheet-handle,
+  .settings-sheet-titles { touch-action: none; }
+  .settings-sheet-panel.sheet-dragging { animation: none; will-change: transform; }
   [data-theme="terracotta"] .settings-sheet-handle,
   [data-theme="light"] .settings-sheet-handle { background: var(--hairline-card); }
   .settings-sheet-titles {

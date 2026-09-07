@@ -50,6 +50,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Escape' && !document.getElementById('day-sheet')?.hidden) closeSheet();
   });
 
+  const daySheet = document.getElementById('day-sheet');
+  if (daySheet) {
+    attachSheetDrag(daySheet, {
+      zoneSelector: '.sheet-handle, .sheet-header, .daysheet-titleblock',
+      onClose: closeSheet,
+      backdrop: document.getElementById('day-sheet-backdrop'),
+    });
+  }
+
   // Header ··· → Settings sheet (implemented in settings.js)
   document.getElementById('m-header-menu')?.addEventListener('click', () => {
     if (typeof openSettingsSheet === 'function') openSettingsSheet();
@@ -402,6 +411,106 @@ function closeSheet() {
   const backdrop = document.getElementById('day-sheet-backdrop');
   if (sheet) { sheet.hidden = true; sheet.classList.remove('sheet--day', 'sheet--stay'); }
   if (backdrop) backdrop.hidden = true;
+}
+
+// ── Swipe-down-to-dismiss for bottom sheets ─────────────────────────
+// Shared by the day/stay sheet and the settings sheet. A drag must begin
+// on a non-scrolling grab zone (handle / header) so the sheet body keeps
+// scrolling normally; a downward drag past a threshold — or a quick flick
+// — closes it, anything shorter springs back. Bound once to the persistent
+// panel element; safe to call on desktop (the sheets only render ≤640px).
+function attachSheetDrag(panel, options) {
+  if (!panel || typeof panel.addEventListener !== 'function') return;
+  const opts = options || {};
+  const zoneSelector = opts.zoneSelector || null;
+  const onClose = typeof opts.onClose === 'function' ? opts.onClose : function () {};
+  const backdrop = opts.backdrop || null;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const CLOSE_PX = 90;
+  const FLICK_VELOCITY = 0.5; // px/ms, downward
+
+  let state = 'idle'; // idle | pending | dragging | rejected
+  let startX = 0, startY = 0, lastY = 0, lastT = 0, dy = 0, vy = 0, pid = null;
+
+  function clearInline() {
+    panel.classList.remove('sheet-dragging');
+    panel.style.transition = '';
+    panel.style.transform = '';
+    if (backdrop) { backdrop.style.transition = ''; backdrop.style.opacity = ''; }
+  }
+
+  function settle(close) {
+    if (reduceMotion) { clearInline(); if (close) onClose(); state = 'idle'; return; }
+    const h = panel.offsetHeight || window.innerHeight;
+    panel.style.transition = 'transform .18s ease';
+    panel.style.transform = close ? `translateY(${h}px)` : 'translateY(0)';
+    if (backdrop) {
+      backdrop.style.transition = 'opacity .18s ease';
+      backdrop.style.opacity = close ? '0' : '';
+    }
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      panel.removeEventListener('transitionend', finish);
+      clearInline();
+      if (close) onClose();
+      state = 'idle';
+    };
+    panel.addEventListener('transitionend', finish);
+    setTimeout(finish, 260);
+  }
+
+  panel.addEventListener('pointerdown', e => {
+    if (state !== 'idle' || !e.isPrimary) return;
+    if (e.target.closest('button, a, input, select, textarea')) return;
+    if (zoneSelector && !e.target.closest(zoneSelector)) return;
+    state = 'pending';
+    pid = e.pointerId;
+    startX = e.clientX; startY = e.clientY;
+    lastY = e.clientY; lastT = e.timeStamp;
+    dy = 0; vy = 0;
+  });
+
+  panel.addEventListener('pointermove', e => {
+    if (e.pointerId !== pid) return;
+    if (state === 'pending') {
+      const tx = e.clientX - startX, ty = e.clientY - startY;
+      if (Math.abs(tx) > 8 && Math.abs(tx) > Math.abs(ty)) { state = 'rejected'; return; }
+      if (ty > 5 && ty >= Math.abs(tx)) {
+        state = 'dragging';
+        panel.classList.add('sheet-dragging');
+        try { panel.setPointerCapture(pid); } catch (_) { /* not capturable */ }
+      } else {
+        return;
+      }
+    }
+    if (state !== 'dragging') return;
+    dy = Math.max(0, e.clientY - startY);
+    const now = e.timeStamp;
+    if (now > lastT) { vy = (e.clientY - lastY) / (now - lastT); lastY = e.clientY; lastT = now; }
+    panel.style.transform = `translateY(${dy}px)`;
+    if (backdrop) {
+      const h = panel.offsetHeight || window.innerHeight;
+      backdrop.style.opacity = String(Math.max(0, Math.min(1, 1 - dy / (h * 0.6))));
+    }
+    e.preventDefault();
+  });
+
+  function end(e) {
+    if (e.pointerId !== pid) return;
+    try { panel.releasePointerCapture(pid); } catch (_) { /* already released */ }
+    if (state === 'dragging') settle(dy > CLOSE_PX || vy > FLICK_VELOCITY);
+    else state = 'idle';
+    pid = null;
+  }
+  panel.addEventListener('pointerup', end);
+  panel.addEventListener('pointercancel', e => {
+    if (e.pointerId !== pid) return;
+    if (state === 'dragging') clearInline();
+    state = 'idle';
+    pid = null;
+  });
 }
 
 // ── Toast ───────────────────────────────────────

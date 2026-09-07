@@ -347,7 +347,7 @@ function _aiRenderPanel(container, date) {
 
   // The mobile surfaces (Day sheet, Today tab) hand in a basis string on
   // the panel and get the redesigned 5e layout: a header, that Mono basis
-  // line, addable cards, a disclaimer — no category chips.
+  // line, the category chips, addable cards, a disclaimer.
   const basis = container.dataset.aiCtx || '';
   const mobile = Boolean(basis);
 
@@ -358,8 +358,8 @@ function _aiRenderPanel(container, date) {
     container.appendChild(_aiBasisEl(basis));
   } else {
     container.appendChild(_aiEyebrow());
-    container.appendChild(_aiCatChips(container, date));
   }
+  container.appendChild(_aiCatChips(container, date));
 
   // Drop anything dismissed or already on the calendar. app.js calls
   // refreshOpenAiPanels() after a calendar add, so an accepted suggestion
@@ -401,11 +401,6 @@ function _aiRenderPanel(container, date) {
     shown.slice(0, 6).forEach(s => container.appendChild(_aiCard(s, date)));
   }
 
-  if (mobile) {
-    container.appendChild(_aiDisclaimerEl());
-    return;
-  }
-
   // "Get more of X" — a thin filtered result with a category filter on.
   // Steered fetch for that combo; the server serves it from cache if it
   // already has it, so this never wastes a call. Doesn't spend a refresh.
@@ -421,6 +416,11 @@ function _aiRenderPanel(container, date) {
       _aiFetch(container, date, { more: true });
     });
     container.appendChild(more);
+  }
+
+  if (mobile) {
+    container.appendChild(_aiDisclaimerEl());
+    return;
   }
 
   if (shown.length && typeof refreshesLeft === 'number' && refreshesLeft > 0) {
