@@ -3861,8 +3861,8 @@ body {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     vertical-align: 1px; margin-right: 5px;
   }
-  .daysheet-wx-dot--forecast { background: var(--accent); }
-  .daysheet-wx-dot--historical { background: var(--ink-45); }
+  .daysheet-wx-dot--forecast { background: var(--ink-45); }
+  .daysheet-wx-dot--historical { background: var(--warning); }
 
   .daysheet-sec { padding: 18px 0 0; }
   .daysheet-sec-head { margin-bottom: 10px; }
@@ -4427,8 +4427,8 @@ body {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     vertical-align: 1px; margin-right: 4px; flex: none;
   }
-  .mcal-wx-dot--forecast { background: var(--accent); }
-  .mcal-wx-dot--historical { background: var(--ink-45); }
+  .mcal-wx-dot--forecast { background: var(--ink-45); }
+  .mcal-wx-dot--historical { background: var(--warning); }
   .mcal-check { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 10.5px; color: var(--ink-45); font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em; }
   .mcal-check-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
 }
