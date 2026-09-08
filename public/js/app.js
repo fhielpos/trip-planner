@@ -715,12 +715,12 @@ function renderPlannerMobile(data) {
 
     const isToday = d.date === today;
     const rowColor = stay ? (data.colorMap[stay.check_in]?.accent || 'var(--accent)') : 'var(--ink-45)';
-    // Per-day weather — same source as the desktop day-cards; historical
-    // averages are marked with a leading ~ (matches the mobile Today bar).
+    // Per-day weather — same source as the desktop day-cards. A small dot
+    // marks whether it's a live forecast or a previous-years average.
     const wx = stay ? getWeather(stay.id, d.date) : null;
     const wxHtml = wx
       ? `<div class="mcal-wx"${wx.source === 'historical' ? ` title="${_escHtml(t('weather.historicalTooltip'))}"` : ''}>
-          <span class="mcal-wx-hi">${wx.source === 'historical' ? '~' : ''}${weatherIcon(wx.code)} ${wx.tempMax}°</span>
+          <span class="mcal-wx-hi"><span class="mcal-wx-dot mcal-wx-dot--${wx.source}"></span>${weatherIcon(wx.code)} ${wx.tempMax}°</span>
           <span class="mono mcal-wx-lo">${wx.tempMin}°</span>
         </div>`
       : '';
