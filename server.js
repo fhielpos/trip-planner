@@ -545,20 +545,29 @@ function mostFrequent(arr) {
   return Number(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]);
 }
 
+function _hhmm(v) {
+  return typeof v === 'string' && v.length >= 16 ? v.slice(11, 16) : null; // "2026-07-09T06:45" -> "06:45"
+}
+
 async function fetchForecastDays(lat, lon, start, end) {
   const daily = await fetchDaily('https://api.open-meteo.com/v1/forecast', lat, lon, start, end, ['sunrise', 'sunset']);
-  if (!daily) return {};
+  if (!daily || !Array.isArray(daily.time)) return {};
   const out = {};
   daily.time.forEach((date, i) => {
+    const tmax = daily.temperature_2m_max?.[i];
+    const tmin = daily.temperature_2m_min?.[i];
+    // Open-Meteo returns rows past its forecast horizon with null values —
+    // skip them rather than emitting a bogus 0°/0° day (and never call
+    // .slice on a null sunrise/sunset, which used to crash the whole run).
+    if (tmax == null || tmin == null) return;
+    const sunrise = _hhmm(daily.sunrise?.[i]);
+    const sunset  = _hhmm(daily.sunset?.[i]);
     out[date] = {
-      tempMax: Math.round(daily.temperature_2m_max[i]),
-      tempMin: Math.round(daily.temperature_2m_min[i]),
-      code:    daily.weathercode[i],
+      tempMax: Math.round(tmax),
+      tempMin: Math.round(tmin),
+      code:    daily.weathercode?.[i] ?? null,
       source:  'forecast',
-      ...(daily.sunrise && daily.sunset ? {
-        sunrise: daily.sunrise[i].slice(11, 16), // "2026-07-09T06:45" -> "06:45"
-        sunset:  daily.sunset[i].slice(11, 16),
-      } : {}),
+      ...(sunrise && sunset ? { sunrise, sunset } : {}),
     };
   });
   return out;
@@ -582,16 +591,16 @@ async function fetchHistoricalDays(lat, lon, start, end) {
   targetDates.forEach((date, i) => {
     const maxes = [], mins = [], codes = [];
     for (const daily of perYear) {
-      if (!daily || daily.temperature_2m_max[i] == null) continue;
+      if (!daily || !Array.isArray(daily.temperature_2m_max) || daily.temperature_2m_max[i] == null) continue;
       maxes.push(daily.temperature_2m_max[i]);
       mins.push(daily.temperature_2m_min[i]);
-      codes.push(daily.weathercode[i]);
+      if (daily.weathercode?.[i] != null) codes.push(daily.weathercode[i]);
     }
     if (!maxes.length) return;
     out[date] = {
       tempMax: Math.round(maxes.reduce((a, b) => a + b, 0) / maxes.length),
       tempMin: Math.round(mins.reduce((a, b) => a + b, 0) / mins.length),
-      code:    mostFrequent(codes),
+      code:    codes.length ? mostFrequent(codes) : null,
       source:  'historical',
     };
   });
@@ -624,26 +633,45 @@ async function computeWeather() {
   const today = todayUTC();
   const horizonEnd = addDaysUTC(today, WEATHER_HORIZON_DAYS);
   const stays = readAccommodations();
+  const prev = weatherStore.read().byStay || {};
   const byStay = {};
+  // One stay's failed Open-Meteo call must not sink the whole recompute —
+  // isolate each, and keep the previous data for any that fall over so a
+  // transient error doesn't blank a stay's weather.
   await Promise.all(stays.map(async stay => {
-    byStay[stay.id] = await weatherForStay(stay, today, horizonEnd);
+    try {
+      byStay[stay.id] = await weatherForStay(stay, today, horizonEnd);
+    } catch (err) {
+      console.error(`[weather] stay ${stay.id} (${stay.city}) failed: ${err.message}`);
+      byStay[stay.id] = prev[stay.id] || {};
+    }
   }));
   return { computedFor: today, computedAt: new Date().toISOString(), byStay };
 }
 
 app.get('/api/weather', async (req, res) => {
-  let cache = weatherStore.read();
-  if (cache.computedFor !== todayUTC()) {
-    cache = await computeWeather();
-    weatherStore.write(cache);
+  try {
+    let cache = weatherStore.read();
+    if (cache.computedFor !== todayUTC()) {
+      cache = await computeWeather();
+      weatherStore.write(cache);
+    }
+    res.json(cache.byStay);
+  } catch (err) {
+    console.error(`[weather] recompute failed, serving cache: ${err.message}`);
+    res.json(weatherStore.read().byStay || {});
   }
-  res.json(cache.byStay);
 });
 
 app.post('/api/weather/refresh', async (req, res) => {
-  const cache = await computeWeather();
-  weatherStore.write(cache);
-  res.json({ computedFor: cache.computedFor, computedAt: cache.computedAt });
+  try {
+    const cache = await computeWeather();
+    weatherStore.write(cache);
+    res.json({ computedFor: cache.computedFor, computedAt: cache.computedAt });
+  } catch (err) {
+    console.error(`[weather] refresh failed: ${err.message}`);
+    res.status(502).json({ error: 'Weather refresh failed' });
+  }
 });
 
 // Flights are persisted in data/flights.json (stable ids, editable fields
