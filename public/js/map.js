@@ -10,6 +10,17 @@ let _lastAirports = null;
 let _lastCalendar = null;
 let _lastAllCoords = [];
 
+// Place-pin markers from the last build, keyed by "lat,lon" — lets
+// showEventOnMap() re-open the popup for an event the user jumped to.
+let _placeMarkers = {};
+
+// Geocoded AI suggestions for the "AI ideas" layer. Fetched once per page
+// load from /api/ai-suggestions/pins; a non-empty `pending` schedules one
+// retry so late-resolved coordinates still land on the map.
+let _aiPins = null;
+let _aiPinsFetching = false;
+let _aiPinsRetry = false;
+
 // The map is built once at page load, while the Mapa tab (and its
 // #trip-map container) may still be display:none behind the default
 // Today tab — Leaflet computes tile layout and fitBounds() math from the
@@ -83,9 +94,90 @@ function _escHtml(str) {
 // 2026-07-02-map-filters-and-data-driven-airports-design.md and
 // 2026-07-02-attraction-recommendations-design.md (the "place" type).
 const _filters = {
-  types: { flight: true, train: true, stay: true, place: true },
+  types: { flight: true, train: true, stay: true, place: true, ai: true },
   legs:  { outbound: true, europe: true, return: true },
 };
+
+function _aiSuggestionsEnabled() {
+  return Boolean(typeof tripData !== 'undefined' && tripData && tripData.config
+    && tripData.config.aiSuggestionsEnabled);
+}
+
+// Fetch the pinned AI suggestions once, then rebuild the map so the pins
+// appear. If the server still has an address to resolve (`pending`), take
+// one more pass a few seconds later.
+function _ensureAiPins() {
+  if (_aiPins !== null || _aiPinsFetching || !_aiSuggestionsEnabled()) return;
+  _aiPinsFetching = true;
+  fetch('/api/ai-suggestions/pins')
+    .then(r => (r.ok ? r.json() : { pins: [], pending: 0 }))
+    .then(data => {
+      _aiPins = Array.isArray(data.pins) ? data.pins : [];
+      if (data.pending && !_aiPinsRetry) {
+        _aiPinsRetry = true;
+        setTimeout(() => { _aiPins = null; _ensureAiPins(); }, 8000);
+      }
+      _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar);
+    })
+    .catch(() => { _aiPins = []; })
+    .finally(() => { _aiPinsFetching = false; });
+}
+
+// Drop the cached pin set and re-fetch — called after a suggestion is
+// pinned/unpinned or committed to the itinerary, so the layer stays in
+// step without a page reload.
+function invalidateAiPins() {
+  _aiPins = null;
+  _aiPinsFetching = false;
+  _aiPinsRetry = false;
+  if (_map && _filters.types.ai && _aiSuggestionsEnabled()) _ensureAiPins();
+}
+
+// "Remove from map" from an AI pin's popup.
+function _removeAiPin(pin) {
+  fetch('/api/ai-suggestions/pins', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ date: pin.date, name: pin.name }),
+  })
+    .then(r => (r.ok ? r.json() : null))
+    .then(body => {
+      if (body && Array.isArray(body.pinned) && typeof _aiEntry === 'function') {
+        const set = _aiEntry(pin.date).pinned;
+        if (set) { set.clear(); body.pinned.forEach(n => set.add(String(n).toLowerCase())); }
+      }
+    })
+    .finally(() => {
+      invalidateAiPins();
+      if (typeof refreshOpenAiPanels === 'function') refreshOpenAiPanels();
+    });
+}
+
+// Jump the map to an event's location and open its popup. Switches to the
+// Mapa tab first on mobile; scrolls the map into view on desktop.
+function showEventOnMap(entry) {
+  const lat = Number(entry && entry.lat);
+  const lon = Number(entry && entry.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+  const go = () => {
+    if (!_map) return;
+    _map.invalidateSize();
+    _map.flyTo([lat, lon], PIN_CLICK_ZOOM);
+    const marker = _placeMarkers[`${lat},${lon}`];
+    if (marker) setTimeout(() => marker.openPopup(), 380);
+  };
+
+  if (typeof isMobileViewport === 'function' && isMobileViewport() && typeof setMobileTab === 'function') {
+    if (typeof closeSheet === 'function') closeSheet();
+    setMobileTab('map');
+    requestAnimationFrame(() => requestAnimationFrame(go));
+    setTimeout(go, 160);
+  } else {
+    document.querySelector('.map-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    go();
+  }
+}
 
 function renderMap(flights, trains, accommodations, airports, calendarEntries) {
   _lastFlights = flights;
@@ -150,8 +242,10 @@ function _trainPoints(lat1, lon1, lat2, lon2, n) {
 function _pinIcon(type, colorOverride, isPast) {
   const bg = colorOverride || (type === 'flight' ? _cssVar('--accent', '#d49258')
     : type === 'train' ? _cssVar('--c-train', '#5fa88e')
+    : type === 'ai' ? _cssVar('--accent', '#d49258')
     : _cssVar('--c-activity', '#d8b47a'));
-  const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️' : '📍';
+  const glyph = type === 'flight' ? '✈️' : type === 'train' ? '🚆' : type === 'stay' ? '🛏️'
+    : type === 'ai' ? '✦' : '📍';
   const pastClass = isPast ? ' map-pin--past' : '';
   return L.divIcon({
     className: '',
@@ -382,6 +476,10 @@ function _buildFilterBar() {
     `<span class="map-filter-swatch-dot"></span><span>${t('map.legendStay')}</span>`));
   typeRow.appendChild(_chip('type', 'place', _filters.types,
     `<span class="map-filter-swatch-dot map-filter-swatch-dot--place"></span><span>${t('map.legendPlace')}</span>`));
+  if (_aiSuggestionsEnabled()) {
+    typeRow.appendChild(_chip('type', 'ai', _filters.types,
+      `<span class="map-filter-swatch-dot map-filter-swatch-dot--ai">✦</span><span>${t('map.legendAiIdeas')}</span>`));
+  }
 
   const legRow = document.createElement('div');
   legRow.className = 'map-filter-row';
@@ -622,20 +720,56 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   }
 
   // ── Place pins (scheduled activities that carry coordinates) ──
+  _placeMarkers = {};
   if (_filters.types.place) {
     for (const entry of (calendarEntries || [])) {
       if (entry.lat == null || entry.lon == null) continue;
       if (!_filters.legs[_legFor(entry.date, windows)]) continue;
 
       const isPast = entry.date < today;
-      L.marker([entry.lat, entry.lon], { icon: _pinIcon('place', null, isPast) })
+      const marker = L.marker([entry.lat, entry.lon], { icon: _pinIcon('place', null, isPast) })
         .addTo(_map)
         .on('click', () => _map.flyTo([entry.lat, entry.lon], PIN_CLICK_ZOOM))
         .bindPopup(L.popup({ className: 'map-popup', minWidth: 160 }).setContent(`
-          <div class="map-popup-city">${entry.title}</div>
+          <div class="map-popup-city">${_escHtml(entry.title)}</div>
           <div class="map-popup-sub">${entry.date}</div>
         `));
+      _placeMarkers[`${entry.lat},${entry.lon}`] = marker;
       allCoords.push([entry.lat, entry.lon]);
+    }
+  }
+
+  // ── AI suggestion pins ("AI ideas" layer) ──
+  // Only suggestions the traveller pinned via "Add to map" — a dashed
+  // accent pin, kept out of the fit-bounds set so enabling the layer
+  // never yanks the view around. A pin whose title already matches an
+  // itinerary entry is hidden here too (the server drops it on its next
+  // read; this keeps the map in step immediately after an add).
+  if (_filters.types.ai && _aiSuggestionsEnabled()) {
+    _ensureAiPins();
+    const plannedTitles = (calendarEntries || [])
+      .filter(e => e.type !== 'accommodation' && e.title)
+      .map(e => e.title.trim().toLowerCase());
+    const _titleClash = nm => plannedTitles.some(tt => tt === nm || tt.includes(nm) || nm.includes(tt));
+    for (const pin of (_aiPins || [])) {
+      if (pin.lat == null || pin.lon == null) continue;
+      if (!_filters.legs[_legFor(pin.date, windows)]) continue;
+      if (_titleClash(pin.name.trim().toLowerCase())) continue;
+      const catLabel = t('aiSuggestions.cat.' + pin.category);
+      const popupEl = document.createElement('div');
+      popupEl.innerHTML = `
+        <div class="map-popup-city">${_escHtml(pin.name)}</div>
+        <div class="map-popup-sub">${_escHtml([catLabel, pin.city].filter(Boolean).join(' · '))}</div>
+        ${pin.address ? `<div class="map-popup-sub">${_escHtml(pin.address)}</div>` : ''}
+        <div class="map-popup-ai-foot">
+          <span class="map-popup-sub--ai">${_escHtml(t('map.aiPinNote'))}</span>
+          <button type="button" class="map-popup-ai-remove">${_escHtml(t('map.aiPinRemove'))}</button>
+        </div>`;
+      popupEl.querySelector('.map-popup-ai-remove').addEventListener('click', () => _removeAiPin(pin));
+      L.marker([pin.lat, pin.lon], { icon: _pinIcon('ai', null, pin.date < today) })
+        .addTo(_map)
+        .on('click', () => _map.flyTo([pin.lat, pin.lon], PIN_CLICK_ZOOM))
+        .bindPopup(L.popup({ className: 'map-popup map-popup--ai', minWidth: 190 }).setContent(popupEl));
     }
   }
 

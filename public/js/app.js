@@ -813,6 +813,7 @@ const modal = {
   addressRow: $('address-row'),
   notesRow:   $('notes-row'),
   deleteBtn:  $('btn-delete-entry'),
+  showMapBtn: $('btn-show-map'),
   typeSel:    $('type-selector'),
 };
 
@@ -890,6 +891,7 @@ function openAddModal(defaultDate, prefill) {
   modal.form.dataset.kind = '';
   modal.titleEl.textContent = t('modal.addTitle');
   modal.deleteBtn.hidden = true;
+  if (modal.showMapBtn) modal.showMapBtn.hidden = true;
   lockTypeButtons('');
   setType('activity');
   setSlot('day');
@@ -927,6 +929,7 @@ function openEditModal(id) {
   modal.endTime.value   = e.endTime || '';
   modal.lat.value        = e.lat ?? '';
   modal.lon.value        = e.lon ?? '';
+  if (modal.showMapBtn) modal.showMapBtn.hidden = !(e.lat != null && e.lon != null);
   setSlot(e.startTime ? null : 'day');
   updateDateStay();
   if (typeof closeOpenAiPanels === 'function') closeOpenAiPanels();
@@ -942,6 +945,7 @@ function openStayModal(id) {
   modal.form.dataset.kind = 'stay';
   modal.titleEl.textContent = t('modal.editTitle');
   modal.deleteBtn.hidden = false;
+  if (modal.showMapBtn) modal.showMapBtn.hidden = true;
   lockTypeButtons('stay');
   setType('accommodation');
   modal.title.value     = a.city || '';
@@ -977,6 +981,16 @@ function wireModal(overlay, closeFn) {
 $('modal-close').addEventListener('click', closeModal);
 $('btn-cancel').addEventListener('click', closeModal);
 wireModal(modal.overlay, closeModal);
+
+modal.showMapBtn?.addEventListener('click', () => {
+  const lat = modal.lat.value ? Number(modal.lat.value) : null;
+  const lon = modal.lon.value ? Number(modal.lon.value) : null;
+  if (lat == null || lon == null) return;
+  closeModal();
+  if (typeof showEventOnMap === 'function') {
+    showEventOnMap({ lat, lon, title: modal.title.value });
+  }
+});
 
 modal.form.addEventListener('submit', async e => {
   e.preventDefault();
