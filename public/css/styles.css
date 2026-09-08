@@ -837,6 +837,12 @@ body {
   color: var(--ink-55);
   padding: 0.35rem 0.1rem;
 }
+.ai-panel-msg--warn {
+  color: var(--c-danger);
+  border: 1px solid var(--c-danger);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+}
 .ai-card {
   display: flex;
   flex-direction: column;
@@ -870,6 +876,24 @@ body {
   align-items: center;
   gap: 0.35rem;
   flex-shrink: 0;
+}
+.ai-card-map {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px dashed var(--accent);
+  background: none;
+  color: var(--accent);
+  font-family: var(--font-label);
+  font-size: 0.66rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ai-card-map:hover { background: var(--accent-tint); }
+.ai-card-map.is-on {
+  border-style: solid;
+  background: var(--accent-tint);
 }
 .ai-card-dismiss {
   display: flex;
@@ -1428,6 +1452,14 @@ body {
   flex-shrink: 0;
 }
 .map-filter-swatch-dot--place { background: var(--c-activity); }
+.map-filter-swatch-dot--ai {
+  background: transparent;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  font-size: 8px;
+  line-height: 7px;
+  text-align: center;
+}
 
 /* Marker pin */
 .map-pin {
@@ -1468,6 +1500,14 @@ body {
 .map-pins--compact .map-pin-zoom { transform: scale(0.85); }
 .map-pins--large   .map-pin-zoom { transform: scale(1.15); }
 
+/* AI suggestion pins — draft ideas, echoing the dashed edge of the
+   suggestion cards rather than the solid pins of committed plans. */
+.map-pin--ai {
+  border-style: dashed;
+  border-color: rgba(255,255,255,0.85);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5), 0 0 0 1px var(--accent);
+}
+
 /* Past items — same dimming already used for past day-cards in the planner */
 .map-pin--past {
   opacity: 0.45;
@@ -1497,6 +1537,23 @@ body {
 .map-popup .leaflet-popup-tip    { background: var(--bg-raised); }
 .map-popup-city    { font-family: var(--font-label); font-size: 0.95rem; font-weight: 700; padding: 0.55rem 0.75rem 0.05rem; color: var(--ink); }
 .map-popup-sub     { font-family: var(--font-label); font-size: 0.70rem; color: var(--ink-55); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
+.map-popup-sub--ai { color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.62rem; }
+.map-popup-ai-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.15rem 0.7rem 0.6rem;
+}
+.map-popup-ai-remove {
+  flex-shrink: 0;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--hairline-card);
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-55);
+  font-family: var(--font-label);
+  font-size: 0.62rem;
+  cursor: pointer;
+}
+.map-popup-ai-remove:hover { color: var(--c-danger); border-color: var(--c-danger); }
 
 /* Map redesign — tile tint + control restyle */
 .leaflet-container {
@@ -3949,12 +4006,19 @@ body {
   .ai-panel--m .ai-card5e-reason {
     font-size: 12.5px; color: var(--ink-55); margin-top: 7px; text-wrap: pretty;
   }
+  .ai-panel--m .ai-card5e-actions { flex: none; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
   .ai-panel--m .ai-card5e-add {
     all: unset; box-sizing: border-box; cursor: pointer;
-    flex: none; font-size: 10px; padding: 7px 10px;
+    flex: none; font-size: 10px; padding: 7px 10px; text-align: center;
     border: 1px solid var(--accent); border-radius: 7px; color: var(--accent-ink);
   }
   .ai-panel--m .ai-card5e-add:disabled { border-color: var(--hairline-card); color: var(--ink-45); cursor: default; }
+  .ai-panel--m .ai-card5e-map {
+    all: unset; box-sizing: border-box; cursor: pointer;
+    flex: none; font-size: 10px; padding: 7px 10px; text-align: center; white-space: nowrap;
+    border: 1px dashed var(--accent); border-radius: 7px; color: var(--accent-ink);
+  }
+  .ai-panel--m .ai-card5e-map.is-on { border-style: solid; background: var(--accent-tint); }
   .ai-panel--m .ai-card--added { opacity: .6; }
   .ai-panel--m .ai-disclaimer {
     padding: 11px; text-align: center;
@@ -3962,6 +4026,7 @@ body {
     font-size: 10.5px; color: var(--ink-45);
   }
   .ai-panel--m .ai-panel-msg { font-size: 13px; color: var(--ink-55); }
+  .ai-panel--m .ai-panel-msg--warn { color: var(--c-danger); }
 
   .daysheet-actions { display: flex; gap: 8px; padding: 20px 0 0; }
   .daysheet-act {

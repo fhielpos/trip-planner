@@ -880,6 +880,10 @@ const AI_GLOBAL_WINDOW_MS = 24 * 60 * 60 * 1000;
 const AI_CATEGORIES = ['sightseeing', 'culture', 'outdoors', 'food', 'nightlife', 'shopping', 'daytrip'];
 const AI_POOL_MAX = 20;      // suggestions kept per day across category combos
 const AI_SUGGESTIONS_PER_CALL = 6;
+// Map "AI ideas" layer: how many suggestion addresses to resolve per
+// /pins request. Nominatim is gated to ~1 req/sec, so this bounds the
+// worst-case response time; the rest resolve on the client's next poll.
+const AI_PINS_GEOCODE_PER_REQUEST = 6;
 const AI_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const AI_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -963,6 +967,7 @@ function aiBuildPrompt(ctx) {
       ? `Focus on these kinds of activities: ${ctx.categories.join(', ')}. One strong pick outside them is fine if it clearly stands out.`
       : null,
     `Reply language: ${ctx.lang}`,
+    `For each suggestion give its address: street and number plus the city when you are confident of it, otherwise the most precise location you know (a square, landmark, or neighbourhood with the city). Also give approximate lat/lon when you are confident of them — especially for well-known landmarks that may not geocode cleanly from a name alone. Use null for any field you genuinely cannot provide.`,
     `Propose up to ${AI_SUGGESTIONS_PER_CALL} activities not already listed above. Write each reason as two or three sentences in the reply language.`,
   ].filter(Boolean).join('\n');
 }
@@ -1018,7 +1023,7 @@ async function aiCallModelOnce(ctx) {
     signal: AbortSignal.timeout(20000),
     body: JSON.stringify({
       model: AI_SUGGESTIONS_MODEL,
-      max_tokens: 1400,
+      max_tokens: 1700,
       system:
         'You are a local travel guide. Suggest real, well-known places or activities ' +
         'in the given city, appropriate for the date and season. Never repeat anything ' +
@@ -1046,7 +1051,12 @@ async function aiCallModelOnce(ctx) {
                   name: { type: 'string' },
                   category: { type: 'string', enum: AI_CATEGORIES },
                   reason: { type: 'string' },
-                  address: { type: ['string', 'null'] },
+                  address: {
+                    type: ['string', 'null'],
+                    description: 'Street address (street + number + city) when known, else the most precise place (square/landmark/neighbourhood + city). null only if truly unplaceable.',
+                  },
+                  lat: { type: ['number', 'null'], description: 'Approximate WGS84 latitude of the place, when confidently known.' },
+                  lon: { type: ['number', 'null'], description: 'Approximate WGS84 longitude of the place, when confidently known.' },
                   suggestedStartTime: { type: ['string', 'null'] },
                   durationHours: { type: ['number', 'null'] },
                 },
@@ -1097,7 +1107,16 @@ function aiSanitize(raw) {
     const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(item.suggestedStartTime) ? item.suggestedStartTime : null;
     const dur = (typeof item.durationHours === 'number' && Number.isFinite(item.durationHours)
       && item.durationHours > 0 && item.durationHours <= 12) ? item.durationHours : null;
-    out.push({ name, category, reason, address, suggestedStartTime: time, durationHours: dur });
+    // Model-supplied coordinates — a fallback for places the address won't
+    // geocode. Kept only when both are sane; otherwise both drop to null.
+    const lat = (typeof item.lat === 'number' && Number.isFinite(item.lat) && Math.abs(item.lat) <= 90) ? item.lat : null;
+    const lon = (typeof item.lon === 'number' && Number.isFinite(item.lon) && Math.abs(item.lon) <= 180) ? item.lon : null;
+    const hasCoords = lat !== null && lon !== null;
+    out.push({
+      name, category, reason, address,
+      lat: hasCoords ? lat : null, lon: hasCoords ? lon : null,
+      suggestedStartTime: time, durationHours: dur,
+    });
     if (out.length === AI_SUGGESTIONS_PER_CALL) break;
   }
   return out;
@@ -1178,6 +1197,7 @@ app.post('/api/ai-suggestions', async (req, res) => {
       return rec ? Math.max(0, AI_MAX_REFRESHES_PER_DAY - rec.count) : AI_MAX_REFRESHES_PER_DAY;
     })(),
     briefsLeft: briefsLeftFor(date),
+    pinned: aiPinnedNamesForDay(store, date),
     locked: false, lockedUntil: null,
   });
 
@@ -1247,6 +1267,7 @@ app.post('/api/ai-suggestions', async (req, res) => {
     pool: aiPoolForDay(after.cache, date),
     refreshesLeft: Math.max(0, AI_MAX_REFRESHES_PER_DAY - recAfter.count),
     briefsLeft: Math.max(0, AI_MAX_BRIEFS_PER_DAY - (recAfter.briefCount || 0)),
+    pinned: aiPinnedNamesForDay(after, date),
     locked: false, lockedUntil: null,
   });
 });
@@ -1256,8 +1277,175 @@ app.post('/api/ai-suggestions/reset-limits', (req, res) => {
   const store = aiSuggestionsStore.read();
   store.refreshes = {};
   store.global = { windowStart: null, count: 0 };
+  store.geo = {};
+  store.pinned = [];
   aiSuggestionsStore.write(store);
   res.json({ ok: true });
+});
+
+// ── Map "AI ideas" layer ───────────────────────
+// Unlike the day panel (which works off the whole cached pool), the map
+// shows only suggestions the traveller explicitly pinned with "Add to
+// map". Pins live in store.pinned. A pin is placed from the model's own
+// lat/lon when it gave them, otherwise by geocoding its address once
+// (lazily, at Nominatim's ~1 req/sec) into the shared store.geo cache,
+// which aiCleanDay never touches. A pinned suggestion is dropped
+// automatically once a matching activity lands on the itinerary — the
+// real activity pin then covers that spot.
+
+const _aiGeoKey = a => String(a || '').trim().toLowerCase().slice(0, 160);
+const _aiPinKey = (date, name) => `${date}|${String(name || '').trim().toLowerCase()}`;
+const _aiIsNum = v => typeof v === 'number' && Number.isFinite(v);
+
+// Coordinates for a pin: a successful address geocode wins (street-level),
+// then the model's own lat/lon, else null (unplaceable).
+function _aiResolvedCoords(store, p) {
+  const addr = String(p.address || '').trim();
+  if (addr) {
+    const g = (store.geo || {})[_aiGeoKey(addr)];
+    if (g && g.status === 'ok') return { lat: g.lat, lon: g.lon };
+  }
+  if (_aiIsNum(p.lat) && _aiIsNum(p.lon)) return { lat: p.lat, lon: p.lon };
+  return null;
+}
+
+// Geocode one address into store.geo. `retryFailed` re-attempts a prior
+// 'failed' entry — used on an explicit "Add to map" so the user's click
+// is a real retry, but not on every map open.
+async function _aiGeocodeOne(store, address, retryFailed) {
+  const addr = String(address || '').trim();
+  if (!addr) return;
+  const gk = _aiGeoKey(addr);
+  const existing = store.geo[gk];
+  if (existing && (existing.status === 'ok' || !retryFailed)) return;
+  const hit = await geocodeAddress(addr);
+  store.geo[gk] = hit
+    ? { lat: hit.lat, lon: hit.lon, status: 'ok', at: new Date().toISOString() }
+    : { status: 'failed', at: new Date().toISOString() };
+}
+
+// Fuzzy title match, mirroring the client's _aiAlreadyAdded: equal, or
+// either title contained in the other ("Louvre" ~ "Louvre Museum").
+function _aiTitlesMatch(a, b) {
+  a = String(a || '').trim().toLowerCase();
+  b = String(b || '').trim().toLowerCase();
+  return Boolean(a) && Boolean(b) && (a === b || a.includes(b) || b.includes(a));
+}
+
+function _aiSuggestionOnCalendar(name, calendar) {
+  return (calendar || []).some(e => e.type !== 'accommodation' && _aiTitlesMatch(e.title, name));
+}
+
+// Lowercased names pinned to the map for a day — echoed back in the
+// /api/ai-suggestions responses so the panel can show "On map" state.
+function aiPinnedNamesForDay(store, date) {
+  return (store.pinned || []).filter(p => p.date === date).map(p => String(p.name || '').toLowerCase());
+}
+
+// Locate a cached suggestion for a day by exact (case-insensitive) name.
+function aiFindSuggestion(store, date, name) {
+  const want = String(name || '').trim().toLowerCase();
+  for (const combo of Object.values((store.cache || {})[date] || {})) {
+    for (const s of (combo && Array.isArray(combo.suggestions) ? combo.suggestions : [])) {
+      if (String(s.name || '').trim().toLowerCase() === want) return s;
+    }
+  }
+  return null;
+}
+
+app.get('/api/ai-suggestions/pins', async (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const store = aiSuggestionsStore.read();
+  store.geo ||= {};
+  store.pinned ||= [];
+
+  // Drop pins already committed to the itinerary.
+  const calendar = readData().calendar || [];
+  const kept = store.pinned.filter(p => !_aiSuggestionOnCalendar(p.name, calendar));
+  let dirty = kept.length !== store.pinned.length;
+  store.pinned = kept;
+
+  // Resolve any address that still needs it (bounded per request; a prior
+  // 'failed' is left alone — an explicit re-pin is what retries it).
+  let budget = AI_PINS_GEOCODE_PER_REQUEST;
+  for (const p of store.pinned) {
+    if (budget <= 0) break;
+    if (_aiResolvedCoords(store, p)) continue;
+    if (!String(p.address || '').trim()) continue;
+    budget--; dirty = true;
+    await _aiGeocodeOne(store, p.address, false);
+  }
+  if (dirty) aiSuggestionsStore.write(store);
+
+  const pins = [];
+  let pending = 0;
+  for (const p of store.pinned) {
+    const c = _aiResolvedCoords(store, p);
+    if (c) {
+      pins.push({
+        name: p.name, category: p.category, address: p.address || '',
+        reason: p.reason || '', date: p.date, city: p.city || '',
+        lat: c.lat, lon: c.lon,
+      });
+    } else {
+      pending++;
+    }
+  }
+  res.json({ pins, pending });
+});
+
+// "Add to map" — pin a cached suggestion for later. `placed` is false
+// when neither the model's coordinates nor a geocode could locate it, so
+// the client can warn instead of leaving a phantom pin.
+app.post('/api/ai-suggestions/pins', async (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const { date, name } = req.body || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !name) {
+    return res.status(400).json({ error: 'Invalid date or name' });
+  }
+  const store = aiSuggestionsStore.read();
+  store.geo ||= {};
+  store.pinned ||= [];
+
+  const s = aiFindSuggestion(store, date, name);
+  if (!s) return res.status(404).json({ error: 'Suggestion not found' });
+
+  const key = _aiPinKey(date, s.name);
+  const existing = store.pinned.find(p => _aiPinKey(p.date, p.name) === key);
+  const stay = aiActiveStay(date);
+  const entry = existing || {
+    date, name: s.name, category: s.category,
+    address: String(s.address || '').trim(),
+    reason: s.reason || '', city: stay ? stay.city : '',
+    lat: _aiIsNum(s.lat) ? s.lat : null,
+    lon: _aiIsNum(s.lon) ? s.lon : null,
+    pinnedAt: new Date().toISOString(),
+  };
+  if (!existing) store.pinned.push(entry);
+
+  await _aiGeocodeOne(store, entry.address, true);
+  const placed = Boolean(_aiResolvedCoords(store, entry));
+
+  // A brand-new pin that can't be located anywhere is not worth keeping.
+  if (!placed && !existing) {
+    store.pinned = store.pinned.filter(p => _aiPinKey(p.date, p.name) !== key);
+  }
+  aiSuggestionsStore.write(store);
+
+  res.json({ ok: true, placed, pinned: aiPinnedNamesForDay(store, date) });
+});
+
+// "Remove from map" — unpin.
+app.delete('/api/ai-suggestions/pins', (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const { date, name } = req.body || {};
+  if (!date || !name) return res.status(400).json({ error: 'Invalid date or name' });
+  const store = aiSuggestionsStore.read();
+  store.pinned ||= [];
+  const key = _aiPinKey(date, name);
+  store.pinned = store.pinned.filter(p => _aiPinKey(p.date, p.name) !== key);
+  aiSuggestionsStore.write(store);
+  res.json({ ok: true, pinned: aiPinnedNamesForDay(store, date) });
 });
 
 // Update trip info

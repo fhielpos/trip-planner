@@ -71,9 +71,62 @@ function _aiSetAdvOpen(v) {
 const _aiCache = new Map(); // dateStr -> { pool: [] | null, refreshesLeft }
 function _aiEntry(date) {
   if (!_aiCache.has(date)) {
-    _aiCache.set(date, { pool: null, refreshesLeft: undefined, briefsLeft: undefined, error: null, locked: false, lockedUntil: null });
+    _aiCache.set(date, { pool: null, refreshesLeft: undefined, briefsLeft: undefined, error: null, locked: false, lockedUntil: null, pinned: new Set(), pinWarning: null });
   }
   return _aiCache.get(date);
+}
+
+const _aiNum = v => typeof v === 'number' && Number.isFinite(v);
+// A suggestion can go on the map if it has an address to geocode or the
+// model handed back its own coordinates.
+function _aiPlaceable(s) {
+  return Boolean(s && (s.address || (_aiNum(s.lat) && _aiNum(s.lon))));
+}
+
+// Names (lowercased) this day's suggestions have pinned to the map via
+// "Add to map" — kept in sync from every /api/ai-suggestions response and
+// patched locally on each toggle.
+function _aiIsPinned(date, name) {
+  return _aiEntry(date).pinned.has(String(name || '').toLowerCase());
+}
+function _aiSetPinned(date, names) {
+  const set = _aiEntry(date).pinned;
+  set.clear();
+  (Array.isArray(names) ? names : []).forEach(n => set.add(String(n).toLowerCase()));
+}
+
+// Pin / unpin a suggestion on the trip map. On success the panel
+// re-renders so every card's button reflects the new state and the map's
+// AI layer is refetched. If the server can't locate the place (no usable
+// address or coordinates) the pin isn't kept and the user is warned.
+async function _aiToggleMapPin(s, date, btn) {
+  const entry = _aiEntry(date);
+  const wasPinned = _aiIsPinned(date, s.name);
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/ai-suggestions/pins', {
+      method: wasPinned ? 'DELETE' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, name: s.name }),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    const body = await res.json().catch(() => ({}));
+    if (Array.isArray(body.pinned)) _aiSetPinned(date, body.pinned);
+    else if (wasPinned) entry.pinned.delete(s.name.toLowerCase());
+    else entry.pinned.add(s.name.toLowerCase());
+    if (!wasPinned && body.placed === false) {
+      entry.pinWarning = t('aiSuggestions.mapUnplaceable');
+      if (typeof showToast === 'function') showToast(entry.pinWarning);
+    }
+    if (typeof invalidateAiPins === 'function') invalidateAiPins();
+  } catch (e) {
+    console.error('[ai-suggestions] map pin toggle failed:', e);
+    entry.pinWarning = t('aiSuggestions.loadFailed');
+  } finally {
+    btn.disabled = false;
+    const panel = btn.closest('.ai-panel');
+    if (panel) _aiRenderPanel(panel, date);
+  }
 }
 
 function _aiLang() {
@@ -233,6 +286,9 @@ async function _aiAddUntimed(s, date, card, btn) {
     if (typeof renderMap === 'function') {
       renderMap(tripData.flights, tripData.trains, tripData.accommodations, tripData.airports, tripData.calendar);
     }
+    // The suggestion may have been pinned to the map — drop that pin now
+    // it's a real activity (the server prunes it on its next read too).
+    if (typeof invalidateAiPins === 'function') invalidateAiPins();
     setTimeout(() => {
       if (typeof renderToday === 'function') renderToday(tripData);
       if (typeof refreshOpenAiPanels === 'function') refreshOpenAiPanels();
@@ -256,6 +312,9 @@ function _aiCard5e(s, date) {
   ].filter(Boolean).join(' · ');
   const dotVar = AI_CAT_DOT[s.category] || '--accent';
 
+  const pinned = _aiIsPinned(date, s.name);
+  const canPin = !added && _aiPlaceable(s);
+
   const card = document.createElement('div');
   card.className = 'ai-card ai-card--5e' + (added ? ' ai-card--added' : '');
   card.innerHTML = `
@@ -264,8 +323,17 @@ function _aiCard5e(s, date) {
       ${meta ? `<div class="label ai-card5e-meta"><span class="ai-card5e-dot" style="background:var(${dotVar})"></span>${_aiEscHtml(meta)}</div>` : ''}
       ${s.reason ? `<div class="ai-card5e-reason">${_aiEscHtml(s.reason)}</div>` : ''}
     </div>
-    <button type="button" class="label ai-card5e-add"${added ? ' disabled' : ''}>${added ? t('aiSuggestions.added') : t('aiSuggestions.add')}</button>`;
+    <div class="ai-card5e-actions">
+      ${canPin ? `<button type="button" class="label ai-card5e-map${pinned ? ' is-on' : ''}">${pinned ? t('aiSuggestions.onMap') : t('aiSuggestions.addToMap')}</button>` : ''}
+      <button type="button" class="label ai-card5e-add"${added ? ' disabled' : ''}>${added ? t('aiSuggestions.added') : t('aiSuggestions.add')}</button>
+    </div>`;
 
+  if (canPin) {
+    card.querySelector('.ai-card5e-map').addEventListener('click', e => {
+      e.stopPropagation();
+      _aiToggleMapPin(s, date, e.currentTarget);
+    });
+  }
   if (!added) {
     const btn = card.querySelector('.ai-card5e-add');
     btn.addEventListener('click', e => {
@@ -284,12 +352,16 @@ function _aiCard(s, date) {
     s.suggestedStartTime || '',
   ].filter(Boolean).join(' · ');
 
+  const pinned = _aiIsPinned(date, s.name);
+  const canPin = !added && _aiPlaceable(s);
+
   const card = document.createElement('div');
   card.className = 'ai-card';
   card.innerHTML = `
     <div class="ai-card-top">
       <span class="ai-card-name">${_aiEscHtml(s.name)}</span>
       <div class="ai-card-actions">
+        ${canPin ? `<button type="button" class="ai-card-map${pinned ? ' is-on' : ''}">${pinned ? t('aiSuggestions.onMap') : t('aiSuggestions.addToMap')}</button>` : ''}
         <button type="button" class="rec-card-add"${added ? ' disabled' : ''}>
           ${added ? t('aiSuggestions.added') : t('aiSuggestions.add')}
         </button>
@@ -305,6 +377,12 @@ function _aiCard(s, date) {
     reasonEl.classList.toggle('ai-card-reason--expanded');
   });
 
+  if (canPin) {
+    card.querySelector('.ai-card-map').addEventListener('click', e => {
+      e.stopPropagation();
+      _aiToggleMapPin(s, date, e.currentTarget);
+    });
+  }
   if (!added) {
     card.querySelector('.rec-card-add').addEventListener('click', e => {
       // Day cards have a click-to-expand handler on the card itself —
@@ -456,6 +534,15 @@ function _aiRenderPanel(container, date) {
   if (!brief) container.appendChild(_aiCatChips(container, date));
   container.appendChild(_aiAdvancedRow(container, date));
 
+  // One-shot "couldn't put this on the map" notice — shown after the
+  // toggle that raised it, then cleared so it doesn't stick around.
+  if (entry.pinWarning) {
+    const warn = _aiMsgEl(entry.pinWarning);
+    warn.classList.add('ai-panel-msg--warn');
+    container.appendChild(warn);
+    entry.pinWarning = null;
+  }
+
   // Drop anything dismissed or already on the calendar. app.js calls
   // refreshOpenAiPanels() after a calendar add, so an accepted suggestion
   // leaves the list right away (the greyed "Added" button in _aiCard only
@@ -593,6 +680,7 @@ async function _aiFetch(container, date, { refresh = false, more = false, brief 
     entry.pool = Array.isArray(payload.pool) ? payload.pool : [];
     entry.refreshesLeft = payload.refreshesLeft;
     if (typeof payload.briefsLeft === 'number') entry.briefsLeft = payload.briefsLeft;
+    if (Array.isArray(payload.pinned)) _aiSetPinned(date, payload.pinned);
     entry.error = null;
     entry.locked = false;
     _aiRenderPanel(container, date);
@@ -627,6 +715,9 @@ function renderAiSuggestions(container, date, context) {
 // called by app.js after a calendar add/edit/delete so a suggestion that
 // now matches a calendar entry gets removed from the list at once.
 function refreshOpenAiPanels() {
+  // A calendar add/edit/delete can make a pinned suggestion redundant (or
+  // free one up) — keep the map's AI layer in step.
+  if (typeof invalidateAiPins === 'function') invalidateAiPins();
   document.querySelectorAll('.ai-panel').forEach(el => {
     const date = el.dataset.aiDate;
     if (el.hidden || !date || _aiEntry(date).pool === null) return;
