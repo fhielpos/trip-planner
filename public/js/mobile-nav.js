@@ -322,6 +322,11 @@ function _daySheetHtml(date, data) {
         ${flag ? `<span class="daysheet-cityflag">${flag}</span>` : ''}
         <span class="label daysheet-city">${_escHtml(cityLabel)}</span>
         <span class="mono daysheet-nightday">${_escHtml(subLine)}</span>
+        ${w && typeof w.tempMax === 'number' && typeof weatherIcon === 'function'
+          ? `<span class="daysheet-wx"${w.source === 'historical' ? ` title="${_escHtml(t('weather.historicalTooltip'))}"` : ''}>
+              <span class="daysheet-wx-dot daysheet-wx-dot--${w.source}"></span>${weatherIcon(w.code)} ${w.tempMax}°/${w.tempMin}°
+            </span>`
+          : ''}
       </div>
     </div>
 
