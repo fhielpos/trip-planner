@@ -96,8 +96,13 @@
       <div class="admin-row"><span class="admin-label">Calls (24h)</span><span class="admin-value" id="admin-ai-calls">—</span></div>
       <div class="admin-row"><span class="admin-label">Days cached</span><span class="admin-value" id="admin-ai-cached">—</span></div>
       <div class="admin-row"><span class="admin-label">Locked days</span><span class="admin-value" id="admin-ai-locked">—</span></div>
+      <div class="admin-row"><span class="admin-label">Advanced used</span><span class="admin-value" id="admin-ai-advanced">—</span></div>
       <button type="button" class="btn-secondary admin-refresh-btn" id="admin-ai-reset">Reset limits</button>
-      <p class="admin-note">Clears every per-day refresh lock and the rolling 24h call counter.</p>
+      <p class="admin-note">Clears every per-day refresh lock, the advanced-search count, and the rolling 24h call counter.</p>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-ai-clear-cache">Clear suggestion cache</button>
+      <p class="admin-note">Drops every day's cached suggestions. The next panel that opens fetches fresh from the model (counts against the 24h call limit).</p>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-ai-unlock-briefs">Unlock advanced searches</button>
+      <p class="admin-note">Re-enables the once-per-day free-text "advanced" search on every day it has already been used.</p>
     </section>
 
     <section class="admin-section">

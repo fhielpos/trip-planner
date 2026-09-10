@@ -61,6 +61,7 @@ async function _loadStatus() {
     document.getElementById('admin-ai-calls').textContent = `${ai.callsLast24h} / ${ai.callLimit}`;
     document.getElementById('admin-ai-cached').textContent = ai.daysCached;
     document.getElementById('admin-ai-locked').textContent = ai.lockedDays;
+    document.getElementById('admin-ai-advanced').textContent = ai.advancedUsedDays ?? 0;
   }
 
   document.getElementById('admin-geocode-accom-total').textContent = status.geocoding.accommodations.total;
@@ -161,6 +162,12 @@ document.getElementById('admin-geocode-refresh').addEventListener('click', e => 
 });
 document.getElementById('admin-ai-reset').addEventListener('click', e => {
   _refresh(e.target, '/api/ai-suggestions/reset-limits');
+});
+document.getElementById('admin-ai-clear-cache').addEventListener('click', e => {
+  _refresh(e.target, '/api/ai-suggestions/clear-cache');
+});
+document.getElementById('admin-ai-unlock-briefs').addEventListener('click', e => {
+  _refresh(e.target, '/api/ai-suggestions/unlock-briefs');
 });
 
 _loadStatus();
