@@ -838,8 +838,8 @@ body {
   padding: 0.35rem 0.1rem;
 }
 .ai-panel-msg--warn {
-  color: var(--c-danger);
-  border: 1px solid var(--c-danger);
+  color: var(--warning);
+  border: 1px solid var(--warning);
   border-radius: 6px;
   padding: 0.4rem 0.55rem;
 }
@@ -879,16 +879,14 @@ body {
 }
 .ai-card-map {
   flex-shrink: 0;
-  padding: 0.25rem 0.5rem;
+  padding: 0.2rem 0.4rem;
   border-radius: 6px;
   border: 1px dashed var(--accent);
   background: none;
   color: var(--accent);
-  font-family: var(--font-label);
-  font-size: 0.66rem;
-  font-weight: 600;
+  font-size: 0.72rem;
+  line-height: 1;
   cursor: pointer;
-  white-space: nowrap;
 }
 .ai-card-map:hover { background: var(--accent-tint); }
 .ai-card-map.is-on {
@@ -1537,7 +1535,7 @@ body {
 .map-popup .leaflet-popup-tip    { background: var(--bg-raised); }
 .map-popup-city    { font-family: var(--font-label); font-size: 0.95rem; font-weight: 700; padding: 0.55rem 0.75rem 0.05rem; color: var(--ink); }
 .map-popup-sub     { font-family: var(--font-label); font-size: 0.70rem; color: var(--ink-55); padding: 0.1rem 0.75rem 0.55rem; line-height: 1.6; }
-.map-popup-sub--ai { color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.62rem; }
+.map-popup-sub--ai { color: var(--ink-45); font-style: italic; font-size: 0.66rem; }
 .map-popup-ai-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
   padding: 0.15rem 0.7rem 0.6rem;
@@ -3854,15 +3852,13 @@ body {
   }
   .daysheet-cityrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
   .daysheet-cityflag { font-size: 14px; line-height: 1; }
-  .daysheet-city { font-size: 11.5px; color: var(--accent-ink); }
+  .daysheet-city { font-size: 11.5px; color: var(--accent-ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .daysheet-nightday { font-size: 11.5px; color: var(--ink-45); }
   .daysheet-wx { margin-left: auto; font-size: 11.5px; color: var(--ink-55); white-space: nowrap; }
   .daysheet-wx-dot {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-    vertical-align: 1px; margin-right: 5px;
+    vertical-align: 1px; margin-right: 5px; background: var(--warning);
   }
-  .daysheet-wx-dot--forecast { background: var(--ink-45); }
-  .daysheet-wx-dot--historical { background: var(--warning); }
 
   .daysheet-sec { padding: 18px 0 0; }
   .daysheet-sec-head { margin-bottom: 10px; }
@@ -4026,7 +4022,7 @@ body {
     font-size: 10.5px; color: var(--ink-45);
   }
   .ai-panel--m .ai-panel-msg { font-size: 13px; color: var(--ink-55); }
-  .ai-panel--m .ai-panel-msg--warn { color: var(--c-danger); }
+  .ai-panel--m .ai-panel-msg--warn { color: var(--warning); }
 
   .daysheet-actions { display: flex; gap: 8px; padding: 20px 0 0; }
   .daysheet-act {
@@ -4425,10 +4421,8 @@ body {
   .mcal-wx-lo { display: block; font-size: 11px; color: var(--ink-45); margin-top: 2px; }
   .mcal-wx-dot {
     display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-    vertical-align: 1px; margin-right: 4px; flex: none;
+    vertical-align: 1px; margin-right: 4px; flex: none; background: var(--warning);
   }
-  .mcal-wx-dot--forecast { background: var(--ink-45); }
-  .mcal-wx-dot--historical { background: var(--warning); }
   .mcal-check { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 10.5px; color: var(--ink-45); font-family: var(--font-label); text-transform: uppercase; letter-spacing: .1em; }
   .mcal-check-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; }
 }

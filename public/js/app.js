@@ -199,6 +199,7 @@ function getActiveStay(accommodations, dayStr) {
 
 // WMO weathercode → emoji, bucketed rather than a full per-code table.
 function weatherIcon(code) {
+  if (code == null) return '🌡️'; // conditions unknown (Open-Meteo returned a null code) — don't imply rain
   if (code === 0) return '☀️';
   if (code === 1 || code === 2) return '🌤️';
   if (code === 3) return '☁️';
@@ -720,7 +721,7 @@ function renderPlannerMobile(data) {
     const wx = stay ? getWeather(stay.id, d.date) : null;
     const wxHtml = wx
       ? `<div class="mcal-wx"${wx.source === 'historical' ? ` title="${_escHtml(t('weather.historicalTooltip'))}"` : ''}>
-          <span class="mcal-wx-hi"><span class="mcal-wx-dot mcal-wx-dot--${wx.source}"></span>${weatherIcon(wx.code)} ${wx.tempMax}°</span>
+          <span class="mcal-wx-hi">${wx.source === 'historical' ? '<span class="mcal-wx-dot"></span>' : ''}${weatherIcon(wx.code)} ${wx.tempMax}°</span>
           <span class="mono mcal-wx-lo">${wx.tempMin}°</span>
         </div>`
       : '';
@@ -986,9 +987,10 @@ modal.showMapBtn?.addEventListener('click', () => {
   const lat = modal.lat.value ? Number(modal.lat.value) : null;
   const lon = modal.lon.value ? Number(modal.lon.value) : null;
   if (lat == null || lon == null) return;
+  const id = modal.id.value || null;
   closeModal();
   if (typeof showEventOnMap === 'function') {
-    showEventOnMap({ lat, lon, title: modal.title.value });
+    showEventOnMap({ id, lat, lon, title: modal.title.value });
   }
 });
 

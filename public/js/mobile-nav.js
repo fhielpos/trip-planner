@@ -324,7 +324,7 @@ function _daySheetHtml(date, data) {
         <span class="mono daysheet-nightday">${_escHtml(subLine)}</span>
         ${w && typeof w.tempMax === 'number' && typeof weatherIcon === 'function'
           ? `<span class="daysheet-wx"${w.source === 'historical' ? ` title="${_escHtml(t('weather.historicalTooltip'))}"` : ''}>
-              <span class="daysheet-wx-dot daysheet-wx-dot--${w.source}"></span>${weatherIcon(w.code)} ${w.tempMax}°/${w.tempMin}°
+              ${w.source === 'historical' ? '<span class="daysheet-wx-dot"></span>' : ''}${weatherIcon(w.code)} ${w.tempMax}°/${w.tempMin}°
             </span>`
           : ''}
       </div>

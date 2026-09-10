@@ -637,22 +637,34 @@ async function computeWeather() {
   const byStay = {};
   // One stay's failed Open-Meteo call must not sink the whole recompute —
   // isolate each, and keep the previous data for any that fall over so a
-  // transient error doesn't blank a stay's weather.
+  // transient error doesn't blank a stay's weather. `partial` records how
+  // many fell over so the read path can retry them (throttled) instead of
+  // waiting for tomorrow's roll-over.
+  let partial = 0;
   await Promise.all(stays.map(async stay => {
     try {
       byStay[stay.id] = await weatherForStay(stay, today, horizonEnd);
     } catch (err) {
+      partial++;
       console.error(`[weather] stay ${stay.id} (${stay.city}) failed: ${err.message}`);
       byStay[stay.id] = prev[stay.id] || {};
     }
   }));
-  return { computedFor: today, computedAt: new Date().toISOString(), byStay };
+  return { computedFor: today, computedAt: new Date().toISOString(), byStay, ...(partial ? { partial } : {}) };
 }
+
+// After a partial failure, retry at most this often rather than on every
+// request (a persistent Open-Meteo outage would otherwise recompute all
+// stays on every page load).
+const WEATHER_PARTIAL_RETRY_MS = 10 * 60 * 1000;
 
 app.get('/api/weather', async (req, res) => {
   try {
     let cache = weatherStore.read();
-    if (cache.computedFor !== todayUTC()) {
+    const stale = cache.computedFor !== todayUTC();
+    const retryPartial = Boolean(cache.partial)
+      && (!cache.computedAt || Date.now() - Date.parse(cache.computedAt) > WEATHER_PARTIAL_RETRY_MS);
+    if (stale || retryPartial) {
       cache = await computeWeather();
       weatherStore.write(cache);
     }
@@ -1337,31 +1349,25 @@ function _aiResolvedCoords(store, p) {
   return null;
 }
 
-// Geocode one address into store.geo. `retryFailed` re-attempts a prior
-// 'failed' entry — used on an explicit "Add to map" so the user's click
-// is a real retry, but not on every map open.
-async function _aiGeocodeOne(store, address, retryFailed) {
-  const addr = String(address || '').trim();
-  if (!addr) return;
-  const gk = _aiGeoKey(addr);
-  const existing = store.geo[gk];
-  if (existing && (existing.status === 'ok' || !retryFailed)) return;
-  const hit = await geocodeAddress(addr);
-  store.geo[gk] = hit
+// Geocode an address to a store.geo record — a pure function, so the
+// caller can await it and only then re-read + mutate the store (avoiding
+// a read-modify-write race across the ~1s Nominatim call).
+async function _aiGeocodeResult(address) {
+  const hit = await geocodeAddress(String(address || '').trim());
+  return hit
     ? { lat: hit.lat, lon: hit.lon, status: 'ok', at: new Date().toISOString() }
     : { status: 'failed', at: new Date().toISOString() };
 }
 
-// Fuzzy title match, mirroring the client's _aiAlreadyAdded: equal, or
-// either title contained in the other ("Louvre" ~ "Louvre Museum").
-function _aiTitlesMatch(a, b) {
-  a = String(a || '').trim().toLowerCase();
-  b = String(b || '').trim().toLowerCase();
-  return Boolean(a) && Boolean(b) && (a === b || a.includes(b) || b.includes(a));
-}
-
+// A pinned suggestion is dropped once it's on the itinerary. Match on the
+// exact (trimmed, case-insensitive) title only — the add flow copies the
+// suggestion name verbatim, and a loose substring match would delete
+// "Walk along the Seine" the moment an unrelated "Walk" entry appears.
 function _aiSuggestionOnCalendar(name, calendar) {
-  return (calendar || []).some(e => e.type !== 'accommodation' && _aiTitlesMatch(e.title, name));
+  const n = String(name || '').trim().toLowerCase();
+  if (!n) return false;
+  return (calendar || []).some(e =>
+    e.type !== 'accommodation' && String(e.title || '').trim().toLowerCase() === n);
 }
 
 // Lowercased names pinned to the map for a day — echoed back in the
@@ -1383,26 +1389,34 @@ function aiFindSuggestion(store, date, name) {
 
 app.get('/api/ai-suggestions/pins', async (req, res) => {
   if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const snapshot = aiSuggestionsStore.read();
+  snapshot.geo ||= {};
+  snapshot.pinned ||= [];
+  const calendar = readData().calendar || [];
+
+  // Geocode a bounded number of addresses that have never been attempted
+  // (a prior 'ok' or 'failed' is skipped — an explicit re-pin retries a
+  // failure). Results collected locally; the store is only touched after.
+  const resolved = {};
+  let budget = AI_PINS_GEOCODE_PER_REQUEST;
+  for (const p of snapshot.pinned) {
+    if (budget <= 0) break;
+    if (_aiSuggestionOnCalendar(p.name, calendar)) continue;
+    if (_aiResolvedCoords(snapshot, p)) continue;
+    const gk = _aiGeoKey(p.address);
+    if (!gk || snapshot.geo[gk] || resolved[gk]) continue;
+    budget--;
+    resolved[gk] = await _aiGeocodeResult(p.address);
+  }
+
+  // Re-read after the await, then apply the prune + new geo and write.
   const store = aiSuggestionsStore.read();
   store.geo ||= {};
   store.pinned ||= [];
-
-  // Drop pins already committed to the itinerary.
-  const calendar = readData().calendar || [];
+  Object.assign(store.geo, resolved);
   const kept = store.pinned.filter(p => !_aiSuggestionOnCalendar(p.name, calendar));
-  let dirty = kept.length !== store.pinned.length;
+  const dirty = kept.length !== store.pinned.length || Object.keys(resolved).length > 0;
   store.pinned = kept;
-
-  // Resolve any address that still needs it (bounded per request; a prior
-  // 'failed' is left alone — an explicit re-pin is what retries it).
-  let budget = AI_PINS_GEOCODE_PER_REQUEST;
-  for (const p of store.pinned) {
-    if (budget <= 0) break;
-    if (_aiResolvedCoords(store, p)) continue;
-    if (!String(p.address || '').trim()) continue;
-    budget--; dirty = true;
-    await _aiGeocodeOne(store, p.address, false);
-  }
   if (dirty) aiSuggestionsStore.write(store);
 
   const pins = [];
@@ -1431,19 +1445,29 @@ app.post('/api/ai-suggestions/pins', async (req, res) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !name) {
     return res.status(400).json({ error: 'Invalid date or name' });
   }
+  const snapshot = aiSuggestionsStore.read();
+  snapshot.geo ||= {};
+  const s = aiFindSuggestion(snapshot, date, name);
+  if (!s) return res.status(404).json({ error: 'Suggestion not found' });
+
+  const addr = String(s.address || '').trim();
+  const gk = addr ? _aiGeoKey(addr) : null;
+  // Geocode before touching the store (an explicit pin retries a failure).
+  let geo = gk ? snapshot.geo[gk] : null;
+  if (gk && (!geo || geo.status !== 'ok')) geo = await _aiGeocodeResult(addr);
+
+  // Re-read after the await so a concurrent write (refresh counters, other
+  // pins) isn't clobbered.
   const store = aiSuggestionsStore.read();
   store.geo ||= {};
   store.pinned ||= [];
-
-  const s = aiFindSuggestion(store, date, name);
-  if (!s) return res.status(404).json({ error: 'Suggestion not found' });
+  if (gk && geo) store.geo[gk] = geo;
 
   const key = _aiPinKey(date, s.name);
   const existing = store.pinned.find(p => _aiPinKey(p.date, p.name) === key);
   const stay = aiActiveStay(date);
   const entry = existing || {
-    date, name: s.name, category: s.category,
-    address: String(s.address || '').trim(),
+    date, name: s.name, category: s.category, address: addr,
     reason: s.reason || '', city: stay ? stay.city : '',
     lat: _aiIsNum(s.lat) ? s.lat : null,
     lon: _aiIsNum(s.lon) ? s.lon : null,
@@ -1451,9 +1475,7 @@ app.post('/api/ai-suggestions/pins', async (req, res) => {
   };
   if (!existing) store.pinned.push(entry);
 
-  await _aiGeocodeOne(store, entry.address, true);
   const placed = Boolean(_aiResolvedCoords(store, entry));
-
   // A brand-new pin that can't be located anywhere is not worth keeping.
   if (!placed && !existing) {
     store.pinned = store.pinned.filter(p => _aiPinKey(p.date, p.name) !== key);

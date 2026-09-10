@@ -361,7 +361,7 @@ function _aiCard(s, date) {
     <div class="ai-card-top">
       <span class="ai-card-name">${_aiEscHtml(s.name)}</span>
       <div class="ai-card-actions">
-        ${canPin ? `<button type="button" class="ai-card-map${pinned ? ' is-on' : ''}">${pinned ? t('aiSuggestions.onMap') : t('aiSuggestions.addToMap')}</button>` : ''}
+        ${canPin ? `<button type="button" class="ai-card-map${pinned ? ' is-on' : ''}" title="${_aiEscHtml(pinned ? t('aiSuggestions.onMap') : t('aiSuggestions.addToMap'))}" aria-label="${_aiEscHtml(pinned ? t('aiSuggestions.onMap') : t('aiSuggestions.addToMap'))}">✦</button>` : ''}
         <button type="button" class="rec-card-add"${added ? ' disabled' : ''}>
           ${added ? t('aiSuggestions.added') : t('aiSuggestions.add')}
         </button>
