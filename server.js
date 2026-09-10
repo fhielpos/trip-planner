@@ -1007,7 +1007,7 @@ function aiBuildPrompt(ctx) {
       ? `Focus on these kinds of activities: ${ctx.categories.join(', ')}. One strong pick outside them is fine if it clearly stands out.`
       : null,
     `Reply language: ${ctx.lang}`,
-    `For each suggestion give its address: street and number plus the city when you are confident of it, otherwise the most precise location you know (a square, landmark, or neighbourhood with the city). Also give approximate lat/lon when you are confident of them — especially for well-known landmarks that may not geocode cleanly from a name alone. Use null for any field you genuinely cannot provide.`,
+    `Every suggestion MUST include an "address" that a mapping service can locate: a full street address (street, number, city, country) where you know one, otherwise a specific named venue, square, monument, or neighbourhood together with the city and country. Never omit the address and never return it as null. Also give approximate lat/lon when you are confident of them — especially for well-known landmarks that may not geocode cleanly from a name alone; lat/lon may be null, the address may not.`,
     `Propose up to ${AI_SUGGESTIONS_PER_CALL} activities not already listed above. Write each reason as two or three sentences in the reply language.`,
   ].filter(Boolean).join('\n');
 }
@@ -1069,7 +1069,8 @@ async function aiCallModelOnce(ctx) {
         'in the given city, appropriate for the date and season. Never repeat anything ' +
         'already planned. Prefer a variety of categories unless asked to focus. Each ' +
         'reason is two or three sentences: what it is, why it fits this day, one ' +
-        'practical tip.',
+        'practical tip. Every suggestion is a real place a traveler can walk up to, ' +
+        'so it always has an address specific enough to drop a map pin on.',
       // Forced tool_choice already guarantees the call; aiSanitize() is
       // the real guarantee of a safe payload, so no `strict: true` here.
       tool_choice: { type: 'tool', name: 'propose_activities' },
@@ -1086,14 +1087,15 @@ async function aiCallModelOnce(ctx) {
               items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['name', 'category', 'reason'],
+                required: ['name', 'category', 'reason', 'address'],
                 properties: {
                   name: { type: 'string' },
                   category: { type: 'string', enum: AI_CATEGORIES },
                   reason: { type: 'string' },
                   address: {
-                    type: ['string', 'null'],
-                    description: 'Street address (street + number + city) when known, else the most precise place (square/landmark/neighbourhood + city). null only if truly unplaceable.',
+                    type: 'string',
+                    minLength: 1,
+                    description: 'Required for every suggestion. A geocodable postal address (street, number, city, country) when known; otherwise the most specific place you are sure of — a named venue, square, monument, or neighbourhood — always with the city and country.',
                   },
                   lat: { type: ['number', 'null'], description: 'Approximate WGS84 latitude of the place, when confidently known.' },
                   lon: { type: ['number', 'null'], description: 'Approximate WGS84 longitude of the place, when confidently known.' },
@@ -1312,15 +1314,40 @@ app.post('/api/ai-suggestions', async (req, res) => {
   });
 });
 
+// Reset the rate limits only: every per-day Refresh lock/count, the
+// once-per-day advanced-search count, and the rolling 24h call counter.
+// Leaves the cached suggestions, geocode cache, and map pins alone.
 app.post('/api/ai-suggestions/reset-limits', (req, res) => {
   if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
   const store = aiSuggestionsStore.read();
   store.refreshes = {};
   store.global = { windowStart: null, count: 0 };
-  store.geo = {};
-  store.pinned = [];
   aiSuggestionsStore.write(store);
   res.json({ ok: true });
+});
+
+// Drop every day's cached suggestion pool. The next time a panel opens it
+// fetches fresh from the model (which counts against the 24h call limit).
+app.post('/api/ai-suggestions/clear-cache', (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const store = aiSuggestionsStore.read();
+  const cleared = Object.keys(store.cache || {}).length;
+  store.cache = {};
+  aiSuggestionsStore.write(store);
+  res.json({ ok: true, cleared });
+});
+
+// Re-enable the once-per-day free-text "advanced" search on every day it
+// has already been spent, without touching the Refresh-button quota.
+app.post('/api/ai-suggestions/unlock-briefs', (req, res) => {
+  if (!AI_SUGGESTIONS_ENABLED) return res.status(404).json({ error: 'Not found' });
+  const store = aiSuggestionsStore.read();
+  let unlocked = 0;
+  for (const rec of Object.values(store.refreshes || {})) {
+    if (rec && rec.briefCount) { delete rec.briefCount; unlocked++; }
+  }
+  aiSuggestionsStore.write(store);
+  res.json({ ok: true, unlocked });
 });
 
 // ── Map "AI ideas" layer ───────────────────────
@@ -1927,6 +1954,8 @@ function aiStatusSummary() {
     daysCached: Object.keys(store.cache || {}).length,
     lockedDays: Object.values(store.refreshes || {})
       .filter(r => r.lockedUntil && Date.parse(r.lockedUntil) > now).length,
+    advancedUsedDays: Object.values(store.refreshes || {})
+      .filter(r => (r.briefCount || 0) >= AI_MAX_BRIEFS_PER_DAY).length,
   };
 }
 
