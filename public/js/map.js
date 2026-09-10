@@ -10,16 +10,19 @@ let _lastAirports = null;
 let _lastCalendar = null;
 let _lastAllCoords = [];
 
-// Place-pin markers from the last build, keyed by "lat,lon" — lets
-// showEventOnMap() re-open the popup for an event the user jumped to.
+// Place-pin markers from the last build, keyed by calendar-entry id —
+// lets showEventOnMap() re-open the popup for an event the user jumped to.
 let _placeMarkers = {};
 
 // Geocoded AI suggestions for the "AI ideas" layer. Fetched once per page
 // load from /api/ai-suggestions/pins; a non-empty `pending` schedules one
-// retry so late-resolved coordinates still land on the map.
+// retry so late-resolved coordinates still land on the map. `_aiPinsGen`
+// is bumped by invalidateAiPins() so an in-flight fetch from before the
+// invalidation is discarded instead of overwriting fresh data.
 let _aiPins = null;
 let _aiPinsFetching = false;
 let _aiPinsRetry = false;
+let _aiPinsGen = 0;
 
 // The map is built once at page load, while the Mapa tab (and its
 // #trip-map container) may still be display:none behind the default
@@ -109,24 +112,29 @@ function _aiSuggestionsEnabled() {
 function _ensureAiPins() {
   if (_aiPins !== null || _aiPinsFetching || !_aiSuggestionsEnabled()) return;
   _aiPinsFetching = true;
+  const gen = _aiPinsGen;
+  const stale = () => gen !== _aiPinsGen; // invalidateAiPins() ran while we waited
   fetch('/api/ai-suggestions/pins')
     .then(r => (r.ok ? r.json() : { pins: [], pending: 0 }))
     .then(data => {
+      if (stale()) return;
       _aiPins = Array.isArray(data.pins) ? data.pins : [];
       if (data.pending && !_aiPinsRetry) {
         _aiPinsRetry = true;
-        setTimeout(() => { _aiPins = null; _ensureAiPins(); }, 8000);
+        setTimeout(() => { if (!stale()) { _aiPins = null; _ensureAiPins(); } }, 8000);
       }
       _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar);
     })
-    .catch(() => { _aiPins = []; })
-    .finally(() => { _aiPinsFetching = false; });
+    .catch(() => { if (!stale()) _aiPins = []; })
+    .finally(() => { if (!stale()) _aiPinsFetching = false; });
 }
 
 // Drop the cached pin set and re-fetch — called after a suggestion is
 // pinned/unpinned or committed to the itinerary, so the layer stays in
-// step without a page reload.
+// step without a page reload. Bumping the generation makes any in-flight
+// fetch a no-op on completion.
 function invalidateAiPins() {
+  _aiPinsGen++;
   _aiPins = null;
   _aiPinsFetching = false;
   _aiPinsRetry = false;
@@ -160,11 +168,18 @@ function showEventOnMap(entry) {
   const lon = Number(entry && entry.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
+  // The popup lives on the Places layer — make sure it's on so the marker
+  // for this entry actually exists before we try to open it.
+  if (!_filters.types.place) {
+    _filters.types.place = true;
+    if (_map) _buildMap(_lastFlights, _lastTrains, _lastAccommodations, _lastAirports, _lastCalendar);
+  }
+
   const go = () => {
     if (!_map) return;
     _map.invalidateSize();
     _map.flyTo([lat, lon], PIN_CLICK_ZOOM);
-    const marker = _placeMarkers[`${lat},${lon}`];
+    const marker = entry && entry.id ? _placeMarkers[entry.id] : null;
     if (marker) setTimeout(() => marker.openPopup(), 380);
   };
 
@@ -734,7 +749,7 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
           <div class="map-popup-city">${_escHtml(entry.title)}</div>
           <div class="map-popup-sub">${entry.date}</div>
         `));
-      _placeMarkers[`${entry.lat},${entry.lon}`] = marker;
+      if (entry.id) _placeMarkers[entry.id] = marker;
       allCoords.push([entry.lat, entry.lon]);
     }
   }
@@ -747,14 +762,15 @@ function _buildMap(flights, trains, accommodations, airports, calendarEntries) {
   // read; this keeps the map in step immediately after an add).
   if (_filters.types.ai && _aiSuggestionsEnabled()) {
     _ensureAiPins();
-    const plannedTitles = (calendarEntries || [])
+    // Exact-title match only — mirrors the server, and a loose (substring)
+    // match would hide unrelated pins ("Walk" vs "Walk along the Seine").
+    const plannedTitles = new Set((calendarEntries || [])
       .filter(e => e.type !== 'accommodation' && e.title)
-      .map(e => e.title.trim().toLowerCase());
-    const _titleClash = nm => plannedTitles.some(tt => tt === nm || tt.includes(nm) || nm.includes(tt));
+      .map(e => e.title.trim().toLowerCase()));
     for (const pin of (_aiPins || [])) {
       if (pin.lat == null || pin.lon == null) continue;
       if (!_filters.legs[_legFor(pin.date, windows)]) continue;
-      if (_titleClash(pin.name.trim().toLowerCase())) continue;
+      if (plannedTitles.has(pin.name.trim().toLowerCase())) continue;
       const catLabel = t('aiSuggestions.cat.' + pin.category);
       const popupEl = document.createElement('div');
       popupEl.innerHTML = `
