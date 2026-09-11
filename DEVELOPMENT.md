@@ -30,6 +30,7 @@ Set in the deployment environment (Railway) or an `.env` — none are required f
 | `ANTHROPIC_API_KEY` | API key for AI activity suggestions. Feature stays off if unset. |
 | `AI_SUGGESTIONS_ENABLED` | `true` **and** a key present turns the AI suggestions feature on. Kill-switch. |
 | `AI_SUGGESTIONS_MODEL` | Override the model id (default `claude-haiku-4-5`). Exact id, no date suffix. |
+| `CARTO_API_KEY` | Free key for CARTO's basemap tiles (map.js). Unset = tiles still load but show a watermark. Get one instantly, no account needed, at https://carto.com/basemaps/apikey/ (5M tile requests/month free). Exposed to the client via `/api/config` — this is how CARTO's own key is meant to be used, not a server secret. |
 
 AI suggestions are cost-capped in `data/ai-suggestions.json`: 1 free fetch + 3 refreshes per trip day (then a 72h lock), plus a global 50-calls / rolling-24h ceiling. Both clear from the admin panel (`/admin` → AI Suggestions → Reset limits).
 
