@@ -14,4 +14,6 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - AI_SUGGESTIONS_ENABLED=${AI_SUGGESTIONS_ENABLED:-}
       - AI_SUGGESTIONS_MODEL=${AI_SUGGESTIONS_MODEL:-}
+      # CARTO basemap tiles now require a (free) API key — see DEVELOPMENT.md.
+      - CARTO_API_KEY=${CARTO_API_KEY:-}
     restart: unless-stopped

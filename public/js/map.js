@@ -205,15 +205,20 @@ function renderMap(flights, trains, accommodations, airports, calendarEntries) {
 
 // TODO(redesign): 4a calls for an offline base (self-hosted vector land/sea
 // for the trip bbox, or install-time-cached raster tiles) so the map works
-// in plane mode and never prints "API KEY REQUIRED". Out of scope for this
-// slice — CARTO dark_all/light_all is keyless and themes correctly, so it
-// stays until the offline-base infra lands.
+// in plane mode. Out of scope for this slice — CARTO dark_all/light_all
+// still themes correctly, so it stays until the offline-base infra lands.
+//
+// CARTO now requires an API key (unauthenticated tiles still load but come
+// back watermarked "API KEY REQUIRED") — appended as `?key=` when the
+// server has one configured (CARTO_API_KEY, surfaced via /api/config).
+// Unset, tiles fall back to the same watermarked-but-functional behavior.
 function _tileUrl() {
   const theme = document.documentElement.getAttribute('data-theme');
   const isDark = theme !== 'light' && theme !== 'terracotta';
-  return isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+  const style = isDark ? 'dark_all' : 'light_all';
+  const key = typeof tripData !== 'undefined' && tripData?.config?.cartoApiKey;
+  const suffix = key ? `?key=${encodeURIComponent(key)}` : '';
+  return `https://{s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}{r}.png${suffix}`;
 }
 
 function _cssVar(name, fallback) {

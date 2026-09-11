@@ -45,6 +45,15 @@ const RECOMMENDATIONS_ENABLED = process.env.RECOMMENDATIONS_ENABLED === 'true';
 // model (exact id, no date suffix). Key is read here only, never returned.
 const AI_SUGGESTIONS_ENABLED =
   process.env.AI_SUGGESTIONS_ENABLED === 'true' && Boolean(process.env.ANTHROPIC_API_KEY);
+
+// CARTO's basemap tiles (map.js's dark_all/light_all) now require an API
+// key — unauthenticated requests still resolve but come back watermarked
+// "API KEY REQUIRED". Free within a generous fair-use limit; get one at
+// https://carto.com/basemaps/apikey/ (emailed instantly, no account or
+// approval queue). This key is meant to be embedded in client-side tile
+// URLs (CARTO's own usage pattern), so exposing it via /api/config is fine
+// — it isn't a bearer credential the way ANTHROPIC_API_KEY is.
+const CARTO_API_KEY = process.env.CARTO_API_KEY || '';
 const AI_SUGGESTIONS_MODEL = process.env.AI_SUGGESTIONS_MODEL || 'claude-haiku-4-5';
 
 const DATA_FILE    = path.join(__dirname, 'data', 'trip.json');
@@ -2212,6 +2221,7 @@ app.get('/api/version', (req, res) => res.json({ commit: COMMIT, commitMessage: 
 app.get('/api/config', (req, res) => res.json({
   recommendationsEnabled: RECOMMENDATIONS_ENABLED,
   aiSuggestionsEnabled: AI_SUGGESTIONS_ENABLED,
+  cartoApiKey: CARTO_API_KEY,
 }));
 
 // Catch-all error handler — keeps error responses JSON instead of Express's
