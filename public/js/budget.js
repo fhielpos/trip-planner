@@ -965,13 +965,21 @@ function getTodayBudget() {
   const spentToday = _budget.entries
     .filter(e => e.date === today)
     .reduce((sum, e) => sum + toUSD(e.amount, e.currency, e.rate), 0);
-  const dayAllowance = s.dailyBudgetLeft !== null ? s.dailyBudgetLeft + spentToday : null;
+  // s.dailyBudgetLeft already has today's spending folded into `remaining` and
+  // diluted across all of daysRemaining, so it can't be added to spentToday to
+  // recover today's allowance (that double-counts today's spend). Instead,
+  // take remaining as it stood before today's entries and split it across the
+  // days from today through trip end.
+  const dayAllowance = s.dailyBudgetLeft !== null
+    ? (s.remaining + spentToday) / (s.daysRemaining + 1)
+    : null;
+  const dailyLeft = dayAllowance !== null ? dayAllowance - spentToday : null;
   return {
     spent: formatCurrency(spentToday),
-    dailyLeft: s.dailyBudgetLeft !== null ? formatCurrency(s.dailyBudgetLeft) : null,
+    dailyLeft: dailyLeft !== null ? formatCurrency(dailyLeft) : null,
     // raw USD numbers for the redesigned Today budget card (2a)
     spentTodayUSD: spentToday,
-    dailyLeftUSD: s.dailyBudgetLeft,
+    dailyLeftUSD: dailyLeft,
     dayAllowanceUSD: dayAllowance,
     remainingUSD: s.remaining,
     remainingLabel: formatCurrency(s.remaining),
