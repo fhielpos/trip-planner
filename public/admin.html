@@ -121,6 +121,15 @@
       <p class="admin-note">Retries failed / not-attempted addresses only, for both accommodations and activities.</p>
     </section>
 
+    <section class="admin-section">
+      <h2>Import</h2>
+      <p class="admin-note">Importing a trip file replaces the trip, accommodations, flights and documents. Budget and wishlist are never touched. Every file being replaced is backed up alongside the data files before anything changes.</p>
+      <input type="file" id="admin-import-file" class="admin-import-file" accept="application/json,.json" />
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-import-check">Check file</button>
+      <div id="admin-import-summary" class="admin-import-summary"></div>
+      <button type="button" class="btn-secondary admin-refresh-btn" id="admin-import-run" disabled>Import</button>
+    </section>
+
   </main>
 
   <script src="/js/admin.js"></script>
