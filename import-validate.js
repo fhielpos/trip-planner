@@ -109,8 +109,13 @@ function validateImport(payload) {
     const checkOutValid = isValidDate(item.check_out);
     if (!checkInValid) addIssue(`${path}.check_in`, 'check_in must be a valid YYYY-MM-DD date');
     if (!checkOutValid) addIssue(`${path}.check_out`, 'check_out must be a valid YYYY-MM-DD date');
-    if (checkInValid && checkOutValid && item.check_in > item.check_out) {
-      addIssue(path, 'check_in must be on or before check_out');
+    // Strictly before, matching the server's own validStayDates: POST/PUT
+    // /api/accommodations refuse a zero-night stay, so the import must not be
+    // the one back door that persists one (it would never match the
+    // check_in <= date < check_out window the weather and AI-suggestion code
+    // use, so the stay would exist but resolve to nothing).
+    if (checkInValid && checkOutValid && item.check_in >= item.check_out) {
+      addIssue(path, 'check_in must be before check_out');
     }
   }
 
