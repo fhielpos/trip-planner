@@ -8,6 +8,11 @@ const MAX_ISSUES = 20;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+// A document filename is joined onto the documents directory when the file is
+// served or deleted, so an imported one must be a plain basename: the leading
+// character class rules out '.' and '..', and no '/', '\' or NUL can pass.
+const SAFE_FILENAME_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*)$/;
+
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -132,7 +137,11 @@ function validateImport(payload) {
     if (!isPlainObject(item)) { addIssue(path, 'Must be an object'); return; }
     if (!isNonEmptyString(item.id)) addIssue(`${path}.id`, 'id is required');
     if (!isNonEmptyString(item.title)) addIssue(`${path}.title`, 'title is required');
-    if (!isNonEmptyString(item.filename)) addIssue(`${path}.filename`, 'filename is required');
+    if (!isNonEmptyString(item.filename)) {
+      addIssue(`${path}.filename`, 'filename is required');
+    } else if (!SAFE_FILENAME_RE.test(item.filename)) {
+      addIssue(`${path}.filename`, 'filename must be a plain file name (no path separators)');
+    }
     const validFromValid = isValidDate(item.valid_from);
     const validToValid = isValidDate(item.valid_to);
     if (!validFromValid) addIssue(`${path}.valid_from`, 'valid_from must be a valid YYYY-MM-DD date');
@@ -170,10 +179,18 @@ function validateImport(payload) {
         }
       }
 
-      if (Object.prototype.hasOwnProperty.call(trip, 'trip')) {
-        hasKnownKey = true;
-        if (!isPlainObject(trip.trip)) {
-          addIssue('trip.trip', 'trip.trip must be an object');
+      // trip.trip is not optional: the frontend dereferences its startDate and
+      // name unguarded, so importing a trip store without it breaks the app.
+      if (Object.prototype.hasOwnProperty.call(trip, 'trip')) hasKnownKey = true;
+      if (!isPlainObject(trip.trip)) {
+        addIssue('trip.trip', 'trip.trip must be an object');
+      } else {
+        const startValid = isValidDate(trip.trip.startDate);
+        const endValid = isValidDate(trip.trip.endDate);
+        if (!startValid) addIssue('trip.trip.startDate', 'startDate must be a valid YYYY-MM-DD date');
+        if (!endValid) addIssue('trip.trip.endDate', 'endDate must be a valid YYYY-MM-DD date');
+        if (startValid && endValid && trip.trip.startDate > trip.trip.endDate) {
+          addIssue('trip.trip', 'startDate must be on or before endDate');
         }
       }
 

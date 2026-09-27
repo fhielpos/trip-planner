@@ -223,7 +223,15 @@ function parseFlightyText(text) {
 // this path-scoped parser is mounted ahead of the global express.json()
 // below: it runs first and parses these two routes' bodies itself, leaving
 // the global parser (which sees req._body already set) a no-op for them —
-// every other route still gets the default 100KB limit unchanged.
+// every other route still gets the default 100KB limit unchanged. The big
+// parser is gated on auth here rather than relying on the global
+// app.use(requireAuth) below, which runs too late to stop an anonymous
+// request from being buffered and parsed. The guard itself takes no path
+// argument on purpose: inside a path-mounted middleware req.path is '/',
+// so requireAuth's '/api/' check would redirect instead of returning 401.
+app.use((req, res, next) =>
+  (req.path === '/api/import' || req.path === '/api/import/preview')
+    ? requireAuth(req, res, next) : next());
 app.use(['/api/import', '/api/import/preview'], express.json({ limit: '10mb' }));
 app.use(express.json());
 
@@ -303,7 +311,12 @@ function jsonStore(file, fallback) {
       return JSON.parse(fs.readFileSync(file, 'utf8'));
     },
     write(data) {
-      fs.writeFileSync(file, JSON.stringify(data, null, 2) + '\n', 'utf8');
+      // Write-then-rename so a crash mid-write can't leave a truncated file
+      // behind: trip.json has no fallback, and a torn one stops the boot read
+      // from parsing at all.
+      const tmp = `${file}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
+      fs.renameSync(tmp, file);
     },
   };
 }
@@ -2033,6 +2046,17 @@ const documentsStore = jsonStore(DOCUMENTS_FILE, () => []);
 function readDocuments()      { return documentsStore.read(); }
 function writeDocuments(list) { documentsStore.write(list); }
 
+// Resolve a document's stored filename inside DOCUMENTS_DIR, or null when it
+// escapes the directory. The import validator rejects such names, but a
+// hand-edited documents.json must not turn into an arbitrary file read or
+// delete either.
+function documentFilePath(filename) {
+  if (typeof filename !== 'string' || filename.length === 0) return null;
+  const resolved = path.resolve(DOCUMENTS_DIR, filename);
+  if (!resolved.startsWith(DOCUMENTS_DIR + path.sep)) return null;
+  return resolved;
+}
+
 function validDocumentDates(valid_from, valid_to) {
   const ok = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '');
   return ok(valid_from) && ok(valid_to) && valid_from <= valid_to;
@@ -2105,15 +2129,16 @@ app.delete('/api/documents/:id', (req, res) => {
   const doc = list.find(d => d.id === req.params.id);
   if (!doc || !removeById(list, req.params.id)) return res.status(404).json({ error: 'Document not found' });
   writeDocuments(list);
-  try { fs.unlinkSync(path.join(DOCUMENTS_DIR, doc.filename)); } catch {}
+  const filePath = documentFilePath(doc.filename);
+  if (filePath) { try { fs.unlinkSync(filePath); } catch {} }
   res.sendStatus(204);
 });
 
 app.get('/api/documents/:id/file', (req, res) => {
   const doc = readDocuments().find(d => d.id === req.params.id);
   if (!doc) return res.sendStatus(404);
-  const filePath = path.join(DOCUMENTS_DIR, doc.filename);
-  if (!fs.existsSync(filePath)) return res.sendStatus(404);
+  const filePath = documentFilePath(doc.filename);
+  if (!filePath || !fs.existsSync(filePath)) return res.sendStatus(404);
   res.set('Content-Type', 'application/pdf');
   fs.createReadStream(filePath).pipe(res);
 });
@@ -2261,7 +2286,10 @@ function importFilesToTouch(payload) {
 
 function importDocumentsMissingFiles(payload) {
   if (!Array.isArray(payload.documents)) return 0;
-  return payload.documents.filter(doc => !fs.existsSync(path.join(DOCUMENTS_DIR, doc.filename))).length;
+  return payload.documents.filter(doc => {
+    const filePath = documentFilePath(doc.filename);
+    return !filePath || !fs.existsSync(filePath);
+  }).length;
 }
 
 app.post('/api/import/preview', (req, res) => {
@@ -2322,6 +2350,9 @@ app.post('/api/import', (req, res) => {
       backups.push({ original: file, backup: backupPath });
     }
   }
+  // Logged before the first write so the suffix is recoverable even if the
+  // process dies before it can be reported in the response.
+  console.error('[import] backups written with suffix', backupSuffix);
 
   // Files this run actually creates (they had no backup because they didn't
   // exist before) need to be deleted, not restored, on rollback.
@@ -2403,10 +2434,12 @@ app.post('/api/import', (req, res) => {
   }
 
   if (errors.length > 0) {
+    let rollbackFailed = false;
     for (const backup of backups) {
       try {
         fs.copyFileSync(backup.backup, backup.original);
       } catch (err) {
+        rollbackFailed = true;
         errors.push(`Failed to restore ${path.basename(backup.original)}: ${err.message}`);
       }
     }
@@ -2417,11 +2450,15 @@ app.post('/api/import', (req, res) => {
       try {
         if (fs.existsSync(file)) fs.unlinkSync(file);
       } catch (err) {
+        rollbackFailed = true;
         errors.push(`Failed to remove ${path.basename(file)}: ${err.message}`);
       }
     }
     for (const err of errors) console.error(err);
-    return res.status(500).json({ error: 'Import failed, changes rolled back', errors });
+    const error = rollbackFailed
+      ? `Import failed and rollback was incomplete — restore manually from ${backupSuffix}`
+      : 'Import failed, changes rolled back';
+    return res.status(500).json({ error, errors });
   }
 
   res.json({

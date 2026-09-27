@@ -323,6 +323,8 @@ _importCheckBtn.addEventListener('click', async () => {
     } else {
       _renderImportError(_importSummary, body);
     }
+  } catch (err) {
+    _renderImportError(_importSummary, { error: 'Check request failed — nothing was imported. Try again.' });
   } finally {
     _importCheckBtn.disabled = false;
     _importCheckBtn.textContent = originalText;
@@ -350,6 +352,8 @@ _importRunBtn.addEventListener('click', async () => {
     } else {
       _renderImportError(_importSummary, body);
     }
+  } catch (err) {
+    _renderImportError(_importSummary, { error: 'Import request failed — reload the admin page to check whether it applied.' });
   } finally {
     _importPreviewOk = false;
     _importCheckBtn.disabled = false;
