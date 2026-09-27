@@ -228,9 +228,11 @@ function parseFlightyText(text) {
 // app.use(requireAuth) below, which runs too late to stop an anonymous
 // request from being buffered and parsed. The guard itself takes no path
 // argument on purpose: inside a path-mounted middleware req.path is '/',
-// so requireAuth's '/api/' check would redirect instead of returning 401.
+// so requireAuth's '/api/' check would redirect instead of returning 401. The
+// condition matches by prefix because the parser below does too: /api/import/x
+// would otherwise be parsed with the 10MB limit without passing the guard.
 app.use((req, res, next) =>
-  (req.path === '/api/import' || req.path === '/api/import/preview')
+  (req.path === '/api/import' || req.path.startsWith('/api/import/'))
     ? requireAuth(req, res, next) : next());
 app.use(['/api/import', '/api/import/preview'], express.json({ limit: '10mb' }));
 app.use(express.json());
