@@ -329,9 +329,22 @@ function jsonStore(file, fallback) {
       // Write-then-rename so a crash mid-write can't leave a truncated file
       // behind: trip.json has no fallback, and a torn one stops the boot read
       // from parsing at all.
-      const tmp = `${file}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-      fs.renameSync(tmp, file);
+      //
+      // The scratch name is per-call, not `${file}.tmp`: two overlapping
+      // writers of the same store (two /api/weather recomputes on a new day,
+      // two AI-suggestion writes) would otherwise share one scratch file, and
+      // whoever renamed second would either publish the other's bytes or
+      // throw ENOENT on a scratch file that had already been renamed away.
+      // A lost update is still possible — that was always true — but it can
+      // no longer surface as a 500 or as a mixed-up file.
+      const tmp = `${file}.${process.pid}-${crypto.randomBytes(6).toString('hex')}.tmp`;
+      try {
+        fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
+        fs.renameSync(tmp, file);
+      } catch (err) {
+        try { fs.unlinkSync(tmp); } catch {}
+        throw err;
+      }
     },
   };
 }
@@ -2277,9 +2290,33 @@ const IMPORT_STORE_FILES = {
   documents:      DOCUMENTS_FILE,
 };
 
-// weather/recommendations/ai-suggestions are all derived from trip or
-// accommodation data, so they go stale the moment either is replaced.
+// weather/recommendations/ai-suggestions all hold data derived from trip or
+// accommodation data, so it goes stale the moment either is replaced.
+//
+// weather.json and recommendations.json are pure caches, so clearing them is
+// just deleting the file. ai-suggestions.json is NOT: the same file also
+// carries the rolling 24h call counter and per-day refresh/brief locks (the
+// spend cap) plus store.pinned, the traveller's hand-picked map pins. Only
+// its `cache` sub-object is derived — see clearImportCache below.
 const IMPORT_CACHE_FILES = [WEATHER_FILE, RECOMMENDATIONS_FILE, AI_SUGGESTIONS_FILE];
+
+// Clear one stale cache file. Returns true when something was cleared, false
+// when the file didn't exist. Throws on failure, like the fs calls it wraps.
+function clearImportCache(file) {
+  if (!fs.existsSync(file)) return false;
+  if (file === AI_SUGGESTIONS_FILE) {
+    // Drop only the derived suggestion pool. Deleting the whole file would
+    // also reset the 24h spend cap (so repeated imports could walk past
+    // AI_GLOBAL_LIMIT) and throw away store.pinned, which is user data the
+    // import never claimed to touch.
+    const store = aiSuggestionsStore.read();
+    store.cache = {};
+    aiSuggestionsStore.write(store);
+    return true;
+  }
+  fs.unlinkSync(file);
+  return true;
+}
 
 function importAffectsCaches(payload) {
   return Object.prototype.hasOwnProperty.call(payload, 'trip') ||
@@ -2408,7 +2445,10 @@ app.post('/api/import', (req, res) => {
       trackWrite(FLIGHTY_FILE);
       writeFlights(payload.flights);
       trackWrite(FLIGHTS_FILE);
-      imported.push('flights');
+      // flighty.txt is replaced here too, and the validator requires the two
+      // keys to travel together — report both, or the result reads as though
+      // the operator's flighty text survived the import.
+      imported.push('flights', 'flighty');
     } catch (err) {
       errors.push(`Failed to write flights: ${err.message}`);
     }
@@ -2438,10 +2478,7 @@ app.post('/api/import', (req, res) => {
   if (affectsCaches) {
     for (const file of IMPORT_CACHE_FILES) {
       try {
-        if (fs.existsSync(file)) {
-          fs.unlinkSync(file);
-          cachesCleared.push(path.basename(file));
-        }
+        if (clearImportCache(file)) cachesCleared.push(path.basename(file));
       } catch (err) {
         errors.push(`Failed to clear cache ${path.basename(file)}: ${err.message}`);
       }

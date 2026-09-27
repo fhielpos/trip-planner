@@ -177,6 +177,15 @@ test('check_out before check_in is rejected', () => {
   assert.ok(hasIssue(result.issues, 'accommodations[0]', 'check_in'));
 });
 
+test('a zero-night stay (check_in === check_out) is rejected', () => {
+  const payload = buildValidPayload();
+  payload.accommodations[0].check_in = '2026-01-05';
+  payload.accommodations[0].check_out = '2026-01-05';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'accommodations[0]', 'check_in must be before check_out'));
+});
+
 test('an empty object is rejected without throwing', () => {
   const result = validateImport({});
   assert.equal(result.ok, false);
