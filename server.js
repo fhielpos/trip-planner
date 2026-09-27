@@ -16,6 +16,7 @@ const {
   recordFailedLogin,
   recordSuccessfulLogin,
 } = require('./auth');
+const { validateImport, IMPORTABLE_KEYS } = require('./import-validate');
 
 const COMMIT = process.env.COMMIT || (() => {
   try { return fs.readFileSync(path.join(__dirname, '.build-id'), 'utf8').trim(); } catch {}
@@ -2216,6 +2217,192 @@ app.get('/api/export', (req, res) => {
   res.send(JSON.stringify(payload, null, 2));
 });
 
+// ── Import ─────────────────────────────────────
+// The inverse of /api/export. Top-level replace semantics: a present key
+// replaces that store wholesale (including `[]`, which empties it), an
+// absent key leaves its store untouched. budget/wishlist are recognised by
+// the validator but never written here — only reported as skipped.
+
+const IMPORT_STORE_FILES = {
+  trip:           DATA_FILE,
+  accommodations: ACCOM_FILE,
+  flighty:        FLIGHTY_FILE,
+  flights:        FLIGHTS_FILE,
+  documents:      DOCUMENTS_FILE,
+};
+
+// weather/recommendations/ai-suggestions are all derived from trip or
+// accommodation data, so they go stale the moment either is replaced.
+const IMPORT_CACHE_FILES = [WEATHER_FILE, RECOMMENDATIONS_FILE, AI_SUGGESTIONS_FILE];
+
+function importAffectsCaches(payload) {
+  return Object.prototype.hasOwnProperty.call(payload, 'trip') ||
+    Object.prototype.hasOwnProperty.call(payload, 'accommodations');
+}
+
+// The files an import of this payload would touch: the store file for each
+// present key, plus the cache files when trip or accommodations is present.
+function importFilesToTouch(payload) {
+  const files = [];
+  for (const key of IMPORTABLE_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      files.push(IMPORT_STORE_FILES[key]);
+    }
+  }
+  if (importAffectsCaches(payload)) files.push(...IMPORT_CACHE_FILES);
+  return files;
+}
+
+function importDocumentsMissingFiles(payload) {
+  if (!Array.isArray(payload.documents)) return 0;
+  return payload.documents.filter(doc => !fs.existsSync(path.join(DOCUMENTS_DIR, doc.filename))).length;
+}
+
+app.post('/api/import/preview', express.json({ limit: '10mb' }), (req, res) => {
+  const result = validateImport(req.body);
+  if (!result.ok) {
+    return res.status(400).json({
+      error: 'Import payload is invalid',
+      issues: result.issues,
+      truncated: result.truncated,
+      summary: result.summary,
+    });
+  }
+
+  const willBackUp = importFilesToTouch(req.body)
+    .filter(file => fs.existsSync(file))
+    .map(file => path.basename(file));
+  const cachesToClear = importAffectsCaches(req.body)
+    ? IMPORT_CACHE_FILES.map(file => path.basename(file))
+    : [];
+
+  res.json({
+    summary: result.summary,
+    documentsMissingFiles: importDocumentsMissingFiles(req.body),
+    cachesToClear,
+    willBackUp,
+  });
+});
+
+app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
+  const payload = req.body;
+  const result = validateImport(payload);
+  if (!result.ok) {
+    return res.status(400).json({
+      error: 'Import payload is invalid',
+      issues: result.issues,
+      truncated: result.truncated,
+      summary: result.summary,
+    });
+  }
+
+  const hasTrip           = Object.prototype.hasOwnProperty.call(payload, 'trip');
+  const hasAccommodations = Object.prototype.hasOwnProperty.call(payload, 'accommodations');
+  const hasFlights        = Object.prototype.hasOwnProperty.call(payload, 'flights');
+  const hasDocuments      = Object.prototype.hasOwnProperty.call(payload, 'documents');
+  const affectsCaches     = importAffectsCaches(payload);
+
+  // Step 1: files this import will touch.
+  const filesToTouch = importFilesToTouch(payload);
+
+  // Step 2: back up every one that currently exists, all under one
+  // timestamp for the run. Files that don't exist yet are skipped silently.
+  const backupSuffix = `.bak-import-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  const backups = [];
+  for (const file of filesToTouch) {
+    if (fs.existsSync(file)) {
+      const backupPath = `${file}${backupSuffix}`;
+      fs.copyFileSync(file, backupPath);
+      backups.push({ original: file, backup: backupPath });
+    }
+  }
+
+  const errors = [];
+  const imported = [];
+
+  // Step 3: write each store. Each write is its own guarded step so a
+  // throw in one doesn't stop the others from being attempted.
+  if (hasTrip) {
+    try {
+      writeData(payload.trip);
+      imported.push('trip');
+    } catch (err) {
+      errors.push(`Failed to write trip: ${err.message}`);
+    }
+  }
+
+  if (hasAccommodations) {
+    try {
+      writeAccommodations(payload.accommodations);
+      imported.push('accommodations');
+    } catch (err) {
+      errors.push(`Failed to write accommodations: ${err.message}`);
+    }
+  }
+
+  if (hasFlights) {
+    try {
+      fs.writeFileSync(FLIGHTY_FILE, payload.flighty, 'utf8');
+      writeFlights(payload.flights);
+      imported.push('flights');
+    } catch (err) {
+      errors.push(`Failed to write flights: ${err.message}`);
+    }
+
+    // Step 4: re-run the boot sync against the newly imported flighty text
+    // so live state matches what the next restart would produce.
+    try {
+      writeFlights(syncFlights(parseFlightyText(payload.flighty), readFlights()));
+    } catch (err) {
+      errors.push(`Failed to sync flights: ${err.message}`);
+    }
+  }
+
+  if (hasDocuments) {
+    try {
+      writeDocuments(payload.documents);
+      imported.push('documents');
+    } catch (err) {
+      errors.push(`Failed to write documents: ${err.message}`);
+    }
+  }
+
+  // Step 5: caches derived from trip/accommodations data are now stale.
+  const cachesCleared = [];
+  if (affectsCaches) {
+    for (const file of IMPORT_CACHE_FILES) {
+      try {
+        if (fs.existsSync(file)) {
+          fs.unlinkSync(file);
+          cachesCleared.push(path.basename(file));
+        }
+      } catch (err) {
+        errors.push(`Failed to clear cache ${path.basename(file)}: ${err.message}`);
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    for (const backup of backups) {
+      try {
+        fs.copyFileSync(backup.backup, backup.original);
+      } catch (err) {
+        errors.push(`Failed to restore ${path.basename(backup.original)}: ${err.message}`);
+      }
+    }
+    for (const err of errors) console.error(err);
+    return res.status(500).json({ error: 'Import failed, changes rolled back', errors });
+  }
+
+  res.json({
+    imported,
+    skipped: result.summary.skipped,
+    documentsMissingFiles: importDocumentsMissingFiles(payload),
+    cachesCleared,
+    backupSuffix,
+  });
+});
+
 app.get('/api/version', (req, res) => res.json({ commit: COMMIT, commitMessage: COMMIT_MESSAGE }));
 
 app.get('/api/config', (req, res) => res.json({
@@ -2228,6 +2415,12 @@ app.get('/api/config', (req, res) => res.json({
 // default HTML/stack-trace page (data/*.json can be hand-edited concurrently
 // and produce malformed JSON that throws on read).
 app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'File is not valid JSON' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'File is too large' });
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 });
