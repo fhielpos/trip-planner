@@ -219,6 +219,12 @@ function parseFlightyText(text) {
   return flights;
 }
 
+// Import bodies can be much larger than the rest of the app's payloads, so
+// this path-scoped parser is mounted ahead of the global express.json()
+// below: it runs first and parses these two routes' bodies itself, leaving
+// the global parser (which sees req._body already set) a no-op for them —
+// every other route still gets the default 100KB limit unchanged.
+app.use(['/api/import', '/api/import/preview'], express.json({ limit: '10mb' }));
 app.use(express.json());
 
 app.get('/robots.txt', (req, res) => {
@@ -2258,7 +2264,7 @@ function importDocumentsMissingFiles(payload) {
   return payload.documents.filter(doc => !fs.existsSync(path.join(DOCUMENTS_DIR, doc.filename))).length;
 }
 
-app.post('/api/import/preview', express.json({ limit: '10mb' }), (req, res) => {
+app.post('/api/import/preview', (req, res) => {
   const result = validateImport(req.body);
   if (!result.ok) {
     return res.status(400).json({
@@ -2273,7 +2279,7 @@ app.post('/api/import/preview', express.json({ limit: '10mb' }), (req, res) => {
     .filter(file => fs.existsSync(file))
     .map(file => path.basename(file));
   const cachesToClear = importAffectsCaches(req.body)
-    ? IMPORT_CACHE_FILES.map(file => path.basename(file))
+    ? IMPORT_CACHE_FILES.filter(file => fs.existsSync(file)).map(file => path.basename(file))
     : [];
 
   res.json({
@@ -2284,7 +2290,7 @@ app.post('/api/import/preview', express.json({ limit: '10mb' }), (req, res) => {
   });
 });
 
-app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
+app.post('/api/import', (req, res) => {
   const payload = req.body;
   const result = validateImport(payload);
   if (!result.ok) {
@@ -2317,6 +2323,14 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
     }
   }
 
+  // Files this run actually creates (they had no backup because they didn't
+  // exist before) need to be deleted, not restored, on rollback.
+  const backedUpFiles = new Set(backups.map(b => b.original));
+  const newlyCreatedFiles = new Set();
+  function trackWrite(file) {
+    if (!backedUpFiles.has(file)) newlyCreatedFiles.add(file);
+  }
+
   const errors = [];
   const imported = [];
 
@@ -2325,6 +2339,7 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
   if (hasTrip) {
     try {
       writeData(payload.trip);
+      trackWrite(DATA_FILE);
       imported.push('trip');
     } catch (err) {
       errors.push(`Failed to write trip: ${err.message}`);
@@ -2334,6 +2349,7 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
   if (hasAccommodations) {
     try {
       writeAccommodations(payload.accommodations);
+      trackWrite(ACCOM_FILE);
       imported.push('accommodations');
     } catch (err) {
       errors.push(`Failed to write accommodations: ${err.message}`);
@@ -2343,7 +2359,9 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
   if (hasFlights) {
     try {
       fs.writeFileSync(FLIGHTY_FILE, payload.flighty, 'utf8');
+      trackWrite(FLIGHTY_FILE);
       writeFlights(payload.flights);
+      trackWrite(FLIGHTS_FILE);
       imported.push('flights');
     } catch (err) {
       errors.push(`Failed to write flights: ${err.message}`);
@@ -2353,6 +2371,7 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
     // so live state matches what the next restart would produce.
     try {
       writeFlights(syncFlights(parseFlightyText(payload.flighty), readFlights()));
+      trackWrite(FLIGHTS_FILE);
     } catch (err) {
       errors.push(`Failed to sync flights: ${err.message}`);
     }
@@ -2361,6 +2380,7 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
   if (hasDocuments) {
     try {
       writeDocuments(payload.documents);
+      trackWrite(DOCUMENTS_FILE);
       imported.push('documents');
     } catch (err) {
       errors.push(`Failed to write documents: ${err.message}`);
@@ -2388,6 +2408,16 @@ app.post('/api/import', express.json({ limit: '10mb' }), (req, res) => {
         fs.copyFileSync(backup.backup, backup.original);
       } catch (err) {
         errors.push(`Failed to restore ${path.basename(backup.original)}: ${err.message}`);
+      }
+    }
+    // Files that had no prior version (so nothing to restore) but were
+    // written during this run must be removed, or the rollback would leave
+    // brand-new imported data behind despite reporting a full rollback.
+    for (const file of newlyCreatedFiles) {
+      try {
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+      } catch (err) {
+        errors.push(`Failed to remove ${path.basename(file)}: ${err.message}`);
       }
     }
     for (const err of errors) console.error(err);
