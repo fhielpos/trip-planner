@@ -1,8 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const path = require('node:path');
-const { validateImport, MAX_ISSUES } = require(path.join('..', 'import-validate.js'));
+const { validateImport, MAX_ISSUES } = require('../import-validate.js');
 
 let passed = 0;
 let failed = 0;
@@ -161,7 +160,7 @@ test('a missing required field at a known index reports the exact path', () => {
   assert.ok(hasIssue(result.issues, 'accommodations[1].id'));
 });
 
-test('an invalid calendar date like 2026-02-31 is rejected', () => {
+test('an invalid date like 2026-02-31 is rejected', () => {
   const payload = buildValidPayload();
   payload.accommodations[0].check_in = '2026-02-31';
   const result = validateImport(payload);
@@ -211,6 +210,101 @@ test('an empty accommodations array is a valid wipe', () => {
   const result = validateImport({ accommodations: [] });
   assert.equal(result.ok, true);
   assert.equal(result.summary.stores.accommodations, 0);
+});
+
+test('a document filename with a ../ prefix is rejected', () => {
+  const payload = buildValidPayload();
+  payload.documents[0].filename = '../../auth.js';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'documents[0].filename', 'plain file name'));
+});
+
+test('a document filename with a nested path is rejected', () => {
+  const payload = buildValidPayload();
+  payload.documents[0].filename = 'a/b.pdf';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'documents[0].filename', 'plain file name'));
+});
+
+test('a document filename of .. is rejected', () => {
+  const payload = buildValidPayload();
+  payload.documents[0].filename = '..';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'documents[0].filename', 'plain file name'));
+});
+
+test('a document filename containing a backslash is rejected', () => {
+  const payload = buildValidPayload();
+  payload.documents[0].filename = '..\\..\\auth.js';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'documents[0].filename', 'plain file name'));
+});
+
+test('a document filename starting with a dot is rejected', () => {
+  const payload = buildValidPayload();
+  payload.documents[0].filename = '.env';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'documents[0].filename', 'plain file name'));
+});
+
+test('a trip store without trip.trip is rejected', () => {
+  const result = validateImport({ trip: { calendar: [] } });
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.trip', 'must be an object'));
+});
+
+test('a trip.trip of the wrong type is rejected', () => {
+  const payload = buildValidPayload();
+  payload.trip.trip = 'nope';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.trip', 'must be an object'));
+});
+
+test('trip.trip without valid start and end dates is rejected', () => {
+  const payload = buildValidPayload();
+  payload.trip.trip = { name: 'Test Trip', startDate: '2026-02-31', endDate: 'soon' };
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.trip.startDate'));
+  assert.ok(hasIssue(result.issues, 'trip.trip.endDate'));
+});
+
+test('trip.trip with endDate before startDate is rejected', () => {
+  const payload = buildValidPayload();
+  payload.trip.trip.startDate = '2026-01-10';
+  payload.trip.trip.endDate = '2026-01-01';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.trip', 'startDate must be on or before endDate'));
+});
+
+test('a trip.calendar of the wrong type is rejected', () => {
+  const payload = buildValidPayload();
+  payload.trip.calendar = { nope: true };
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.calendar', 'must be an array'));
+});
+
+test('a trip.trains of the wrong type is rejected', () => {
+  const payload = buildValidPayload();
+  payload.trip.trains = 'nope';
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.trains', 'must be an array'));
+});
+
+test('an empty trip object is rejected', () => {
+  const result = validateImport({ trip: {} });
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip', 'must contain calendar, trains, or trip'));
+  assert.ok(hasIssue(result.issues, 'trip.trip', 'must be an object'));
 });
 
 console.log(`${passed} passed, ${failed} failed`);
