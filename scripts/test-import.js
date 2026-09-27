@@ -253,9 +253,25 @@ test('a document filename starting with a dot is rejected', () => {
 });
 
 test('a trip store without trip.trip is rejected', () => {
-  const result = validateImport({ trip: { calendar: [] } });
+  const result = validateImport({ trip: { calendar: [], trains: [] } });
   assert.equal(result.ok, false);
   assert.ok(hasIssue(result.issues, 'trip.trip', 'must be an object'));
+});
+
+test('a trip store without trip.calendar is rejected', () => {
+  const payload = buildValidPayload();
+  delete payload.trip.calendar;
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.calendar', 'is required and must be an array'));
+});
+
+test('a trip store without trip.trains is rejected', () => {
+  const payload = buildValidPayload();
+  delete payload.trip.trains;
+  const result = validateImport(payload);
+  assert.equal(result.ok, false);
+  assert.ok(hasIssue(result.issues, 'trip.trains', 'is required and must be an array'));
 });
 
 test('a trip.trip of the wrong type is rejected', () => {
@@ -303,7 +319,8 @@ test('a trip.trains of the wrong type is rejected', () => {
 test('an empty trip object is rejected', () => {
   const result = validateImport({ trip: {} });
   assert.equal(result.ok, false);
-  assert.ok(hasIssue(result.issues, 'trip', 'must contain calendar, trains, or trip'));
+  assert.ok(hasIssue(result.issues, 'trip.calendar', 'is required and must be an array'));
+  assert.ok(hasIssue(result.issues, 'trip.trains', 'is required and must be an array'));
   assert.ok(hasIssue(result.issues, 'trip.trip', 'must be an object'));
 });
 

@@ -159,29 +159,24 @@ function validateImport(payload) {
     } else {
       let calendarCount = 0;
       let trainsCount = 0;
-      let hasKnownKey = false;
 
-      if (Object.prototype.hasOwnProperty.call(trip, 'calendar')) {
-        hasKnownKey = true;
-        if (Array.isArray(trip.calendar)) {
-          calendarCount = trip.calendar.length;
-        } else {
-          addIssue('trip.calendar', 'trip.calendar must be an array');
-        }
+      // The trip store is written verbatim, and nothing downstream backfills a
+      // missing key: the server pushes onto data.calendar and the frontend
+      // dereferences calendar and trip.startDate unguarded, so a partial trip
+      // store breaks the running app. All three keys are therefore required —
+      // every genuine export carries them.
+      if (Array.isArray(trip.calendar)) {
+        calendarCount = trip.calendar.length;
+      } else {
+        addIssue('trip.calendar', 'trip.calendar is required and must be an array');
       }
 
-      if (Object.prototype.hasOwnProperty.call(trip, 'trains')) {
-        hasKnownKey = true;
-        if (Array.isArray(trip.trains)) {
-          trainsCount = trip.trains.length;
-        } else {
-          addIssue('trip.trains', 'trip.trains must be an array');
-        }
+      if (Array.isArray(trip.trains)) {
+        trainsCount = trip.trains.length;
+      } else {
+        addIssue('trip.trains', 'trip.trains is required and must be an array');
       }
 
-      // trip.trip is not optional: the frontend dereferences its startDate and
-      // name unguarded, so importing a trip store without it breaks the app.
-      if (Object.prototype.hasOwnProperty.call(trip, 'trip')) hasKnownKey = true;
       if (!isPlainObject(trip.trip)) {
         addIssue('trip.trip', 'trip.trip must be an object');
       } else {
@@ -192,10 +187,6 @@ function validateImport(payload) {
         if (startValid && endValid && trip.trip.startDate > trip.trip.endDate) {
           addIssue('trip.trip', 'startDate must be on or before endDate');
         }
-      }
-
-      if (!hasKnownKey) {
-        addIssue('trip', 'trip must contain calendar, trains, or trip');
       }
 
       summary.stores.trip = { calendar: calendarCount, trains: trainsCount };

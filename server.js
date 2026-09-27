@@ -219,22 +219,35 @@ function parseFlightyText(text) {
   return flights;
 }
 
+// Single source of truth for where the import endpoints live: the auth guard,
+// the big-body parser and the error handler's import-specific messages all
+// derive from it. Lowercase, because isImportPath compares a lowercased path.
+const IMPORT_BASE_PATH = '/api/import';
+
 // Import bodies can be much larger than the rest of the app's payloads, so
 // this path-scoped parser is mounted ahead of the global express.json()
-// below: it runs first and parses these two routes' bodies itself, leaving
+// below: it runs first and parses the import routes' bodies itself, leaving
 // the global parser (which sees req._body already set) a no-op for them —
 // every other route still gets the default 100KB limit unchanged. The big
 // parser is gated on auth here rather than relying on the global
 // app.use(requireAuth) below, which runs too late to stop an anonymous
 // request from being buffered and parsed. The guard itself takes no path
 // argument on purpose: inside a path-mounted middleware req.path is '/',
-// so requireAuth's '/api/' check would redirect instead of returning 401. The
-// condition matches by prefix because the parser below does too: /api/import/x
-// would otherwise be parsed with the 10MB limit without passing the guard.
+// so requireAuth's '/api/' check would redirect instead of returning 401.
+//
+// Guard and parser are both derived from IMPORT_BASE_PATH so they cannot drift
+// apart, and isImportPath deliberately over-matches relative to the parser:
+// Express path matching is prefix-based and, by default, case-insensitive, so
+// the parser also runs for /api/import/anything and for /API/IMPORT. Anything
+// the parser can match must therefore pass the guard first, or an anonymous
+// request gets a 10MB body buffered and parsed before auth is checked.
+function isImportPath(reqPath) {
+  const lower = reqPath.toLowerCase();
+  return lower === IMPORT_BASE_PATH || lower.startsWith(`${IMPORT_BASE_PATH}/`);
+}
 app.use((req, res, next) =>
-  (req.path === '/api/import' || req.path.startsWith('/api/import/'))
-    ? requireAuth(req, res, next) : next());
-app.use(['/api/import', '/api/import/preview'], express.json({ limit: '10mb' }));
+  isImportPath(req.path) ? requireAuth(req, res, next) : next());
+app.use(IMPORT_BASE_PATH, express.json({ limit: '10mb' }));
 app.use(express.json());
 
 app.get('/robots.txt', (req, res) => {
@@ -2483,14 +2496,23 @@ app.get('/api/config', (req, res) => res.json({
 // Catch-all error handler — keeps error responses JSON instead of Express's
 // default HTML/stack-trace page (data/*.json can be hand-edited concurrently
 // and produce malformed JSON that throws on read).
+// Logged first, unconditionally: body-parser failures are errors like any
+// other, and the import-specific responses below only change the wording.
 app.use((err, req, res, next) => {
+  console.error(err);
+  // The file-flavoured messages belong to the import endpoints, where the body
+  // really is an uploaded file. Other routes keep their original behaviour.
+  const isImport = isImportPath(req.path);
   if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ error: 'File is not valid JSON' });
+    return isImport
+      ? res.status(400).json({ error: 'File is not valid JSON' })
+      : res.status(500).json({ error: 'Internal server error' });
   }
   if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'File is too large' });
+    return res.status(413).json({
+      error: isImport ? 'File is too large' : 'Request body is too large',
+    });
   }
-  console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 });
 
