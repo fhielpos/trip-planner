@@ -2456,6 +2456,26 @@ body {
 .admin-override-add .form-row:last-of-type { flex: 1; }
 .admin-override-add .btn-secondary { flex-shrink: 0; }
 
+.admin-import-file {
+  display: block;
+  width: 100%;
+  font-size: 0.82rem;
+  color: var(--ink-55);
+  margin-bottom: 0.6rem;
+}
+.admin-import-summary:not(:empty) {
+  margin: 0.75rem 0;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--hairline-card);
+}
+.admin-import-issues {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink-45);
+}
+
 /* =============================================
    Stays Timeline (attached under the map on desktop)
    ============================================= */

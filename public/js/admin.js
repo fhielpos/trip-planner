@@ -171,3 +171,193 @@ document.getElementById('admin-ai-unlock-briefs').addEventListener('click', e =>
 });
 
 _loadStatus();
+
+// ── Import ──────────────────────────────────────────────────────────────
+// Server-supplied strings (issue paths/messages, store names, unknown keys,
+// error strings) come from a file the user chose and are echoed back — every
+// one of them is built with textContent, never innerHTML.
+
+let _importPreviewOk = false;
+
+function _clearNode(el) {
+  while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+function _appendImportRow(parent, label, value) {
+  const row = document.createElement('div');
+  row.className = 'admin-row';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'admin-label';
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'admin-value';
+  valueEl.textContent = value;
+  row.appendChild(labelEl);
+  row.appendChild(valueEl);
+  parent.appendChild(row);
+}
+
+function _appendImportNote(parent, text) {
+  const note = document.createElement('p');
+  note.className = 'admin-note';
+  note.textContent = text;
+  parent.appendChild(note);
+}
+
+function _importStoreLabel(key) {
+  const labels = {
+    trip: 'Trip',
+    accommodations: 'Accommodations',
+    flights: 'Flights',
+    documents: 'Documents',
+    flighty: 'Flighty text',
+  };
+  return labels[key] || key;
+}
+
+function _importStoreValue(key, value) {
+  if (key === 'trip') return `${value.calendar} calendar, ${value.trains} trains`;
+  if (key === 'flighty') return `${value} characters`;
+  return String(value);
+}
+
+function _renderImportIssues(parent, issues, truncated) {
+  const list = document.createElement('ul');
+  list.className = 'admin-import-issues';
+  for (const issue of issues) {
+    const li = document.createElement('li');
+    li.textContent = `${issue.path || '(root)'} — ${issue.message}`;
+    list.appendChild(li);
+  }
+  if (truncated) {
+    const li = document.createElement('li');
+    li.textContent = `…and more (showing first ${issues.length})`;
+    list.appendChild(li);
+  }
+  parent.appendChild(list);
+}
+
+function _renderImportError(container, body) {
+  _clearNode(container);
+  _appendImportNote(container, body.error || 'Import failed');
+  if (Array.isArray(body.issues)) {
+    _renderImportIssues(container, body.issues, body.truncated);
+  }
+  if (Array.isArray(body.errors)) {
+    const list = document.createElement('ul');
+    list.className = 'admin-import-issues';
+    for (const err of body.errors) {
+      const li = document.createElement('li');
+      li.textContent = err;
+      list.appendChild(li);
+    }
+    container.appendChild(list);
+  }
+}
+
+function _renderImportPreview(container, body) {
+  _clearNode(container);
+  const stores = body.summary.stores || {};
+  for (const key of Object.keys(stores)) {
+    _appendImportRow(container, _importStoreLabel(key), _importStoreValue(key, stores[key]));
+  }
+  if (body.summary.skipped.length) {
+    _appendImportRow(container, 'Skipped (never imported)', body.summary.skipped.join(', '));
+  }
+  _appendImportRow(container, 'Documents missing files', body.documentsMissingFiles);
+  if (body.willBackUp.length) {
+    _appendImportRow(container, 'Files to back up', body.willBackUp.join(', '));
+  }
+  if (body.cachesToClear.length) {
+    _appendImportRow(container, 'Caches to clear', body.cachesToClear.join(', '));
+    _appendImportNote(container, 'Clearing the AI-suggestions cache means the next suggestions panel spends an API call.');
+  }
+  _appendImportNote(container, 'Looks good — click Import to apply these changes.');
+}
+
+function _renderImportResult(container, body) {
+  _clearNode(container);
+  _appendImportRow(container, 'Imported', body.imported.length ? body.imported.join(', ') : 'nothing');
+  if (body.skipped.length) {
+    _appendImportRow(container, 'Skipped (never imported)', body.skipped.join(', '));
+  }
+  _appendImportRow(container, 'Documents missing files', body.documentsMissingFiles);
+  if (body.cachesCleared.length) {
+    _appendImportRow(container, 'Caches cleared', body.cachesCleared.join(', '));
+    _appendImportNote(container, 'The AI-suggestions cache was cleared, so the next suggestions panel spends an API call.');
+  }
+  _appendImportNote(container, `Backup suffix: ${body.backupSuffix}`);
+}
+
+const _importFileInput = document.getElementById('admin-import-file');
+const _importCheckBtn = document.getElementById('admin-import-check');
+const _importRunBtn = document.getElementById('admin-import-run');
+const _importSummary = document.getElementById('admin-import-summary');
+
+_importFileInput.addEventListener('change', () => {
+  _importPreviewOk = false;
+  _importRunBtn.disabled = true;
+  _clearNode(_importSummary);
+});
+
+_importCheckBtn.addEventListener('click', async () => {
+  const file = _importFileInput.files[0];
+  if (!file) return;
+  _importPreviewOk = false;
+  _importRunBtn.disabled = true;
+  _importCheckBtn.disabled = true;
+  const originalText = _importCheckBtn.textContent;
+  _importCheckBtn.textContent = 'Checking…';
+  try {
+    const text = await file.text();
+    const res = await fetch('/api/import/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: text,
+    });
+    const body = await res.json();
+    if (res.ok) {
+      _renderImportPreview(_importSummary, body);
+      _importPreviewOk = true;
+      _importRunBtn.disabled = false;
+    } else {
+      _renderImportError(_importSummary, body);
+    }
+  } catch (err) {
+    _renderImportError(_importSummary, { error: 'Check request failed — nothing was imported. Try again.' });
+  } finally {
+    _importCheckBtn.disabled = false;
+    _importCheckBtn.textContent = originalText;
+  }
+});
+
+_importRunBtn.addEventListener('click', async () => {
+  if (!_importPreviewOk) return;
+  const file = _importFileInput.files[0];
+  if (!file) return;
+  _importCheckBtn.disabled = true;
+  _importRunBtn.disabled = true;
+  const originalText = _importRunBtn.textContent;
+  _importRunBtn.textContent = 'Importing…';
+  try {
+    const text = await file.text();
+    const res = await fetch('/api/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: text,
+    });
+    const body = await res.json();
+    if (res.ok) {
+      _renderImportResult(_importSummary, body);
+    } else {
+      _renderImportError(_importSummary, body);
+    }
+  } catch (err) {
+    _renderImportError(_importSummary, { error: 'Import request failed — reload the admin page to check whether it applied.' });
+  } finally {
+    _importPreviewOk = false;
+    _importCheckBtn.disabled = false;
+    _importRunBtn.textContent = originalText;
+    _importRunBtn.disabled = true;
+  }
+});
